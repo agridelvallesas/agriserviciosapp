@@ -54,8 +54,11 @@ function headers(env) {
     Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
   };
 }
-// Quita barras finales de la URL de Supabase (evita rutas //rest/v1 inválidas)
-function baseUrl(env) { return String(env.SUPABASE_URL || '').replace(/\/+$/, ''); }
+// Normaliza la URL de Supabase: quita barras finales y un /rest/v1 pegado
+// (evita rutas dobles como /rest/v1/rest/v1 que dan PGRST125)
+function baseUrl(env) {
+  return String(env.SUPABASE_URL || '').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+}
 async function sb(env, path) {
   const url = `${baseUrl(env)}/rest/v1/${path}`;
   const res = await fetch(url, { headers: headers(env) });
