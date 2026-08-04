@@ -20,6 +20,8 @@ const PORTADAS = new Set([
   'getFacturas', 'guardarFactura', 'actualizarFactura', 'eliminarFactura', 'actualizarEstadoFac',
   'getDetallado', 'guardarDetallado', 'editarDetallado', 'eliminarDetallado',
   'getCobrosHist', 'guardarCobrosHist',
+  // Módulo Nómina:
+  'getAcumulados', 'getQuincenasAcum', 'importarAcumulados', 'eliminarAcumuladoQna', 'vaciarAcumulados',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -54,6 +56,11 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarDetallado')   r = await accionEliminarDetallado(body, env);
     else if (accion === 'getCobrosHist')       r = await accionGetCobrosHist(body, env);
     else if (accion === 'guardarCobrosHist')   r = await accionGuardarCobrosHist(body, env);
+    else if (accion === 'getAcumulados')        r = await accionGetAcumulados(body, env);
+    else if (accion === 'getQuincenasAcum')     r = await accionGetQuincenasAcum(body, env);
+    else if (accion === 'importarAcumulados')   r = await accionImportarAcumulados(body, env);
+    else if (accion === 'eliminarAcumuladoQna') r = await accionEliminarAcumuladoQna(body, env);
+    else if (accion === 'vaciarAcumulados')     r = await accionVaciarAcumulados(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -724,4 +731,117 @@ async function accionGuardarCobrosHist(body, env) {
   }));
   await sbWrite(env, 'POST', 'cobros_historicos', rows);
   return { ok: true, guardados: rows.length };
+}
+
+// ---------------------------------------------------------------------
+//  MÓDULO NÓMINA (acumulados)
+// ---------------------------------------------------------------------
+
+// GET ACUMULADOS — el ledger, paginado, con filtros; reconstruye NOMBRES por join
+async function accionGetAcumulados(body, env) {
+  const filtroCed = String(body.ced || '').trim();
+  const filtroQna = String(body.qna || '').trim();
+  const filtroTipo = String(body.tipo || '').trim();
+  const desde = parseInt(body.desde) || 2;
+  const pageSize = parseInt(body.pageSize) || 5000;
+  const offset = Math.max(0, desde - 2);
+
+  let path = 'acumulados?select=id_origen,cedula,fecha_quincena,qna_label,mes,tipo,categoria,concepto,valor,obs,fecha_carga,cargado_por,trabajadores(nombres)&order=id';
+  if (filtroCed) path += `&cedula=eq.${parseInt(filtroCed.replace(/,/g, ''))}`;
+  if (filtroQna) path += `&qna_label=eq.${encodeURIComponent(filtroQna)}`;
+  if (filtroTipo) path += `&tipo=eq.${encodeURIComponent(filtroTipo)}`;
+
+  const { rows, total } = await sbPage(env, path, offset, pageSize);
+  const acumulados = rows.map((f) => ({
+    ID: String(f.id_origen || '').trim(),
+    CEDULA: String(f.cedula == null ? '' : f.cedula).trim(),
+    NOMBRES: f.trabajadores ? String(f.trabajadores.nombres || '').trim() : '',
+    FECHA_QUINCENA: f.fecha_quincena ? String(f.fecha_quincena).slice(0, 10) : '',
+    QNA_LABEL: String(f.qna_label || '').trim(),
+    MES: String(f.mes || '').trim(),
+    TIPO: String(f.tipo || '').trim(),
+    CATEGORIA: String(f.categoria || '').trim(),
+    CONCEPTO: String(f.concepto || '').trim(),
+    VALOR: parseFloat(f.valor) || 0,
+    OBS: String(f.obs || '').trim(),
+    FECHA_CARGA: f.fecha_carga ? String(f.fecha_carga).slice(0, 16).replace('T', ' ') : '',
+    CARGADO_POR: String(f.cargado_por || '').trim(),
+  }));
+  const hayMas = offset + rows.length < total;
+  return { ok: true, acumulados, total, hayMas, siguienteFila: desde + rows.length };
+}
+
+// GET QUINCENAS ACUM — quincenas distintas cargadas (usa la vista quincenas_acum)
+async function accionGetQuincenasAcum(body, env) {
+  const rows = await sbAll(env, 'quincenas_acum?select=qna_label,fecha_quincena,mes');
+  const seen = new Set();
+  const lista = [];
+  for (const r of rows) {
+    const label = String(r.qna_label || '').trim();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    lista.push({
+      QNA_LABEL: label,
+      FECHA: r.fecha_quincena ? String(r.fecha_quincena).slice(0, 10) : '',
+      MES: String(r.mes || '').trim(),
+    });
+  }
+  lista.sort((a, b) => (a.FECHA || '').localeCompare(b.FECHA || ''));
+  return { ok: true, quincenas: lista };
+}
+
+// Cuenta filas de acumulados que matchean un filtro (para reportar cuántas se borran)
+async function contarAcum(env, filtro) {
+  const { total } = await sbPage(env, `acumulados?select=id${filtro ? '&' + filtro : ''}`, 0, 1);
+  return total;
+}
+
+// IMPORTAR ACUMULADOS — inserta en lote; opción de reemplazar una quincena
+async function accionImportarAcumulados(body, env) {
+  const lista = body.acumulados || [];
+  if (!Array.isArray(lista) || !lista.length) return { ok: false, error: 'Lista vacía' };
+  const usuario = String(body.usuario || 'imp');
+  const reemplazar = !!body.reemplazar;
+  const qna = String(body.qna || '').trim();
+
+  let reemplazados = 0;
+  if (reemplazar && qna) {
+    reemplazados = await contarAcum(env, `qna_label=eq.${encodeURIComponent(qna)}`);
+    await sbWrite(env, 'DELETE', `acumulados?qna_label=eq.${encodeURIComponent(qna)}`);
+  }
+
+  const ahora = new Date().toISOString();
+  const filas = lista.map((a) => ({
+    id_origen: a.ID || ('AC' + Date.now() + Math.floor(Math.random() * 100000)),
+    cedula: parseInt(String(a.CEDULA || '').replace(/,/g, '')) || null,
+    fecha_quincena: fechaONull(a.FECHA_QUINCENA),
+    qna_label: a.QNA_LABEL || '',
+    mes: a.MES || '',
+    tipo: a.TIPO || '',
+    categoria: a.CATEGORIA || '',
+    concepto: a.CONCEPTO || '',
+    valor: a.VALOR || 0,
+    obs: a.OBS || '',
+    fecha_carga: ahora,
+    cargado_por: usuario,
+  }));
+  await sbWrite(env, 'POST', 'acumulados', filas);
+  return { ok: true, nuevos: filas.length, reemplazados };
+}
+
+// ELIMINAR ACUMULADOS DE UNA QUINCENA
+async function accionEliminarAcumuladoQna(body, env) {
+  const qna = String(body.qna || '').trim();
+  if (!qna) return { ok: false, error: 'Falta etiqueta de quincena' };
+  const eliminados = await contarAcum(env, `qna_label=eq.${encodeURIComponent(qna)}`);
+  await sbWrite(env, 'DELETE', `acumulados?qna_label=eq.${encodeURIComponent(qna)}`);
+  return { ok: true, eliminados };
+}
+
+// VACIAR TODOS LOS ACUMULADOS (peligroso; requiere confirmación)
+async function accionVaciarAcumulados(body, env) {
+  if (body.confirmar !== 'SI_BORRAR_TODO') return { ok: false, error: 'Confirmación requerida' };
+  const eliminados = await contarAcum(env, '');
+  await sbWrite(env, 'DELETE', 'acumulados?id=gt.0');
+  return { ok: true, eliminados };
 }
