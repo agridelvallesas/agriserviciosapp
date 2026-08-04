@@ -52,7 +52,6 @@ function headers(env) {
   return {
     apikey: env.SUPABASE_SERVICE_KEY,
     Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-    'Content-Type': 'application/json',
   };
 }
 // Quita barras finales de la URL de Supabase (evita rutas //rest/v1 inválidas)
@@ -79,7 +78,7 @@ async function sbWrite(env, method, path, bodyObj) {
   const url = `${baseUrl(env)}/rest/v1/${path}`;
   const res = await fetch(url, {
     method,
-    headers: { ...headers(env), Prefer: 'return=minimal' },
+    headers: { ...headers(env), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined,
   });
   if (!res.ok) throw new Error('Supabase ' + res.status + ' [' + url + ']: ' + (await res.text()));
