@@ -984,8 +984,10 @@ tfoot td{background:var(--gf);font-weight:700}
           Aquí puedes autorizar a un coordinador puntual para que suba una semana vencida.
         </p>
         <div class="fg3" style="gap:10px;margin-top:14px">
-          <div class="fld"><label>Coordinador</label>
-            <select id="pm-coord"><option value="">— Selecciona —</option></select>
+          <div class="fld"><label>Coordinador(es) · Ctrl o Cmd para varios</label>
+            <select id="pm-coord" multiple size="6" style="height:auto;min-height:120px">
+              <option value="__TODOS__">— TODOS los coordinadores —</option>
+            </select>
           </div>
           <div class="fld"><label>Semana a habilitar</label>
             <select id="pm-sem"></select>
@@ -5290,20 +5292,24 @@ function permisosRender(){
 }
 
 function permisosOtorgar(){
-  var coord=document.getElementById('pm-coord').value;
+  var selCoord=document.getElementById('pm-coord');
+  var seleccionados=Array.prototype.slice.call(selCoord.selectedOptions).map(function(o){return o.value;}).filter(Boolean);
   var sem=document.getElementById('pm-sem').value;
   var vence=document.getElementById('pm-vence').value;
   var obs=document.getElementById('pm-obs').value||'';
-  if(!coord){alert('Selecciona el coordinador');return;}
+  if(!seleccionados.length){alert('Selecciona al menos un coordinador (o TODOS)');return;}
   if(!sem){alert('Selecciona la semana');return;}
   if(!vence){alert('Indica hasta cuándo es válido el permiso');return;}
   var venceStr=vence.replace('T',' ').slice(0,16);
-  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'guardarPermisoSubida', coordinador:coord, semana:sem, vence:venceStr, usuario:S.u, obs:obs
-  })}).then(function(r){return r.json();}).then(function(d){
+  var esTodos=seleccionados.indexOf('__TODOS__')>=0;
+  var payload=esTodos
+    ? {accion:'guardarPermisoSubida', coordinador:'TODOS', semana:sem, vence:venceStr, usuario:S.u, obs:obs}
+    : {accion:'guardarPermisoSubida', coordinadores:seleccionados, semana:sem, vence:venceStr, usuario:S.u, obs:obs};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();}).then(function(d){
     if(d&&d.ok){
       document.getElementById('pm-obs').value='';
-      alert('✅ Permiso otorgado a '+coord+' para la semana '+sem+'.\n\nDebe cerrar y volver a entrar a la app (o refrescar) para que le aparezca habilitada.');
+      alert('✅ Permiso otorgado ('+(d.otorgados||1)+' coordinador(es)) para la semana '+sem+'.\n\nDeben cerrar y volver a entrar (o refrescar) para que les aparezca habilitada.');
       permisosCargar();
     } else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
   }).catch(function(e){ alert('Error de red: '+e.message); });
