@@ -22,6 +22,8 @@ const PORTADAS = new Set([
   'getCobrosHist', 'guardarCobrosHist',
   // Módulo Nómina:
   'getAcumulados', 'getQuincenasAcum', 'importarAcumulados', 'eliminarAcumuladoQna', 'vaciarAcumulados',
+  // Permisos de subida:
+  'getPermisosSubida', 'guardarPermisoSubida', 'revocarPermisoSubida',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -61,6 +63,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'importarAcumulados')   r = await accionImportarAcumulados(body, env);
     else if (accion === 'eliminarAcumuladoQna') r = await accionEliminarAcumuladoQna(body, env);
     else if (accion === 'vaciarAcumulados')     r = await accionVaciarAcumulados(body, env);
+    else if (accion === 'getPermisosSubida')    r = await accionGetPermisosSubida(body, env);
+    else if (accion === 'guardarPermisoSubida') r = await accionGuardarPermisoSubida(body, env);
+    else if (accion === 'revocarPermisoSubida') r = await accionRevocarPermisoSubida(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -146,7 +151,7 @@ async function mapaTarifaDesc(env) {
 //  Semana 1 = lunes 29 dic 2025. Se trabaja en UTC para no desfasar días.
 // ---------------------------------------------------------------------
 const DIAS_OFFSET = { L: 0, M: 1, MI: 2, J: 3, V: 4, S: 5, D: 6 };
-const FESTIVOS_2026 = new Set(['1/1','11/1','6/4','7/4','1/5','18/5','8/6','29/6','20/7','7/8','18/8','13/10','3/11','17/11','8/12','25/12']);
+const FESTIVOS_2026 = new Set(['1/1','12/1','23/3','2/4','3/4','1/5','18/5','8/6','15/6','29/6','20/7','7/8','17/8','12/10','2/11','16/11','8/12','25/12']);
 function fechaDeSemanaDia(sem, dia) {
   const s = parseInt(sem, 10) || 1;
   const off = DIAS_OFFSET[dia] !== undefined ? DIAS_OFFSET[dia] : 0;
@@ -844,4 +849,54 @@ async function accionVaciarAcumulados(body, env) {
   const eliminados = await contarAcum(env, '');
   await sbWrite(env, 'DELETE', 'acumulados?id=gt.0');
   return { ok: true, eliminados };
+}
+
+// ---------------------------------------------------------------------
+//  PERMISOS DE SUBIDA TARDÍA
+//  Permite habilitar a un coordinador, a varios, o a TODOS, para subir
+//  una semana ya vencida. 'TODOS' se expande a un permiso por coordinador.
+// ---------------------------------------------------------------------
+async function accionGetPermisosSubida(body, env) {
+  const rows = await sbAll(env, 'permisos_subida?select=id,coordinador,semana,vence,obs&order=id.desc');
+  const permisos = rows.map((p) => ({
+    ID: String(p.id),
+    COORDINADOR: String(p.coordinador || '').trim(),
+    SEMANA: String(p.semana == null ? '' : p.semana),
+    VENCE: String(p.vence || '').trim(),
+    OBS: String(p.obs || '').trim(),
+  }));
+  return { ok: true, permisos };
+}
+
+async function accionGuardarPermisoSubida(body, env) {
+  const semana = parseInt(body.semana);
+  if (!semana) return { ok: false, error: 'Falta la semana' };
+  const vence = body.vence ? String(body.vence).trim() : null;
+  const obs = body.obs || '';
+  const usuario = body.usuario || '';
+
+  let coords = [];
+  if (Array.isArray(body.coordinadores) && body.coordinadores.length) {
+    coords = body.coordinadores.map((c) => String(c).trim()).filter(Boolean);
+  } else if (body.coordinador) {
+    coords = [String(body.coordinador).trim()];
+  }
+  // 'TODOS' → expandir a un permiso por cada coordinador del maestro
+  if (coords.some((c) => c.toUpperCase() === 'TODOS' || c === '__TODOS__')) {
+    const todos = await sb(env, 'coordinadores?select=nombre&order=nombre');
+    coords = todos.map((c) => String(c.nombre || '').trim()).filter(Boolean);
+  }
+  coords = [...new Set(coords.map((c) => c.toUpperCase()))];
+  if (!coords.length) return { ok: false, error: 'Selecciona al menos un coordinador' };
+
+  const filas = coords.map((c) => ({ coordinador: c, semana, vence, obs, otorgado_por: usuario }));
+  await sbWrite(env, 'POST', 'permisos_subida', filas);
+  return { ok: true, otorgados: filas.length };
+}
+
+async function accionRevocarPermisoSubida(body, env) {
+  const id = body.id;
+  if (id === undefined || id === null || id === '') return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `permisos_subida?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
 }
