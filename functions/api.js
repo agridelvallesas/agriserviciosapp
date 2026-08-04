@@ -510,12 +510,23 @@ async function accionGetUsuarios(body, env) {
   const lista = [];
   for (const f of filas) {
     if (!f.usuario) continue;
-    if (f.activo !== true) continue;
+    // Tolerante: activo puede venir como booleano true o como texto 'SI'
+    const activo = f.activo === true || ['SI', 'SÍ', 'TRUE', '1'].includes(String(f.activo).trim().toUpperCase());
+    if (!activo) continue;
     const fRol = String(f.rol || '').trim().toLowerCase();
     if (rol && fRol !== rol) continue;
     lista.push({ usuario: String(f.usuario).trim(), rol: fRol, sede: String(f.sede || 'TODAS').trim().toUpperCase() });
   }
-  return { ok: true, usuarios: lista };
+  return {
+    ok: true,
+    usuarios: lista,
+    _debug: {
+      totalFilas: filas.length,
+      rolPedido: rol,
+      rolesEnBase: [...new Set(filas.map((f) => String(f.rol || '').trim().toLowerCase()))],
+      activoMuestra: filas.slice(0, 3).map((f) => ({ rol: f.rol, activo: f.activo, tipo: typeof f.activo })),
+    },
+  };
 }
 
 // GET TRABAJADORES — lista completa (Ver empleados). Mapea columnas de la base
