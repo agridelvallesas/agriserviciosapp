@@ -14,6 +14,8 @@ const PORTADAS = new Set([
   'login', 'getDatos',
   // Módulo Coordinadores:
   'guardar', 'getRegistros', 'verificarDuplicado', 'editarReg', 'eliminarReg',
+  // Módulo Administrativo:
+  'coberturaSemanas', 'nuevoEmpleado', 'getUsuarios', 'getTrabajadores',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -33,6 +35,10 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'verificarDuplicado') r = await accionVerificarDuplicado(body, env);
     else if (accion === 'editarReg')          r = await accionEditarReg(body, env);
     else if (accion === 'eliminarReg')        r = await accionEliminarReg(body, env);
+    else if (accion === 'coberturaSemanas')   r = await accionCoberturaSemanas(body, env);
+    else if (accion === 'nuevoEmpleado')      r = await accionNuevoEmpleado(body, env);
+    else if (accion === 'getUsuarios')        r = await accionGetUsuarios(body, env);
+    else if (accion === 'getTrabajadores')    r = await accionGetTrabajadores(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -384,4 +390,144 @@ async function accionEliminarReg(body, env) {
   if (!id) return { ok: false, error: 'No se pudo identificar el registro' };
   await sbWrite(env, 'DELETE', `detalle_dia?id=eq.${encodeURIComponent(id)}`, undefined);
   return { ok: true, metodo: 'id' };
+}
+
+// ---------------------------------------------------------------------
+//  MÓDULO ADMINISTRATIVO
+// ---------------------------------------------------------------------
+
+// Trae TODAS las filas de una consulta, paginando (robusto ante el tope de filas)
+async function sbAll(env, path, pageSize = 1000) {
+  let offset = 0, all = [], total = Infinity;
+  while (offset < total) {
+    const { rows, total: t } = await sbPage(env, path, offset, pageSize);
+    total = t;
+    if (!rows.length) break;
+    all = all.concat(rows);
+    offset += rows.length;
+    if (rows.length < pageSize) break;
+  }
+  return all;
+}
+
+// COBERTURA DE SEMANAS — qué días subió cada coordinador vs los esperados
+// (usa la lista de festivos CORRECTA de Colombia 2026)
+const FESTIVOS_COBERTURA = new Set(['1/1','12/1','23/3','2/4','3/4','1/5','18/5','8/6','15/6','29/6','20/7','7/8','17/8','12/10','2/11','16/11','8/12','25/12']);
+async function accionCoberturaSemanas(body, env) {
+  const desde = parseInt(body && body.semDesde) || 17;
+  const SEM1 = Date.UTC(2025, 11, 29);
+  let semActual = Math.floor((Date.now() - SEM1) / (7 * 86400000)) + 1;
+  if (semActual < desde) semActual = desde;
+
+  // 1) Todos los coordinadores del maestro
+  const coords = await sb(env, 'coordinadores?select=id,nombre,administrador');
+  const idInfo = new Map();
+  const base = {};
+  for (const c of coords) {
+    const nombre = String(c.nombre || '').trim();
+    if (!nombre) continue;
+    const adm = String(c.administrador || '').trim();
+    idInfo.set(c.id, { nombre, adm });
+    base[nombre.toUpperCase()] = { coord: nombre, adm, sems: {} };
+  }
+
+  // 2) Días subidos desde detalle_dia (semana >= desde)
+  const filasDD = await sbAll(env, `detalle_dia?select=coordinador_id,semana,dia&semana=gte.${desde}`);
+  for (const r of filasDD) {
+    const info = idInfo.get(r.coordinador_id);
+    if (!info) continue;
+    const sem = parseInt(r.semana) || 0;
+    if (sem < desde) continue;
+    const dia = String(r.dia || '').trim().toUpperCase();
+    if (!dia) continue;
+    const key = info.nombre.toUpperCase();
+    if (!base[key]) base[key] = { coord: info.nombre, adm: info.adm, sems: {} };
+    if (!base[key].sems[sem]) base[key].sems[sem] = {};
+    base[key].sems[sem][dia] = true;
+  }
+
+  // 3) Días esperados por semana (L–S, quitando festivos)
+  const codigos = ['L', 'M', 'MI', 'J', 'V', 'S'];
+  const offset = { L: 0, M: 1, MI: 2, J: 3, V: 4, S: 5 };
+  const semanas = [];
+  for (let sn = desde; sn <= semActual; sn++) {
+    const lunes = SEM1 + (sn - 1) * 7 * 86400000;
+    const exp = [], fest = [];
+    for (const cod of codigos) {
+      const f = new Date(lunes + offset[cod] * 86400000);
+      const etq = f.getUTCDate() + '/' + (f.getUTCMonth() + 1);
+      if (FESTIVOS_COBERTURA.has(etq)) fest.push(cod); else exp.push(cod);
+    }
+    semanas.push({ n: sn, exp, fest });
+  }
+
+  // 4) Filas ordenadas por administrador y luego coordinador
+  const filas = Object.keys(base).map((k) => {
+    const m = base[k]; const sems = {};
+    Object.keys(m.sems).forEach((sn) => { sems[sn] = Object.keys(m.sems[sn]); });
+    return { coord: m.coord, adm: m.adm, sems };
+  });
+  filas.sort((a, b) => {
+    const x = (a.adm || '').localeCompare(b.adm || '');
+    return x !== 0 ? x : (a.coord || '').localeCompare(b.coord || '');
+  });
+
+  return { ok: true, desde, semActual, semanas, filas };
+}
+
+// NUEVO EMPLEADO — alta rápida (cédula, nombre, sede) en trabajadores
+async function accionNuevoEmpleado(body, env) {
+  const ced = String(body.ced || '').trim();
+  const nom = String(body.nom || '').trim().toUpperCase();
+  const sede = String(body.sede || 'NORTE').trim().toUpperCase();
+  if (!ced || !nom) return { ok: false, error: 'Cédula y nombre son requeridos' };
+  const cedNum = parseInt(ced.replace(/,/g, ''));
+  const existe = await sb(env, `trabajadores?select=cedula&cedula=eq.${cedNum}&limit=1`);
+  if (existe.length) return { ok: false, error: 'Ya existe un empleado con esa cédula' };
+  await sbWrite(env, 'POST', 'trabajadores', { cedula: cedNum, nombres: nom, sede });
+  return { ok: true, ced, nom, sede };
+}
+
+// GET USUARIOS — lista por rol para el selector del login
+async function accionGetUsuarios(body, env) {
+  const rol = body && body.rol ? String(body.rol).trim().toLowerCase() : '';
+  const filas = await sb(env, 'usuarios?select=usuario,rol,activo,sede');
+  const lista = [];
+  for (const f of filas) {
+    if (!f.usuario) continue;
+    if (f.activo !== true) continue;
+    const fRol = String(f.rol || '').trim().toLowerCase();
+    if (rol && fRol !== rol) continue;
+    lista.push({ usuario: String(f.usuario).trim(), rol: fRol, sede: String(f.sede || 'TODAS').trim().toUpperCase() });
+  }
+  return { ok: true, usuarios: lista };
+}
+
+// GET TRABAJADORES — lista completa (Ver empleados). Mapea columnas de la base
+// a las llaves que espera el frontend (CEDULA, NOMBRES, ...).
+const TRAB_MAP = [
+  ['CEDULA','cedula'],['P_NOMBRE','p_nombre'],['S_NOMBRE','s_nombre'],['P_APELLIDO','p_apellido'],['S_APELLIDO','s_apellido'],['NOMBRES','nombres'],
+  ['FECHA_EXP','fecha_exp'],['LUGAR_EXP','lugar_exp'],['FECHA_NAC','fecha_nac'],
+  ['TELEFONO','telefono'],['DIRECCION','direccion'],['CIUDAD','ciudad'],['DEPARTAMENTO','departamento'],['EMAIL','email'],['CONTACTO_EMERG','contacto_emer'],
+  ['SEDE','sede'],['ESTADO','estado'],['FECHA_INGRESO','fecha_ingreso'],['FECHA_RETIRO','fecha_ret'],['CARGO','cargo'],['SALARIO_MENSUAL','salario'],
+  ['BANCO','banco'],['CUENTA','num_cuenta'],
+  ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
+  ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
+  ['OBSERVACIONES','observacion'],['FECHA_CREACION','fecha_registro'],['ACTUALIZADO_POR','actualizado_por'],
+];
+async function accionGetTrabajadores(body, env) {
+  const cols = TRAB_MAP.map((p) => p[1]).join(',');
+  const rows = await sbAll(env, `trabajadores?select=${cols}&order=nombres`);
+  const data = rows.map((f) => {
+    const o = {};
+    for (const [key, col] of TRAB_MAP) {
+      let v = f[col];
+      if (v === null || v === undefined) v = '';
+      else if (col.indexOf('fecha') === 0) v = String(v).slice(0, 10);
+      else v = String(v);
+      o[key] = v;
+    }
+    return o;
+  });
+  return { ok: true, data };
 }
