@@ -55,29 +55,34 @@ function headers(env) {
     'Content-Type': 'application/json',
   };
 }
+// Quita barras finales de la URL de Supabase (evita rutas //rest/v1 inválidas)
+function baseUrl(env) { return String(env.SUPABASE_URL || '').replace(/\/+$/, ''); }
 async function sb(env, path) {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, { headers: headers(env) });
-  if (!res.ok) throw new Error('Supabase ' + res.status + ': ' + (await res.text()));
+  const url = `${baseUrl(env)}/rest/v1/${path}`;
+  const res = await fetch(url, { headers: headers(env) });
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' [' + url + ']: ' + (await res.text()));
   return res.json();
 }
 // GET paginado: devuelve {rows, total} usando Range + count exacto
 async function sbPage(env, path, offset, limit) {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+  const url = `${baseUrl(env)}/rest/v1/${path}`;
+  const res = await fetch(url, {
     headers: { ...headers(env), 'Range-Unit': 'items', Range: `${offset}-${offset + limit - 1}`, Prefer: 'count=exact' },
   });
-  if (!res.ok) throw new Error('Supabase ' + res.status + ': ' + (await res.text()));
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' [' + url + ']: ' + (await res.text()));
   const cr = res.headers.get('content-range') || '';
   const total = parseInt((cr.split('/')[1] || '0'), 10) || 0;
   return { rows: await res.json(), total };
 }
 // Mutaciones (POST / PATCH / DELETE)
 async function sbWrite(env, method, path, bodyObj) {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+  const url = `${baseUrl(env)}/rest/v1/${path}`;
+  const res = await fetch(url, {
     method,
     headers: { ...headers(env), Prefer: 'return=minimal' },
     body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined,
   });
-  if (!res.ok) throw new Error('Supabase ' + res.status + ': ' + (await res.text()));
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' [' + url + ']: ' + (await res.text()));
   return true;
 }
 function json(data) {
