@@ -16,6 +16,10 @@ const PORTADAS = new Set([
   'guardar', 'getRegistros', 'verificarDuplicado', 'editarReg', 'eliminarReg',
   // Módulo Administrativo:
   'coberturaSemanas', 'nuevoEmpleado', 'getUsuarios', 'getTrabajadores',
+  // Módulo Facturación:
+  'getFacturas', 'guardarFactura', 'actualizarFactura', 'eliminarFactura', 'actualizarEstadoFac',
+  'getDetallado', 'guardarDetallado', 'editarDetallado', 'eliminarDetallado',
+  'getCobrosHist', 'guardarCobrosHist',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -39,6 +43,17 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'nuevoEmpleado')      r = await accionNuevoEmpleado(body, env);
     else if (accion === 'getUsuarios')        r = await accionGetUsuarios(body, env);
     else if (accion === 'getTrabajadores')    r = await accionGetTrabajadores(body, env);
+    else if (accion === 'getFacturas')         r = await accionGetFacturas(body, env);
+    else if (accion === 'guardarFactura')      r = await accionGuardarFactura(body, env);
+    else if (accion === 'actualizarFactura')   r = await accionActualizarFactura(body, env);
+    else if (accion === 'eliminarFactura')     r = await accionEliminarFactura(body, env);
+    else if (accion === 'actualizarEstadoFac') r = await accionActualizarEstadoFac(body, env);
+    else if (accion === 'getDetallado')        r = await accionGetDetallado(body, env);
+    else if (accion === 'guardarDetallado')    r = await accionGuardarDetallado(body, env);
+    else if (accion === 'editarDetallado')     r = await accionEditarDetallado(body, env);
+    else if (accion === 'eliminarDetallado')   r = await accionEliminarDetallado(body, env);
+    else if (accion === 'getCobrosHist')       r = await accionGetCobrosHist(body, env);
+    else if (accion === 'guardarCobrosHist')   r = await accionGuardarCobrosHist(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -530,4 +545,172 @@ async function accionGetTrabajadores(body, env) {
     return o;
   });
   return { ok: true, data };
+}
+
+// ---------------------------------------------------------------------
+//  MÓDULO FACTURACIÓN
+// ---------------------------------------------------------------------
+function fechaONull(v) { v = String(v || '').trim(); return v || null; }
+
+// FACTURAS
+async function accionGuardarFactura(body, env) {
+  const f = body.factura;
+  if (!f || !f.nfac) return { ok: false, error: 'Datos de factura incompletos' };
+  const fila = {
+    id: f.id || crypto.randomUUID().slice(0, 8),
+    fecha_fac: fechaONull(f.ffac),
+    fecha_ven: fechaONull(f.fven),
+    num_factura: f.nfac || '',
+    num_acta: f.nacta || '',
+    valor_factura: f.val || 0,
+    retencion: f.ret || 0,
+    valor_pagar: f.vpag || 0,
+    semanas: f.sems || '',
+    contrato: f.contrato || '',
+    responsable: f.resp || '',
+    nota: f.nota || '',
+    estado: f.estado || 'PENDIENTE',
+    no_detallable: false,
+    fecha_registro: isoDate(new Date()),
+    fecha_pago: null,
+  };
+  await sbWrite(env, 'POST', 'facturas', fila);
+  return { ok: true };
+}
+
+async function accionGetFacturas(body, env) {
+  const rows = await sbAll(env, 'facturas?select=id,fecha_fac,fecha_ven,num_factura,num_acta,valor_factura,retencion,valor_pagar,semanas,contrato,responsable,nota,estado,no_detallable,fecha_pago');
+  const facturas = rows.map((f, i) => ({
+    id: String(f.id || '').trim(),
+    ffac: f.fecha_fac ? String(f.fecha_fac).slice(0, 10) : '',
+    fven: f.fecha_ven ? String(f.fecha_ven).slice(0, 10) : '',
+    nfac: String(f.num_factura || '').trim(),
+    nacta: String(f.num_acta || '').trim(),
+    val: parseFloat(f.valor_factura) || 0,
+    ret: parseFloat(f.retencion) || 0,
+    vpag: parseFloat(f.valor_pagar) || 0,
+    sems: String(f.semanas || '').trim(),
+    contrato: String(f.contrato || '').trim(),
+    resp: String(f.responsable || '').trim(),
+    nota: String(f.nota || '').trim(),
+    estado: String(f.estado || '').trim(),
+    fpago: f.fecha_pago ? String(f.fecha_pago).slice(0, 10) : '',
+    noDetallable: f.no_detallable === true,
+    fila: i + 2,
+  }));
+  return { ok: true, facturas };
+}
+
+async function accionActualizarFactura(body, env) {
+  const id = body.id, campo = body.campo, valor = body.valor;
+  if (!id || !campo) return { ok: false, error: 'ID y campo requeridos' };
+  if (campo === 'noDetallable') {
+    const b = valor === true || valor === 1 || ['SI', '1', 'X', 'TRUE', 'YES'].includes(String(valor).trim().toUpperCase());
+    await sbWrite(env, 'PATCH', `facturas?id=eq.${encodeURIComponent(id)}`, { no_detallable: b });
+    return { ok: true };
+  }
+  return { ok: false, error: 'Campo no soportado: ' + campo };
+}
+
+async function accionEliminarFactura(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'ID requerido' };
+  await sbWrite(env, 'DELETE', `facturas?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+
+async function accionActualizarEstadoFac(body, env) {
+  const id = body.id, estado = body.estado, fpago = body.fpago || '';
+  if (!id || !estado) return { ok: false, error: 'Faltan datos' };
+  const cambios = { estado };
+  if (fpago) cambios.fecha_pago = fpago;
+  await sbWrite(env, 'PATCH', `facturas?id=eq.${encodeURIComponent(id)}`, cambios);
+  return { ok: true };
+}
+
+// DETALLADO DE FACTURA
+async function accionGuardarDetallado(body, env) {
+  const detalles = body.detalles || [];
+  if (!detalles.length) return { ok: false, error: 'Sin detalles' };
+  const coordMap = await mapaCoordPorNombre(env);
+  const ahora = isoDate(new Date());
+  const filas = detalles.map((d) => ({
+    id: crypto.randomUUID().slice(0, 8),
+    id_factura: d.idFac || '',
+    num_acta: d.nacta || '',
+    coordinador_id: coordMap.get(String(d.coord || '').trim().toUpperCase()) || null,
+    semana: parseInt(d.sem) || null,
+    valor_cobro: d.val || 0,
+    fecha_registro: ahora,
+    resp: d.resp || '',
+  }));
+  await sbWrite(env, 'POST', 'detallado_factura', filas);
+  return { ok: true, guardados: filas.length };
+}
+
+async function accionGetDetallado(body, env) {
+  const idFac = String(body.idFac || '').trim();
+  let path = 'detallado_factura?select=id,id_factura,num_acta,coordinador_id,semana,valor_cobro,fecha_registro,resp,coordinadores(nombre,administrador)';
+  if (idFac) path += `&id_factura=eq.${encodeURIComponent(idFac)}`;
+  const rows = await sbAll(env, path);
+  const detalles = rows.map((d) => ({
+    id: String(d.id || '').trim(),
+    idFac: String(d.id_factura || '').trim(),
+    nacta: String(d.num_acta || '').trim(),
+    coord: d.coordinadores ? String(d.coordinadores.nombre || '').trim() : '',
+    admin: d.coordinadores ? String(d.coordinadores.administrador || '').trim() : '',
+    sem: String(d.semana == null ? '' : d.semana).trim(),
+    val: parseFloat(d.valor_cobro) || 0,
+    fReg: d.fecha_registro ? String(d.fecha_registro).slice(0, 10) : '',
+    resp: String(d.resp || '').trim(),
+  }));
+  return { ok: true, detalles };
+}
+
+async function accionEditarDetallado(body, env) {
+  const id = String(body.id || '').trim();
+  const val = parseFloat(body.val) || 0;
+  if (!id) return { ok: false, error: 'ID requerido' };
+  await sbWrite(env, 'PATCH', `detallado_factura?id=eq.${encodeURIComponent(id)}`, { valor_cobro: val });
+  return { ok: true };
+}
+
+async function accionEliminarDetallado(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'ID requerido' };
+  await sbWrite(env, 'DELETE', `detallado_factura?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+
+// COBROS HISTÓRICOS
+async function accionGetCobrosHist(body, env) {
+  const [rows, coords] = await Promise.all([
+    sbAll(env, 'cobros_historicos?select=id,coordinador,semana,valor_cobro,fecha_registro'),
+    sb(env, 'coordinadores?select=nombre,administrador'),
+  ]);
+  const adminMap = new Map();
+  for (const c of coords) adminMap.set(String(c.nombre || '').trim().toUpperCase(), String(c.administrador || '').trim());
+  const cobros = rows.map((r) => ({
+    id: String(r.id == null ? '' : r.id).trim(),
+    coord: String(r.coordinador || '').trim(),
+    admin: adminMap.get(String(r.coordinador || '').trim().toUpperCase()) || '',
+    sem: String(r.semana == null ? '' : r.semana).trim(),
+    val: parseFloat(r.valor_cobro) || 0,
+    fReg: r.fecha_registro ? String(r.fecha_registro).slice(0, 10) : '',
+  }));
+  return { ok: true, cobros };
+}
+
+async function accionGuardarCobrosHist(body, env) {
+  const filas = body.filas || [];
+  if (!filas.length) return { ok: false, error: 'Sin datos' };
+  const ahora = isoDate(new Date());
+  const rows = filas.map((f) => ({
+    coordinador: f.coord || '',
+    semana: parseInt(f.sem) || null,
+    valor_cobro: f.val || 0,
+    fecha_registro: ahora,
+  }));
+  await sbWrite(env, 'POST', 'cobros_historicos', rows);
+  return { ok: true, guardados: rows.length };
 }
