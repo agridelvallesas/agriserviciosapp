@@ -24,6 +24,10 @@ const PORTADAS = new Set([
   'getAcumulados', 'getQuincenasAcum', 'importarAcumulados', 'eliminarAcumuladoQna', 'vaciarAcumulados',
   // Permisos de subida:
   'getPermisosSubida', 'guardarPermisoSubida', 'revocarPermisoSubida',
+  // Módulo RH:
+  'guardarTrabajador', 'editarTrabajador', 'eliminarTrabajador', 'importarTrabajadores',
+  'getVacaciones', 'eliminarVacacion', 'importarVacaciones',
+  'getPlantillas', 'guardarPlantilla', 'eliminarPlantilla',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -66,6 +70,16 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getPermisosSubida')    r = await accionGetPermisosSubida(body, env);
     else if (accion === 'guardarPermisoSubida') r = await accionGuardarPermisoSubida(body, env);
     else if (accion === 'revocarPermisoSubida') r = await accionRevocarPermisoSubida(body, env);
+    else if (accion === 'guardarTrabajador')    r = await accionGuardarTrabajador(body, env);
+    else if (accion === 'editarTrabajador')     r = await accionEditarTrabajador(body, env);
+    else if (accion === 'eliminarTrabajador')   r = await accionEliminarTrabajador(body, env);
+    else if (accion === 'importarTrabajadores') r = await accionImportarTrabajadores(body, env);
+    else if (accion === 'getVacaciones')        r = await accionGetVacaciones(body, env);
+    else if (accion === 'eliminarVacacion')     r = await accionEliminarVacacion(body, env);
+    else if (accion === 'importarVacaciones')   r = await accionImportarVacaciones(body, env);
+    else if (accion === 'getPlantillas')        r = await accionGetPlantillas(body, env);
+    else if (accion === 'guardarPlantilla')     r = await accionGuardarPlantilla(body, env);
+    else if (accion === 'eliminarPlantilla')    r = await accionEliminarPlantilla(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -898,5 +912,180 @@ async function accionRevocarPermisoSubida(body, env) {
   const id = body.id;
   if (id === undefined || id === null || id === '') return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `permisos_subida?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------
+//  MÓDULO RH (trabajadores, vacaciones, plantillas)
+// ---------------------------------------------------------------------
+
+// Upsert PostgREST (inserta o actualiza según columna de conflicto)
+async function sbUpsert(env, tabla, filas, onConflict) {
+  const url = `${baseUrl(env)}/rest/v1/${tabla}?on_conflict=${onConflict}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...headers(env), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(filas),
+  });
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' [' + url + ']: ' + (await res.text()));
+  return true;
+}
+
+// TRABAJADORES ---------------------------------------------------------
+function nombresConcat(t) {
+  return [t.P_NOMBRE, t.S_NOMBRE, t.P_APELLIDO, t.S_APELLIDO]
+    .map((x) => String(x || '').trim()).filter(Boolean).join(' ').toUpperCase();
+}
+function trabAObjDB(t) {
+  const row = {};
+  for (const [key, col] of TRAB_MAP) {
+    let v = t[key];
+    if (v === undefined || v === '') v = null;
+    row[col] = v;
+  }
+  row.cedula = parseInt(String(t.CEDULA || '').replace(/,/g, '')) || null;
+  row.nombres = nombresConcat(t);
+  return row;
+}
+
+async function accionGuardarTrabajador(body, env) {
+  const t = body.trabajador || {};
+  const cedNum = parseInt(String(t.CEDULA || '').replace(/,/g, ''));
+  if (!cedNum) return { ok: false, error: 'Falta cédula' };
+  const dup = await sb(env, `trabajadores?select=cedula&cedula=eq.${cedNum}&limit=1`);
+  if (dup.length) return { ok: false, error: 'Ya existe un trabajador con esa cédula' };
+  const row = trabAObjDB(t);
+  row.fecha_registro = new Date().toISOString();
+  row.actualizado_por = String(body.usuario || '');
+  await sbWrite(env, 'POST', 'trabajadores', row);
+  return { ok: true };
+}
+
+async function accionEditarTrabajador(body, env) {
+  const t = body.trabajador || {};
+  const cedNum = parseInt(String(t.CEDULA || '').replace(/,/g, ''));
+  if (!cedNum) return { ok: false, error: 'Falta cédula' };
+  const ex = await sb(env, `trabajadores?select=cedula&cedula=eq.${cedNum}&limit=1`);
+  if (!ex.length) return { ok: false, error: 'Trabajador no encontrado' };
+  const row = trabAObjDB(t);
+  delete row.cedula;          // no cambiar la PK
+  delete row.fecha_registro;  // conservar la fecha de creación original
+  row.actualizado_por = String(body.usuario || '') + ' · ' + new Date().toISOString().slice(0, 16).replace('T', ' ');
+  await sbWrite(env, 'PATCH', `trabajadores?cedula=eq.${cedNum}`, row);
+  return { ok: true };
+}
+
+async function accionEliminarTrabajador(body, env) {
+  const cedNum = parseInt(String(body.cedula || '').replace(/,/g, ''));
+  if (!cedNum) return { ok: false, error: 'Falta cédula' };
+  await sbWrite(env, 'DELETE', `trabajadores?cedula=eq.${cedNum}`);
+  return { ok: true };
+}
+
+async function accionImportarTrabajadores(body, env) {
+  const lista = body.trabajadores || [];
+  if (!Array.isArray(lista) || !lista.length) return { ok: false, error: 'Sin trabajadores para importar' };
+  const ahora = new Date().toISOString();
+  const usuario = String(body.usuario || '');
+  const filas = [];
+  for (const t of lista) {
+    const cedNum = parseInt(String(t.CEDULA || '').replace(/,/g, ''));
+    if (!cedNum) continue;
+    const row = trabAObjDB(t);
+    row.fecha_registro = ahora;
+    row.actualizado_por = usuario;
+    filas.push(row);
+  }
+  if (!filas.length) return { ok: false, error: 'Sin cédulas válidas' };
+  await sbUpsert(env, 'trabajadores', filas, 'cedula');
+  return { ok: true, nuevos: filas.length };
+}
+
+// VACACIONES -----------------------------------------------------------
+async function accionGetVacaciones(body, env) {
+  const rows = await sbAll(env, 'vacaciones?select=id,cedula,periodo_causado,fecha_inicio,fecha_fin,dias,pago_quincenas,valor,observaciones,fecha_creacion,actualizado_por,trabajadores(nombres)');
+  const vacaciones = rows.map((v) => ({
+    ID: String(v.id || ''),
+    CEDULA: String(v.cedula == null ? '' : v.cedula),
+    NOMBRES: v.trabajadores ? String(v.trabajadores.nombres || '') : '',
+    PERIODO_CAUSADO: String(v.periodo_causado || ''),
+    FECHA_INICIO: v.fecha_inicio ? String(v.fecha_inicio).slice(0, 10) : '',
+    FECHA_FIN: v.fecha_fin ? String(v.fecha_fin).slice(0, 10) : '',
+    DIAS: parseFloat(v.dias) || 0,
+    PAGO_QUINCENAS: String(v.pago_quincenas || ''),
+    VALOR: parseFloat(v.valor) || 0,
+    OBSERVACIONES: String(v.observaciones || ''),
+    FECHA_CREACION: v.fecha_creacion ? String(v.fecha_creacion).slice(0, 16).replace('T', ' ') : '',
+    ACTUALIZADO_POR: String(v.actualizado_por || ''),
+  }));
+  return { ok: true, vacaciones };
+}
+
+async function accionEliminarVacacion(body, env) {
+  const id = String(body.id || '').trim();
+  if (!id) return { ok: false, error: 'Falta ID' };
+  await sbWrite(env, 'DELETE', `vacaciones?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+
+async function accionImportarVacaciones(body, env) {
+  const lista = body.vacaciones || [];
+  if (!Array.isArray(lista) || !lista.length) return { ok: false, error: 'Lista vacía' };
+  const ahora = new Date().toISOString();
+  const usuario = String(body.usuario || 'imp');
+  const filas = lista.map((v) => ({
+    id: v.ID || ('V' + Date.now() + Math.floor(Math.random() * 100000)),
+    cedula: parseInt(String(v.CEDULA || '').replace(/,/g, '')) || null,
+    periodo_causado: v.PERIODO_CAUSADO || '',
+    fecha_inicio: fechaONull(v.FECHA_INICIO),
+    fecha_fin: fechaONull(v.FECHA_FIN),
+    dias: v.DIAS || 0,
+    pago_quincenas: v.PAGO_QUINCENAS || '',
+    valor: v.VALOR || 0,
+    observaciones: v.OBSERVACIONES || '',
+    fecha_creacion: ahora,
+    actualizado_por: usuario + ' · imp',
+  }));
+  await sbWrite(env, 'POST', 'vacaciones', filas);
+  return { ok: true, nuevos: filas.length };
+}
+
+// PLANTILLAS -----------------------------------------------------------
+async function accionGetPlantillas(body, env) {
+  const rows = await sbAll(env, 'plantillas?select=clave,nombre,tipo,contenido_html,variables_disponibles,fecha_mod,modificado_por');
+  const plantillas = rows.map((p) => ({
+    CLAVE: String(p.clave || ''),
+    NOMBRE: String(p.nombre || ''),
+    TIPO: String(p.tipo || ''),
+    CONTENIDO_HTML: String(p.contenido_html || ''),
+    VARIABLES_DISPONIBLES: String(p.variables_disponibles || ''),
+    FECHA_MOD: p.fecha_mod ? String(p.fecha_mod).slice(0, 16).replace('T', ' ') : '',
+    MODIFICADO_POR: String(p.modificado_por || ''),
+  }));
+  return { ok: true, plantillas };
+}
+
+async function accionGuardarPlantilla(body, env) {
+  const p = body.plantilla || {};
+  const clave = String(p.CLAVE || '').trim();
+  if (!clave) return { ok: false, error: 'Falta clave' };
+  if (!p.CONTENIDO_HTML) return { ok: false, error: 'Falta contenido' };
+  const row = {
+    clave,
+    nombre: p.NOMBRE || '',
+    tipo: p.TIPO || '',
+    contenido_html: p.CONTENIDO_HTML || '',
+    variables_disponibles: p.VARIABLES_DISPONIBLES || '',
+    fecha_mod: new Date().toISOString(),
+    modificado_por: String(body.usuario || ''),
+  };
+  await sbUpsert(env, 'plantillas', [row], 'clave');
+  return { ok: true };
+}
+
+async function accionEliminarPlantilla(body, env) {
+  const clave = String(body.clave || '').trim();
+  if (!clave) return { ok: false, error: 'Falta clave' };
+  await sbWrite(env, 'DELETE', `plantillas?clave=eq.${encodeURIComponent(clave)}`);
   return { ok: true };
 }
