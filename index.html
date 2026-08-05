@@ -1418,7 +1418,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div class="card no-print">
         <div class="tw" style="overflow-x:auto">
-          <table id="rh-t" style="width:100%;font-size:11px;border-collapse:collapse;min-width:1200px">
+          <table id="rh-t" class="ordenable" style="width:100%;font-size:11px;border-collapse:collapse;min-width:1200px">
             <thead style="background:#f3f4f6">
               <tr>
                 <th style="padding:8px;text-align:left">CÉDULA</th>
@@ -15919,5 +15919,50 @@ function cnomEliminarConcepto(k){
 }
 
 </script>
+
+  <style>
+  table.ordenable th{cursor:pointer;user-select:none;white-space:nowrap}
+  table.ordenable th:hover{filter:brightness(1.15)}
+  .sort-ind{opacity:.7;font-size:.85em}
+</style>
+<script>
+(function(){
+  function valOrden(s){
+    s=(s||'').trim();
+    var limpio=s.replace(/[\s$]/g,'').replace(/,/g,'');
+    if(/^-?\d{1,3}(\.\d{3})+$/.test(limpio)) limpio=limpio.replace(/\./g,''); // 5.289.013 -> 5289013
+    if(/^-?\d+(\.\d+)?$/.test(limpio)) return {n:parseFloat(limpio)};
+    return {t:s};
+  }
+  document.addEventListener('click',function(e){
+    var th=e.target.closest && e.target.closest('th');
+    if(!th) return;
+    var tabla=th.closest('table.ordenable');
+    if(!tabla || !tabla.tBodies.length) return;
+    var idx=Array.prototype.indexOf.call(th.parentNode.children, th);
+    var asc=th.getAttribute('data-asc')!=='true';
+    Array.prototype.forEach.call(th.parentNode.children,function(o){
+      o.removeAttribute('data-asc');
+      var ind=o.querySelector('.sort-ind'); if(ind) ind.remove();
+    });
+    th.setAttribute('data-asc',asc);
+    var tbody=tabla.tBodies[0];
+    var filas=Array.prototype.slice.call(tbody.rows);
+    filas.sort(function(a,b){
+      var va=valOrden(a.cells[idx]?a.cells[idx].textContent:'');
+      var vb=valOrden(b.cells[idx]?b.cells[idx].textContent:'');
+      var cmp;
+      if(va.n!=null && vb.n!=null) cmp=va.n-vb.n;
+      else cmp=String(va.t!=null?va.t:va.n).localeCompare(String(vb.t!=null?vb.t:vb.n),'es',{numeric:true,sensitivity:'base'});
+      return asc?cmp:-cmp;
+    });
+    filas.forEach(function(f){ tbody.appendChild(f); });
+    var ind=document.createElement('span');
+    ind.className='sort-ind'; ind.textContent=asc?' ▲':' ▼';
+    th.appendChild(ind);
+  });
+})();
+</script>
+  
 </body>
 </html>
