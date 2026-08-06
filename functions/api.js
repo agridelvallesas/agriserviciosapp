@@ -313,6 +313,7 @@ async function accionGetRegistros(body, env) {
   const filtroSem = String(body.sem || '').trim();
   const filtroCoord = String(body.coord || '').trim();
   const filtroCed = String(body.ced || '').trim();
+  const filtroTipo = String(body.tipo || '').trim();
   const desde = parseInt(body.desde) || 2;
   const lote = filtroSem ? 5000 : 3000;
   const offset = Math.max(0, desde - 2);
@@ -321,6 +322,7 @@ async function accionGetRegistros(body, env) {
   let path = `detalle_dia?select=${cols}&order=fecha_registro`;
   if (filtroSem) path += `&semana=eq.${parseInt(filtroSem)}`;
   if (filtroCed) path += `&cedula=eq.${parseInt(filtroCed.replace(/,/g, ''))}`;
+  if (filtroTipo) path += `&tipo=eq.${encodeURIComponent(filtroTipo)}`;
   if (filtroCoord) {
     const coordMap = await mapaCoordPorNombre(env);
     const cid = coordMap.get(filtroCoord.toUpperCase());
