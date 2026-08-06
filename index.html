@@ -2518,9 +2518,9 @@ tfoot td{background:var(--gf);font-weight:700}
             </div>
           </div>
           <div class="tw"><table id="hist-t"><thead><tr>
-            <th>Coordinador</th><th>Administrador</th><th>Semana</th><th>Valor cobro</th>
+            <th>Coordinador</th><th>Administrador</th><th>Semana</th><th>Valor cobro</th><th style="text-align:center">Acción</th>
           </tr></thead><tbody id="hist-tb">
-            <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--g3)">Presiona 🔄 Cargar desde Sheets</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--g3)">Presiona 🔄 Cargar desde Sheets</td></tr>
           </tbody><tfoot id="hist-tf"></tfoot></table></div>
         </div>
       </div>
@@ -7159,17 +7159,56 @@ function renderCobrosHist(){
   if(totEl) totEl.textContent=cop(total);
   var tb=document.getElementById('hist-tb');
   if(!data.length){
-    tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--g3)">Sin cobros históricos'+(filSem?' para semana '+filSem:'')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--g3)">Sin cobros históricos'+(filSem?' para semana '+filSem:'')+'</td></tr>';
     document.getElementById('hist-tf').innerHTML='';
     return;
   }
   tb.innerHTML=data.map(function(c){
     return'<tr><td><strong>'+c.coord+'</strong></td><td>'+c.admin+'</td>'
       +'<td><span class="bdg ba2">Sem '+c.sem+'</span></td>'
-      +'<td><strong>'+cop(c.val)+'</strong></td></tr>';
+      +'<td><strong>'+cop(c.val)+'</strong></td>'
+      +'<td style="text-align:center"><button onclick="histEditar(\''+c.id+'\')" style="background:none;border:none;cursor:pointer;font-size:16px" title="Editar">✏️</button></td></tr>';
   }).join('');
   document.getElementById('hist-tf').innerHTML=
-    '<tr><td colspan="3"><strong>TOTAL</strong></td><td><strong>'+cop(total)+'</strong></td></tr>';
+    '<tr><td colspan="3"><strong>TOTAL</strong></td><td><strong>'+cop(total)+'</strong></td><td></td></tr>';
+}
+
+function histEditar(id){
+  var c=(typeof COBROS_HIST_CACHE!=='undefined'?COBROS_HIST_CACHE:[]).find(function(x){return String(x.id)===String(id);});
+  if(!c){alert('No se encontró el cobro');return;}
+  histCerrarEdit();
+  var coordEsc=String(c.coord||'').replace(/"/g,'&quot;');
+  var ov=document.createElement('div');
+  ov.id='hist-edit-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)histCerrarEdit();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:14px">✏️ Editar cobro histórico</div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Coordinador</label><input type="text" id="he-coord" value="'+coordEsc+'"/></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Semana</label><input type="number" id="he-sem" value="'+c.sem+'"/></div>'
+    +'<div class="fld" style="margin-bottom:16px"><label>Valor cobro</label><input type="number" id="he-val" value="'+c.val+'"/></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +'<button class="btn bg" onclick="histCerrarEdit()">Cancelar</button>'
+    +'<button class="btn bv" onclick="histGuardarEdit(\''+String(c.id)+'\')">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+function histCerrarEdit(){var ov=document.getElementById('hist-edit-ov');if(ov)ov.remove();}
+function histGuardarEdit(id){
+  var coord=document.getElementById('he-coord').value.trim();
+  var sem=document.getElementById('he-sem').value.trim();
+  var val=parseFloat(document.getElementById('he-val').value)||0;
+  if(!coord||!sem){alert('Coordinador y semana son requeridos');return;}
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    accion:'editarCobroHist', id:id, coordinador:coord, semana:sem, valor:val
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){
+      var c=COBROS_HIST_CACHE.find(function(x){return String(x.id)===String(id);});
+      if(c){c.coord=coord.toUpperCase();c.sem=sem;c.val=val;}
+      histCerrarEdit();
+      renderCobrosHist();
+    } else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
 }
 
 function poblarHistCoords(){
@@ -15998,13 +16037,15 @@ function cnomEliminarConcepto(k){
 })();
 </script>
 
-<script>function naToggle(header){
-  var body=header.nextElementSibling;  
-  var chev=header.querySelector('.na-chev');  
-  var abierto=body.style.display!=='none';  
-  body.style.display=abierto?'none':'block';  
-  if(chev) chev.textContent=abierto?'▾':'▴';}
+<script>
+function naToggle(header){
+  var body=header.nextElementSibling;
+  var chev=header.querySelector('.na-chev');
+  var abierto=body.style.display!=='none';
+  body.style.display=abierto?'none':'block';
+  if(chev) chev.textContent=abierto?'▾':'▴';
+}
 </script>
-  
+
 </body>
 </html>
