@@ -19,7 +19,7 @@ const PORTADAS = new Set([
   // Módulo Facturación:
   'getFacturas', 'guardarFactura', 'actualizarFactura', 'eliminarFactura', 'actualizarEstadoFac',
   'getDetallado', 'guardarDetallado', 'editarDetallado', 'eliminarDetallado',
-  'getCobrosHist', 'guardarCobrosHist',
+  'getCobrosHist', 'guardarCobrosHist', 'editarCobroHist',
   // Módulo Nómina:
   'getAcumulados', 'getQuincenasAcum', 'importarAcumulados', 'eliminarAcumuladoQna', 'vaciarAcumulados',
   // Permisos de subida:
@@ -62,6 +62,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarDetallado')   r = await accionEliminarDetallado(body, env);
     else if (accion === 'getCobrosHist')       r = await accionGetCobrosHist(body, env);
     else if (accion === 'guardarCobrosHist')   r = await accionGuardarCobrosHist(body, env);
+    else if (accion === 'editarCobroHist')     r = await accionEditarCobroHist(body, env);
     else if (accion === 'getAcumulados')        r = await accionGetAcumulados(body, env);
     else if (accion === 'getQuincenasAcum')     r = await accionGetQuincenasAcum(body, env);
     else if (accion === 'importarAcumulados')   r = await accionImportarAcumulados(body, env);
@@ -1089,5 +1090,18 @@ async function accionEliminarPlantilla(body, env) {
   const clave = String(body.clave || '').trim();
   if (!clave) return { ok: false, error: 'Falta clave' };
   await sbWrite(env, 'DELETE', `plantillas?clave=eq.${encodeURIComponent(clave)}`);
+  return { ok: true };
+}
+
+// EDITAR un cobro histórico (para cruzar saldos 2025/2026)
+async function accionEditarCobroHist(body, env) {
+  const id = body.id;
+  if (id === undefined || id === null || id === '') return { ok: false, error: 'Falta id' };
+  const cambios = {};
+  if (body.coordinador !== undefined) cambios.coordinador = String(body.coordinador || '').trim().toUpperCase();
+  if (body.semana !== undefined) cambios.semana = parseInt(body.semana) || 0;
+  if (body.valor !== undefined) cambios.valor_cobro = parseFloat(body.valor) || 0;
+  if (!Object.keys(cambios).length) return { ok: false, error: 'Nada que actualizar' };
+  await sbWrite(env, 'PATCH', `cobros_historicos?id=eq.${encodeURIComponent(id)}`, cambios);
   return { ok: true };
 }
