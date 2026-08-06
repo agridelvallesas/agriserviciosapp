@@ -725,7 +725,7 @@ async function accionEliminarDetallado(body, env) {
 // COBROS HISTÓRICOS
 async function accionGetCobrosHist(body, env) {
   const [rows, coords] = await Promise.all([
-    sbAll(env, 'cobros_historicos?select=id,coordinador,semana,valor_cobro,fecha_registro'),
+    sbAll(env, 'cobros_historicos?select=id,coordinador,administrador,semana,valor_cobro,fecha_registro'),
     sb(env, 'coordinadores?select=nombre,administrador'),
   ]);
   const adminMap = new Map();
@@ -733,7 +733,7 @@ async function accionGetCobrosHist(body, env) {
   const cobros = rows.map((r) => ({
     id: String(r.id == null ? '' : r.id).trim(),
     coord: String(r.coordinador || '').trim(),
-    admin: adminMap.get(String(r.coordinador || '').trim().toUpperCase()) || '',
+    admin: String(r.administrador || '').trim() || adminMap.get(String(r.coordinador || '').trim().toUpperCase()) || '',
     sem: String(r.semana == null ? '' : r.semana).trim(),
     val: parseFloat(r.valor_cobro) || 0,
     fReg: r.fecha_registro ? String(r.fecha_registro).slice(0, 10) : '',
@@ -747,6 +747,7 @@ async function accionGuardarCobrosHist(body, env) {
   const ahora = isoDate(new Date());
   const rows = filas.map((f) => ({
     coordinador: f.coord || '',
+    administrador: f.admin || '',
     semana: parseInt(f.sem) || null,
     valor_cobro: f.val || 0,
     fecha_registro: ahora,
@@ -1101,6 +1102,7 @@ async function accionEditarCobroHist(body, env) {
   if (body.coordinador !== undefined) cambios.coordinador = String(body.coordinador || '').trim().toUpperCase();
   if (body.semana !== undefined) cambios.semana = parseInt(body.semana) || 0;
   if (body.valor !== undefined) cambios.valor_cobro = parseFloat(body.valor) || 0;
+  if (body.administrador !== undefined) cambios.administrador = String(body.administrador || '').trim().toUpperCase();
   if (!Object.keys(cambios).length) return { ok: false, error: 'Nada que actualizar' };
   await sbWrite(env, 'PATCH', `cobros_historicos?id=eq.${encodeURIComponent(id)}`, cambios);
   return { ok: true };
