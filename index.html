@@ -10018,7 +10018,7 @@ function carNotasAdm(){
   }
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros', sem:filtSem||'', coord:filtCo||''
+    accion:'getRegistros', sem:filtSem||'', coord:filtCo||'', tipo:'nota'
   })})
   .then(function(r){return r.json();})
   .then(function(data){
