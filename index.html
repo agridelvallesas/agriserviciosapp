@@ -10010,7 +10010,7 @@ function carNotasAdm(){
   // Poblar semanas y coordinadores si están vacíos
   var naSem=document.getElementById('na-sem');
   if(naSem&&naSem.children.length<=1){
-    QNAS.forEach(function(q){var o=document.createElement('option');o.value=q.sems[0].s;o.textContent=q.n;naSem.appendChild(o);});
+    QNAS.forEach(function(q){q.sems.forEach(function(s){var o=document.createElement('option');o.value=s.s;o.textContent='Sem '+s.s;naSem.appendChild(o);});});
   }
   var naCo=document.getElementById('na-co');
   if(naCo&&naCo.children.length<=1){
@@ -10033,7 +10033,7 @@ function carNotasAdm(){
         +'<strong style="color:var(--g2)">'+n.coord+'</strong>'
         +'<span style="font-size:11px;color:var(--g3)">Sem '+n.sem+' · '+n.dia+'</span>'
         +'</div>'
-        +'<div style="font-size:13px">'+n.obs+'</div>'
+        +'<div style="font-size:13px;white-space:pre-wrap">'+(n.obsTarea||n.obs||'')+'</div>';
         +'</div>';
     }).join('');
   }).catch(function(){
