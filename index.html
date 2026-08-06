@@ -9481,14 +9481,12 @@ function renderNotas(){
     return;
   }
   lista.innerHTML=notas.map(function(n){
-      var texto=(n.obsTarea||n.obs||'').trim();
-      return '<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">'
-        +'<div onclick="naToggle(this)" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;background:var(--vs)">'
+      return'<div style="background:var(--vs);border-left:3px solid var(--v);border-radius:var(--rads);padding:10px 14px">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
         +'<strong style="color:var(--g2)">'+n.coord+'</strong>'
-        +'<span style="font-size:11px;color:var(--g3);white-space:nowrap">Sem '+n.sem+' &nbsp;<span class="na-chev">▾</span></span>'
+        +'<span style="font-size:11px;color:var(--g3)">Sem '+n.sem+' · '+n.dia+'</span>'
         +'</div>'
-        +'<div class="na-body" style="display:none;padding:11px 14px;font-size:13px;white-space:pre-wrap;border-top:1px solid #e5e7eb">'+(texto||'<em style="color:var(--g3)">(sin texto)</em>')+'</div>'
-        +'</div>';
+        +'<div style="font-size:13px;white-space:pre-wrap">'+(n.obsTarea||n.obs||'')+'</div>';
     }).join('');
 
 function cop(n){return'$'+Math.round(n||0).toLocaleString('es-CO');}
