@@ -975,9 +975,10 @@ tfoot td{background:var(--gf);font-weight:700}
           <th>⚠️</th>
           <th>Obs. novedad</th>
           <th>Obs. tarea</th>
+          <th onclick="sortTable('td-t',15)" style="cursor:pointer">Fecha reg. ↕</th>
           <th class="no-print">Acc.</th>
         </tr></thead>
-        <tbody id="td-tb"><tr><td colspan="14" style="text-align:center;padding:20px;color:var(--g3)">Usa los filtros y presiona Buscar</td></tr></tbody></table></div>
+        <tbody id="td-tb"><tr><td colspan="17" style="text-align:center;padding:20px;color:var(--g3)">Usa los filtros y presiona Buscar</td></tr></tbody></table></div>
       </div>
     </div>
 
@@ -5593,14 +5594,15 @@ function carTodos(desde){
         +'<td>'+(al?'<span class="bdg br2">⚠️</span>':'')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obs||'')+'">'+(r.obs?r.obs.substring(0,25):'—')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obsTarea||'')+'">'+(r.obsTarea?r.obsTarea.substring(0,25):'—')+'</td>'
+        +'<td style="font-size:10px;color:var(--g3);white-space:nowrap">'+(r.fReg?String(r.fReg).slice(0,16).replace('T',' '):'—')+'</td>'
         +'<td class="no-print"><button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="abrirME(\''+r.id+'\')">Editar</button></td>'
         +'</tr>';
     }).join('')
-    +(TD_HAY_MAS?'<tr id="td-mas-row"><td colspan="14" style="text-align:center;padding:10px;color:var(--g3)">⏳ Cargando más registros...</td></tr>':'');
+    +(TD_HAY_MAS?'<tr id="td-mas-row"><td colspan="17" style="text-align:center;padding:10px;color:var(--g3)">⏳ Cargando más registros...</td></tr>':'');
     // Auto-cargar siguiente lote
     if(TD_HAY_MAS) setTimeout(function(){carTodos(TD_SIGUIENTE_FILA);},300);
   }).catch(function(e){
-    tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--r)">⚠ Error de conexión</td></tr>';
+    tb.innerHTML='<tr><td colspan="17" style="text-align:center;color:var(--r)">⚠ Error de conexión</td></tr>';
   });
 }
 
