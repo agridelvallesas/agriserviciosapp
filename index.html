@@ -1384,6 +1384,49 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ════════════════════════════════════════
          RECURSOS HUMANOS — TRABAJADORES
          ════════════════════════════════════════ -->
+    <div class="page" id="p-accesos">
+      <div class="card no-print">
+        <div class="ct">🔑 Usuarios <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Accesos a la app</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+          <div class="fld" style="min-width:150px;margin:0"><label>Usuario</label><input type="text" id="us-user" placeholder="Nombre de usuario"/></div>
+          <div class="fld" style="min-width:130px;margin:0"><label>Contraseña</label><input type="text" id="us-pass" placeholder="Clave"/></div>
+          <div class="fld" style="min-width:120px;margin:0"><label>Rol</label><select id="us-rol"><option value="coord">coord</option><option value="admin">admin</option><option value="nomina">nomina</option><option value="factura">factura</option></select></div>
+          <div class="fld" style="min-width:110px;margin:0"><label>Sede</label><select id="us-sede"><option value="TODAS">TODAS</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select></div>
+          <button class="btn bn" onclick="usGuardar()" style="height:36px">➕ Agregar usuario</button>
+          <button class="btn bv" onclick="usCargar()" style="height:36px" title="Recargar">🔄</button>
+        </div>
+        <div class="tw" style="overflow-x:auto">
+          <table id="us-t" class="ordenable" style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead style="background:#f3f4f6"><tr>
+              <th style="padding:8px;text-align:left">Usuario</th><th style="padding:8px;text-align:left">Rol</th>
+              <th style="padding:8px;text-align:center">Sede</th><th style="padding:8px;text-align:center">Activo</th>
+              <th style="padding:8px;text-align:center">Acc.</th>
+            </tr></thead>
+            <tbody id="us-tb"><tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3)">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card no-print">
+        <div class="ct">🧑‍🌾 Coordinadores <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Maestro de coordinadores</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+          <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Nombre</label><input type="text" id="co-nom" placeholder="Nombre del coordinador"/></div>
+          <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Administrador</label><input type="text" id="co-adm" placeholder="Administrador de campo"/></div>
+          <div class="fld" style="min-width:110px;margin:0"><label>Sede</label><select id="co-sede"><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select></div>
+          <button class="btn bn" onclick="coGuardar()" style="height:36px">➕ Agregar coordinador</button>
+          <button class="btn bv" onclick="coCargar()" style="height:36px" title="Recargar">🔄</button>
+        </div>
+        <div class="tw" style="overflow-x:auto">
+          <table id="co-t" class="ordenable" style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead style="background:#f3f4f6"><tr>
+              <th style="padding:8px;text-align:left">Coordinador</th><th style="padding:8px;text-align:left">Administrador</th>
+              <th style="padding:8px;text-align:center">Sede</th><th style="padding:8px;text-align:center">Acc.</th>
+            </tr></thead>
+            <tbody id="co-tb"><tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="p-rrhh">
       <div class="card no-print">
         <div class="ct">👥 Trabajadores
@@ -3795,7 +3838,7 @@ function buildNav(){
   } else if(S.rol==='c'){
     nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
-    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button>';
+    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
   } else if(S.rol==='n'){
     nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button><button class="ni" onclick="document.getElementById(\'nom-cfg\').style.display=document.getElementById(\'nom-cfg\').style.display===\'none\'?\'block\':\'none\'"><span class="ni-ico">⚙️</span>Configuración</button>';
   } else {
@@ -3812,7 +3855,7 @@ function rhProximamente(nombre){
 function go(pg){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -3834,6 +3877,7 @@ function go(pg){
   if(pg==='dups') dupsInit();
   if(pg==='cobertura') carCobertura();
   if(pg==='permisos') permisosInit();
+  if(pg==='accesos') accInit();
   if(pg==='emp') filtEmp();
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -16049,6 +16093,115 @@ function naToggle(header){
   var abierto=body.style.display!=='none';
   body.style.display=abierto?'none':'block';
   if(chev) chev.textContent=abierto?'▾':'▴';
+}
+</script>
+
+<script>
+var US_CACHE=[], CO_CACHE=[];
+function accInit(){ usCargar(); coCargar(); }
+function usCargar(){
+  var tb=document.getElementById('us-tb');
+  tb.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3)">Cargando...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getUsuariosAdmin'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){tb.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--r)">Error: '+(d.error||'')+'</td></tr>';return;}
+    US_CACHE=d.usuarios||[]; usRender();
+  }).catch(function(){tb.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--r)">Error de red</td></tr>';});
+}
+function usRender(){
+  var tb=document.getElementById('us-tb');
+  if(!US_CACHE.length){tb.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3)">Sin usuarios</td></tr>';return;}
+  tb.innerHTML=US_CACHE.map(function(u){
+    return '<tr><td style="padding:7px 8px"><strong>'+u.usuario+'</strong></td><td style="padding:7px 8px">'+u.rol+'</td>'
+      +'<td style="padding:7px 8px;text-align:center">'+u.sede+'</td>'
+      +'<td style="padding:7px 8px;text-align:center">'+(u.activo?'<span class="bdg bv2">Sí</span>':'<span class="bdg br2">No</span>')+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;white-space:nowrap"><button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="usEditar(\''+u.id+'\')">Editar</button> '
+      +'<button class="btn bg" style="padding:3px 8px;font-size:11px" onclick="usEliminar(\''+u.id+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+function usGuardar(){
+  var usuario=document.getElementById('us-user').value.trim(), pass=document.getElementById('us-pass').value.trim();
+  if(!usuario||!pass){alert('Usuario y contraseña son requeridos');return;}
+  accEnviar({accion:'guardarUsuario',usuario:usuario,contrasena:pass,rol:document.getElementById('us-rol').value,activo:true,sede:document.getElementById('us-sede').value},
+    function(){document.getElementById('us-user').value='';document.getElementById('us-pass').value='';usCargar();});
+}
+function usEditar(id){
+  var u=US_CACHE.find(function(x){return String(x.id)===String(id);}); if(!u)return;
+  accModal('Editar usuario',
+    '<div class="fld" style="margin-bottom:10px"><label>Usuario</label><input type="text" id="ae-1" value="'+String(u.usuario).replace(/"/g,'&quot;')+'"/></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Nueva contraseña <span style="color:var(--g3);font-weight:400">(vacío = no cambiar)</span></label><input type="text" id="ae-2" placeholder="••••••"/></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Rol</label><select id="ae-3">'+['coord','admin','nomina','factura'].map(function(x){return '<option value="'+x+'"'+(u.rol===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Sede</label><select id="ae-4">'+['TODAS','NORTE','SUR'].map(function(x){return '<option value="'+x+'"'+(u.sede===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld" style="margin-bottom:6px"><label>Activo</label><select id="ae-5"><option value="true"'+(u.activo?' selected':'')+'>Sí</option><option value="false"'+(!u.activo?' selected':'')+'>No</option></select></div>',
+    function(){
+      var b={accion:'editarUsuario',id:id,usuario:document.getElementById('ae-1').value.trim(),rol:document.getElementById('ae-3').value,sede:document.getElementById('ae-4').value,activo:document.getElementById('ae-5').value};
+      var pw=document.getElementById('ae-2').value.trim(); if(pw)b.contrasena=pw;
+      accEnviar(b,usCargar);
+    });
+}
+function usEliminar(id){
+  var u=US_CACHE.find(function(x){return String(x.id)===String(id);});
+  if(!confirm('¿Eliminar el usuario '+(u?u.usuario:'')+'?'))return;
+  accEnviar({accion:'eliminarUsuario',id:id},usCargar);
+}
+function coCargar(){
+  var tb=document.getElementById('co-tb');
+  tb.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Cargando...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getCoordinadoresAdmin'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){tb.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--r)">Error</td></tr>';return;}
+    CO_CACHE=d.coordinadores||[]; coRender();
+  }).catch(function(){tb.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--r)">Error de red</td></tr>';});
+}
+function coRender(){
+  var tb=document.getElementById('co-tb');
+  if(!CO_CACHE.length){tb.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Sin coordinadores</td></tr>';return;}
+  tb.innerHTML=CO_CACHE.map(function(c){
+    return '<tr><td style="padding:7px 8px"><strong>'+c.nombre+'</strong></td><td style="padding:7px 8px">'+(c.administrador||'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:center">'+(c.sede||'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;white-space:nowrap"><button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="coEditar(\''+c.id+'\')">Editar</button> '
+      +'<button class="btn bg" style="padding:3px 8px;font-size:11px" onclick="coEliminar(\''+c.id+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+function coGuardar(){
+  var nom=document.getElementById('co-nom').value.trim();
+  if(!nom){alert('El nombre es requerido');return;}
+  accEnviar({accion:'guardarCoordinador',nombre:nom,administrador:document.getElementById('co-adm').value.trim(),sede:document.getElementById('co-sede').value},
+    function(){document.getElementById('co-nom').value='';document.getElementById('co-adm').value='';coCargar();});
+}
+function coEditar(id){
+  var c=CO_CACHE.find(function(x){return String(x.id)===String(id);}); if(!c)return;
+  accModal('Editar coordinador',
+    '<div class="fld" style="margin-bottom:10px"><label>Nombre</label><input type="text" id="ae-1" value="'+String(c.nombre).replace(/"/g,'&quot;')+'"/></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Administrador</label><input type="text" id="ae-2" value="'+String(c.administrador||'').replace(/"/g,'&quot;')+'"/></div>'
+    +'<div class="fld" style="margin-bottom:6px"><label>Sede</label><select id="ae-3">'+['NORTE','SUR'].map(function(x){return '<option value="'+x+'"'+(c.sede===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>',
+    function(){ accEnviar({accion:'editarCoordinador',id:id,nombre:document.getElementById('ae-1').value.trim(),administrador:document.getElementById('ae-2').value.trim(),sede:document.getElementById('ae-3').value},coCargar); });
+}
+function coEliminar(id){
+  var c=CO_CACHE.find(function(x){return String(x.id)===String(id);});
+  if(!confirm('¿Eliminar el coordinador '+(c?c.nombre:'')+'?'+String.fromCharCode(10)+'(No se puede si tiene registros asociados)'))return;
+  accEnviar({accion:'eliminarCoordinador',id:id},coCargar);
+}
+function accModal(titulo,cuerpo,onSave){
+  accCerrarModal();
+  var ov=document.createElement('div'); ov.id='acc-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)accCerrarModal();};
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;max-width:420px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)';
+  box.innerHTML='<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:14px">✏️ '+titulo+'</div>'+cuerpo
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn bg" id="acc-cancel">Cancelar</button><button class="btn bv" id="acc-save">Guardar</button></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  document.getElementById('acc-cancel').onclick=accCerrarModal;
+  document.getElementById('acc-save').onclick=onSave;
+}
+function accCerrarModal(){var ov=document.getElementById('acc-modal-ov');if(ov)ov.remove();}
+function accEnviar(body,onOk){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){accCerrarModal();if(onOk)onOk();}
+    else alert('Error: '+((d&&d.error)||'no se pudo'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
 }
 </script>
 
