@@ -28,6 +28,9 @@ const PORTADAS = new Set([
   'guardarTrabajador', 'editarTrabajador', 'eliminarTrabajador', 'importarTrabajadores',
   'getVacaciones', 'eliminarVacacion', 'importarVacaciones',
   'getPlantillas', 'guardarPlantilla', 'eliminarPlantilla',
+  // Gestión de accesos (Administrativo):
+  'getUsuariosAdmin', 'guardarUsuario', 'editarUsuario', 'eliminarUsuario',
+  'getCoordinadoresAdmin', 'guardarCoordinador', 'editarCoordinador', 'eliminarCoordinador',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -81,6 +84,14 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getPlantillas')        r = await accionGetPlantillas(body, env);
     else if (accion === 'guardarPlantilla')     r = await accionGuardarPlantilla(body, env);
     else if (accion === 'eliminarPlantilla')    r = await accionEliminarPlantilla(body, env);
+    else if (accion === 'getUsuariosAdmin')      r = await accionGetUsuariosAdmin(body, env);
+    else if (accion === 'guardarUsuario')        r = await accionGuardarUsuario(body, env);
+    else if (accion === 'editarUsuario')         r = await accionEditarUsuario(body, env);
+    else if (accion === 'eliminarUsuario')       r = await accionEliminarUsuario(body, env);
+    else if (accion === 'getCoordinadoresAdmin') r = await accionGetCoordinadoresAdmin(body, env);
+    else if (accion === 'guardarCoordinador')    r = await accionGuardarCoordinador(body, env);
+    else if (accion === 'editarCoordinador')     r = await accionEditarCoordinador(body, env);
+    else if (accion === 'eliminarCoordinador')   r = await accionEliminarCoordinador(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1105,5 +1116,82 @@ async function accionEditarCobroHist(body, env) {
   if (body.administrador !== undefined) cambios.administrador = String(body.administrador || '').trim().toUpperCase();
   if (!Object.keys(cambios).length) return { ok: false, error: 'Nada que actualizar' };
   await sbWrite(env, 'PATCH', `cobros_historicos?id=eq.${encodeURIComponent(id)}`, cambios);
+  return { ok: true };
+}
+
+// ===== GESTIÓN DE USUARIOS Y COORDINADORES (Administrativo) =====
+async function accionGetUsuariosAdmin(body, env) {
+  const filas = await sbAll(env, 'usuarios?select=id,usuario,rol,activo,sede&order=usuario');
+  return { ok: true, usuarios: filas.map((u) => ({
+    id: String(u.id), usuario: String(u.usuario || ''), rol: String(u.rol || ''),
+    activo: u.activo === true, sede: String(u.sede || 'TODAS'),
+  })) };
+}
+async function accionGuardarUsuario(body, env) {
+  const usuario = String(body.usuario || '').trim().toUpperCase();
+  const contrasena = String(body.contrasena || '').trim();
+  if (!usuario || !contrasena) return { ok: false, error: 'Usuario y contraseña son requeridos' };
+  const dup = await sb(env, `usuarios?select=id&usuario=ilike.${encodeURIComponent(usuario)}&limit=1`);
+  if (dup.length) return { ok: false, error: 'Ya existe un usuario con ese nombre' };
+  await sbWrite(env, 'POST', 'usuarios', {
+    usuario, contrasena, rol: String(body.rol || 'coord').trim().toLowerCase(),
+    activo: body.activo !== false, sede: String(body.sede || 'TODAS').trim().toUpperCase(),
+  });
+  return { ok: true };
+}
+async function accionEditarUsuario(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  const cambios = {};
+  if (body.usuario !== undefined) cambios.usuario = String(body.usuario || '').trim().toUpperCase();
+  if (body.rol !== undefined) cambios.rol = String(body.rol || '').trim().toLowerCase();
+  if (body.activo !== undefined) cambios.activo = body.activo === true || body.activo === 'true' || body.activo === 'SI';
+  if (body.sede !== undefined) cambios.sede = String(body.sede || 'TODAS').trim().toUpperCase();
+  if (body.contrasena) cambios.contrasena = String(body.contrasena).trim();
+  await sbWrite(env, 'PATCH', `usuarios?id=eq.${encodeURIComponent(id)}`, cambios);
+  return { ok: true };
+}
+async function accionEliminarUsuario(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `usuarios?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+async function accionGetCoordinadoresAdmin(body, env) {
+  const filas = await sbAll(env, 'coordinadores?select=id,nombre,administrador,sede&order=nombre');
+  return { ok: true, coordinadores: filas.map((c) => ({
+    id: String(c.id), nombre: String(c.nombre || ''), administrador: String(c.administrador || ''), sede: String(c.sede || ''),
+  })) };
+}
+async function accionGuardarCoordinador(body, env) {
+  const nombre = String(body.nombre || '').trim().toUpperCase();
+  if (!nombre) return { ok: false, error: 'El nombre es requerido' };
+  const dup = await sb(env, `coordinadores?select=id&nombre=ilike.${encodeURIComponent(nombre)}&limit=1`);
+  if (dup.length) return { ok: false, error: 'Ya existe un coordinador con ese nombre' };
+  await sbWrite(env, 'POST', 'coordinadores', {
+    nombre, administrador: String(body.administrador || '').trim().toUpperCase(), sede: String(body.sede || '').trim().toUpperCase(),
+  });
+  return { ok: true };
+}
+async function accionEditarCoordinador(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  const cambios = {};
+  if (body.nombre !== undefined) cambios.nombre = String(body.nombre || '').trim().toUpperCase();
+  if (body.administrador !== undefined) cambios.administrador = String(body.administrador || '').trim().toUpperCase();
+  if (body.sede !== undefined) cambios.sede = String(body.sede || '').trim().toUpperCase();
+  await sbWrite(env, 'PATCH', `coordinadores?id=eq.${encodeURIComponent(id)}`, cambios);
+  return { ok: true };
+}
+async function accionEliminarCoordinador(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  try {
+    await sbWrite(env, 'DELETE', `coordinadores?id=eq.${encodeURIComponent(id)}`);
+  } catch (e) {
+    const m = String((e && e.message) || e).toLowerCase();
+    if (m.includes('23503') || m.includes('foreign')) return { ok: false, error: 'No se puede eliminar: el coordinador tiene registros asociados' };
+    throw e;
+  }
   return { ok: true };
 }
