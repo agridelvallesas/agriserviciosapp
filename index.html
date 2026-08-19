@@ -2269,11 +2269,11 @@ tfoot td{background:var(--gf);font-weight:700}
             </div>
             <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:8px;text-transform:uppercase">Paso 2 — Ingresar valores por coordinador</div>
             <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
-              <div class="fld" style="flex:2;min-width:180px"><label>Coordinador</label>
-                <select id="det-coord"><option value="">— Seleccionar —</option></select>
-              </div>
               <div class="fld" style="flex:2;min-width:180px"><label>Administrador de campo</label>
-                <input type="text" id="det-admin" placeholder="Se llena automático" readonly style="background:var(--gf)"/>
+                <select id="det-admin"><option value="">— Seleccionar —</option></select>
+              </div>
+              <div class="fld" style="flex:2;min-width:180px"><label>Coordinador</label>
+                <select id="det-coord"><option value="">— Elige administrador primero —</option></select>
               </div>
               <div class="fld" style="min-width:110px"><label>Semana</label>
                 <input type="text" id="det-sem" placeholder="Ej: 16"/>
@@ -7860,23 +7860,34 @@ function actualizarProgreso(){
 
 function poblarDetCoords(){
   filtrarFacturasDet(); // re-filtrar si ya hay selección
-  var sel=document.getElementById('det-coord');
-  if(sel&&sel.children.length<=1){
-    var coords=COORDS&&COORDS.length?COORDS:[];
-    coords.forEach(function(c){
-      var o=document.createElement('option');
-      o.value=c.coord; o.textContent=c.coord; sel.appendChild(o);
+  var selA=document.getElementById('det-admin');
+  // Poblar administradores distintos (una sola vez)
+  if(selA&&selA.children.length<=1){
+    var admins=[];
+    (COORDS||[]).forEach(function(c){ if(c.admin&&admins.indexOf(c.admin)<0) admins.push(c.admin); });
+    admins.sort(function(x,y){return x.localeCompare(y,'es');});
+    admins.forEach(function(a){
+      var o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o);
     });
   }
+  // Al elegir administrador, filtrar los coordinadores de ese admin
+  if(selA&&!selA.onchange){
+    selA.onchange=function(){
+      var adm=this.value;
+      var selC=document.getElementById('det-coord');
+      selC.innerHTML='<option value="">'+(adm?'— Seleccionar coordinador —':'— Elige administrador primero —')+'</option>';
+      (COORDS||[]).filter(function(c){return adm&&c.admin===adm;})
+        .sort(function(x,y){return (x.coord||'').localeCompare(y.coord||'','es');})
+        .forEach(function(c){
+          var o=document.createElement('option'); o.value=c.coord; o.textContent=c.coord+(c.sede?' ('+c.sede+')':''); selC.appendChild(o);
+        });
+    };
+  }
+  // Al elegir coordinador, autollenar la semana desde el filtro si aplica
   var detCoord=document.getElementById('det-coord');
   if(detCoord&&!detCoord.onchange){
     detCoord.onchange=function(){
-      var coord=this.value;
-      var info=COORDS&&COORDS.find(function(c){return c.coord===coord;});
-      var adminEl=document.getElementById('det-admin');
-      if(adminEl) adminEl.value=info?info.admin:'';
-      // Auto-llenar semana desde filtro si existe
-      var semFil=document.getElementById('det-sem-fil').value||'';
+      var semFil=(document.getElementById('det-sem-fil')||{}).value||'';
       var semEl=document.getElementById('det-sem');
       if(semEl&&!semEl.value&&semFil) semEl.value=semFil.split(/[,-]/)[0].trim();
     };
@@ -7901,7 +7912,6 @@ function addDetallado(){
   document.getElementById('det-val').value='';
   document.getElementById('det-sem').value='';
   document.getElementById('det-coord').value='';
-  document.getElementById('det-admin').value='';
   renderDetLista();
   actualizarProgreso();
 }
