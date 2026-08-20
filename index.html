@@ -14962,7 +14962,6 @@ function renderCobrosAdmin(){
   // Filtrar registros: coords con este admin, dentro del rango, sin vigilancia ni notas
   var regs=(typeof getAllRegs==='function'?getAllRegs():[]).filter(function(r){
     if(r.tipo==='nota') return false;
-    if(r.esVig) return false;
     var s=parseInt(r.sem);
     if(s<s1||s>s2) return false;
     return coordsDelAdmin.indexOf((r.coord||'').toUpperCase())>=0;
@@ -14979,10 +14978,8 @@ function renderCobrosAdmin(){
   regs.forEach(function(r){
     var k=r.coord+'|'+r.sem;
     if(!by[k]) by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};
-    by[k].emp.add(r.ced);
-    by[k].tar++;
-    by[k].pago+=(r.pago||0);
-    by[k].cobro+=(r.cobro||0);
+    by[k].cobro+=(r.cobro||0)+(r.cobroVig||0); // cobro TOTAL = labores + vigilancia
+    if(!r.esVig){ by[k].emp.add(r.ced); by[k].tar++; by[k].pago+=(r.pago||0); }
   });
   var rows=Object.values(by).sort(function(a,b){
     return a.sem.localeCompare(b.sem)||a.coord.localeCompare(b.coord);
