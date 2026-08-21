@@ -1175,9 +1175,10 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="fld" style="flex:1;min-width:110px"><label>Sem. hasta</label><select id="il-s2"></select></div>
           <div class="fld" style="flex:1;min-width:135px"><label>o Fecha desde</label><input type="date" id="il-f1"/></div>
           <div class="fld" style="flex:1;min-width:135px"><label>Fecha hasta</label><input type="date" id="il-f2"/></div>
+          <div class="fld" style="flex:2;min-width:210px"><label>Labor (opcional)</label><input type="text" id="il-lab" list="il-lab-list" onfocus="ilPoblarLabores()" placeholder="Escribe para buscar una labor..." autocomplete="off"/><datalist id="il-lab-list"></datalist></div>
           <button class="btn ba" onclick="calcIL()" style="height:34px;margin-top:16px">Ver</button>
           <div class="fld" style="min-width:120px"><label>Sede</label>
-            <select id="il-sede"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
+            <select id="il-sede" onchange="ilPoblarLabores()"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
           </div>
           <button class="btn bg" onclick="expCSV('il-t','inf_labor')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
@@ -5706,6 +5707,17 @@ function calcIE(){
   document.getElementById('ie-tf').innerHTML='<tr><td colspan="6"><strong>TOTAL</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td></tr>';
 }
 
+function ilPoblarLabores(){
+  var sede=(document.getElementById('il-sede')||{value:''}).value||'';
+  var dl=document.getElementById('il-lab-list'); if(!dl) return;
+  var vistos={}, opts=[];
+  (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){
+    if(sede && t.sede && t.sede!==sede) return;
+    var d=String(t.d||'').trim(); if(!d||vistos[d]) return; vistos[d]=1; opts.push(d);
+  });
+  opts.sort(function(a,b){return a.localeCompare(b,'es');});
+  dl.innerHTML=opts.map(function(d){return '<option value="'+d.replace(/"/g,'&quot;')+'"></option>';}).join('');
+}
 function ilSemDeFecha(iso){
   var p=String(iso).split('-'); // yyyy-mm-dd
   if(p.length<3) return 1;
@@ -5720,6 +5732,13 @@ function ilDdmmISO(f){
 }
 function calcIL(){
   var ilSede=document.getElementById('il-sede')&&document.getElementById('il-sede').value||'';
+  var labFiltro=(document.getElementById('il-lab')||{value:''}).value.trim();
+  var labCodigos=null;
+  if(labFiltro){
+    var lf=labFiltro.toUpperCase(); labCodigos={};
+    (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){ if(ilSede&&t.sede&&t.sede!==ilSede)return; if(String(t.d||'').trim().toUpperCase()===lf) labCodigos[t.id]=1; });
+    if(!Object.keys(labCodigos).length){ (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){ if(ilSede&&t.sede&&t.sede!==ilSede)return; if(String(t.d||'').toUpperCase().indexOf(lf)>=0) labCodigos[t.id]=1; }); }
+  }
   var f1=(document.getElementById('il-f1')||{}).value||'';
   var f2=(document.getElementById('il-f2')||{}).value||'';
   var usaFecha=!!(f1&&f2);
@@ -5734,6 +5753,7 @@ function calcIL(){
     var data=getAllRegs().filter(function(r){
       if(r.tipo!=='labor') return false;
       if(ilSede && !EMP.find(function(e){return e.c===r.ced&&e.sede===ilSede;})) return false;
+      if(labCodigos && !labCodigos[r.labId]) return false;
       if(usaFecha){ var fr=ilDdmmISO(r.fecha); return fr && fr>=f1 && fr<=f2; }
       var s=parseInt(r.sem); return s>=s1 && s<=s2;
     });
