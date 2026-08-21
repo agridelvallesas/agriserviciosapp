@@ -1182,7 +1182,7 @@ tfoot td{background:var(--gf);font-weight:700}
           </div>
           <button class="btn bg" onclick="expCSV('il-t','inf_labor')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
-        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th>Veces</th><th>Total cant.</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas (vigilancia)">H. día</th><th title="Horas nocturnas (vigilancia)">H. noche</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
       </div>
       <div id="inf-cm" style="display:none">
         <div class="card no-print"><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -5758,9 +5758,9 @@ function calcIL(){
       var s=parseInt(r.sem); return s>=s1 && s<=s2;
     });
     var by={};
-    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0};by[r.labId].veces++;by[r.labId].cant+=r.cant;by[r.labId].pago+=r.pago;by[r.labId].cobro+=(r.cobro||0)+(r.cobroVig||0);});
+    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),hd:0,hn:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);g.hd+=(r.vigHd||0);g.hn+=(r.vigHn||0);if(r.domFest)g.df++;});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
-    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td>'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+(r.hd||0).toFixed(1)+'</td><td>'+(r.hn||0).toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
   };
   if(typeof cargarSemanasMultiples==='function' && sems.length){ cargarSemanasMultiples(sems.slice(), doRender); }
   else { doRender(); }
