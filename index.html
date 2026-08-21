@@ -5758,7 +5758,7 @@ function calcIL(){
       var s=parseInt(r.sem); return s>=s1 && s<=s2;
     });
     var by={};
-    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0};by[r.labId].veces++;by[r.labId].cant+=r.cant;by[r.labId].pago+=r.pago;by[r.labId].cobro+=r.cobro;});
+    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0};by[r.labId].veces++;by[r.labId].cant+=r.cant;by[r.labId].pago+=r.pago;by[r.labId].cobro+=(r.cobro||0)+(r.cobroVig||0);});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
     tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td>'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
   };
