@@ -14778,6 +14778,13 @@ function acumConsultaCalc(){
 }
 
 // ── IMPORTADOR ──
+function acumParseNum(v){
+  var s=String(v==null?'':v).replace(/[^\d.,\-]/g,'');
+  if(!s) return 0;
+  s=s.replace(/\./g,'').replace(',','.'); // Colombia: . = miles, , = decimal
+  var n=parseFloat(s);
+  return isNaN(n)?0:n;
+}
 function acumAbrirImportador(){
   var modal=document.createElement('div');
   modal.id='acum-imp-modal';
@@ -14884,11 +14891,11 @@ function acumImpPreview(){
       // Convertir formatos varios (yyyy-mm-dd, dd/mm/yyyy, etc.)
       if(fecha){
         var m=fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-        if(!m){
-          var m2=fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-          if(m2){fecha=m2[3]+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');}
-        } else {
+        if(m){
           fecha=m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+        } else {
+          var mm=fecha.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/); // dd/mm/yy(yy) o dd-mm-yy(yy)
+          if(mm){ var yy=mm[3].length===2?('20'+mm[3]):mm[3]; fecha=yy+'-'+mm[2].padStart(2,'0')+'-'+mm[1].padStart(2,'0'); }
         }
       }
       if(!fecha){sinFecha++;}
@@ -14919,7 +14926,7 @@ function acumImpPreview(){
         TIPO:tipo,
         CATEGORIA:categoria,
         CONCEPTO:concepto,
-        VALOR:Number(String(row.VALOR||'0').replace(/[^\d.-]/g,''))||0,
+        VALOR:acumParseNum(row.VALOR),
         OBS:String(row.OBS||'').trim()
       });
     });
