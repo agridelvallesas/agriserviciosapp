@@ -14778,6 +14778,26 @@ function acumConsultaCalc(){
 }
 
 // ── IMPORTADOR ──
+var CONCEPTOS_ACUM_CUSTOM={};
+var ACUM_DESCONOCIDOS=[];
+function acumCargarConceptos(){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConceptosAcum'})})
+  .then(function(r){return r.json();}).then(function(d){
+    CONCEPTOS_ACUM_CUSTOM={};
+    if(d&&d.ok&&d.data) d.data.forEach(function(c){ if(c.concepto) CONCEPTOS_ACUM_CUSTOM[String(c.concepto).toUpperCase()]=[c.tipo||'OTRO', c.categoria||'Otro']; });
+  }).catch(function(){});
+}
+function acumGuardarConcepto(ix){
+  var concepto=(ACUM_DESCONOCIDOS||[])[ix]; if(!concepto) return;
+  var tEl=document.getElementById('ca-t-'+ix), cEl=document.getElementById('ca-c-'+ix);
+  var tipo=tEl?tEl.value:'OTRO';
+  var cat=(cEl&&cEl.value||'').trim()||'Otro';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarConceptoAcum',concepto:concepto,tipo:tipo,categoria:cat})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ CONCEPTOS_ACUM_CUSTOM[String(concepto).toUpperCase()]=[tipo,cat]; acumImpPreview(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
 function acumParseNum(v){
   var s=String(v==null?'':v).replace(/[^\d.,\-]/g,'');
   if(!s) return 0;
@@ -14786,6 +14806,7 @@ function acumParseNum(v){
   return isNaN(n)?0:n;
 }
 function acumAbrirImportador(){
+  acumCargarConceptos();
   var modal=document.createElement('div');
   modal.id='acum-imp-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -14875,6 +14896,7 @@ function acumImpPreview(){
       'DESC LIBRANZA':['DEDUCIDO','Libranza'],'DESC M/CIA':['DEDUCIDO','Libranza'],
       'TOTAL DEDUCCIONES':['SUBTOTAL','Subtotal'],'NETO A PAGAR':['RESUMEN','Neto']
     };
+    Object.keys(CONCEPTOS_ACUM_CUSTOM||{}).forEach(function(k){ CAT[k]=CONCEPTOS_ACUM_CUSTOM[k]; });
 
     // Normalizar
     var meses_es=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
@@ -14932,6 +14954,7 @@ function acumImpPreview(){
     });
 
     ACUM_IMP_DATA=data;
+    ACUM_DESCONOCIDOS=Array.from(desconocidos);
 
     // Quincenas únicas en el archivo
     var qnas={};
@@ -14944,7 +14967,7 @@ function acumImpPreview(){
       '<div style="color:#15803d">Filas válidas: <strong>'+data.length+'</strong></div>'+
       (sinFecha>0?'<div style="color:#92400e">⚠️ Sin fecha: '+sinFecha+'</div>':'')+
       (sinConcepto>0?'<div style="color:#92400e">⚠️ Descartadas (sin cédula/concepto): '+sinConcepto+'</div>':'')+
-      (desconocidos.size>0?'<div style="color:#92400e">⚠️ Conceptos desconocidos: '+Array.from(desconocidos).slice(0,5).join(', ')+(desconocidos.size>5?'...':'')+'</div>':'')+
+      (desconocidos.size>0?(function(){var arr=Array.from(desconocidos);return '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px;margin-top:8px;font-size:12px"><div style="color:#92400e;font-weight:700;margin-bottom:6px">⚠️ '+arr.length+' concepto(s) no reconocido(s) — entran como OTRO. Clasifícalos (se recuerdan para la próxima):</div>'+arr.map(function(cc,ix){return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap"><span style="min-width:170px;font-weight:600">'+cc+'</span><select id="ca-t-'+ix+'" style="font-size:11px;padding:2px 4px"><option value="DEVENGO">Devengo</option><option value="DEDUCIDO">Deducido</option><option value="SUBTOTAL">Subtotal</option><option value="OTRO">Otro</option></select><input id="ca-c-'+ix+'" placeholder="Categoría (ej. Anticipo)" style="font-size:11px;padding:2px 6px;width:160px"/><button class="btn bv" style="padding:2px 10px;font-size:11px" onclick="acumGuardarConcepto('+ix+')">Guardar</button></div>';}).join('')+'</div>';})():'')+
     '</div>'+
     '<div style="font-size:12px;margin-bottom:8px"><strong>Quincenas detectadas:</strong></div>'+
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+
