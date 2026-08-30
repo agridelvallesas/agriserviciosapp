@@ -3021,6 +3021,7 @@ const NOVNOM={'MB':'Motobomba','1':'Incapacidad E.G.','2':'Incapacidad A.T.','3'
 
 // Estado
 let S={u:null,rol:null,ltab:'c',diaSel:null,tc:0,editId:null,adm:''};
+function esSuperAdmin(){ return !!(S && S.u && String(S.u).trim().toUpperCase()==='ADMIN'); }
 let REGS=[]; // se carga desde Sheets al hacer login
 let COORDS=[]; // coordinadores desde BD_COORD en Sheets
 let DATOS_LISTOS=false; // true cuando empleados y tarifas ya cargaron de Sheets
@@ -3865,6 +3866,7 @@ function buildNav(){
     nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
     nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
+    if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
   } else if(S.rol==='n'){
     nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button><button class="ni" onclick="document.getElementById(\'nom-cfg\').style.display=document.getElementById(\'nom-cfg\').style.display===\'none\'?\'block\':\'none\'"><span class="ni-ico">⚙️</span>Configuración</button>';
   } else {
@@ -3879,6 +3881,7 @@ function rhProximamente(nombre){
 }
 
 function go(pg){
+  if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
   var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores'};
@@ -5670,7 +5673,7 @@ function carTodos(desde){
         +'<td style="font-size:10px;color:var(--g3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obs||'')+'">'+(r.obs?r.obs.substring(0,25):'—')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obsTarea||'')+'">'+(r.obsTarea?r.obsTarea.substring(0,25):'—')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);white-space:nowrap">'+(r.fReg?String(r.fReg).slice(0,16).replace('T',' '):'—')+'</td>'
-        +'<td class="no-print"><button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="abrirME(\''+r.id+'\')">Editar</button></td>'
+        +'<td class="no-print">'+(esSuperAdmin()?'<button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="abrirME(\''+r.id+'\')">Editar</button>':'<span style="color:var(--g3)">\u2014</span>')+'</td>'
         +'</tr>';
     }).join('')
     +(TD_HAY_MAS?'<tr id="td-mas-row"><td colspan="17" style="text-align:center;padding:10px;color:var(--g3)">⏳ Cargando más registros...</td></tr>':'');
@@ -8900,6 +8903,7 @@ function calcInfFac(){
 // MODAL EDITAR
 // ══════════════════════════════════════════
 function abrirME(id){
+  if(!esSuperAdmin()){ alert('Solo el administrador puede editar registros.'); return; }
   // Buscar en REGS, TD_REGS_CACHE y MR_CACHE
   var r=REGS.find(function(x){return x.id===id;})
     ||TD_REGS_CACHE.find(function(x){return x.id===id;})
