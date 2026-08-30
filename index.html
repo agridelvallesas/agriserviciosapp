@@ -1144,26 +1144,33 @@ tfoot td{background:var(--gf);font-weight:700}
         <div class="card no-print"><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div class="fld" style="flex:1;min-width:110px"><label>Sem. desde</label><select id="ic-s1"></select></div>
           <div class="fld" style="flex:1;min-width:110px"><label>Sem. hasta</label><select id="ic-s2"></select></div>
+          <div class="fld" style="flex:1;min-width:130px"><label>o Fecha desde</label><input type="date" id="ic-f1"/></div>
+          <div class="fld" style="flex:1;min-width:130px"><label>Fecha hasta</label><input type="date" id="ic-f2"/></div>
           <div class="fld" style="flex:1;min-width:150px"><label>Coordinador</label><select id="ic-co"><option value="">Todos</option></select></div>
-          <button class="btn ba" onclick="calcIC()" style="height:34px;margin-top:16px">Ver</button>
+          <div class="fld" style="flex:2;min-width:200px"><label>Labor (opcional)</label><input type="text" id="ic-lab" list="ic-lab-list" onfocus="infPoblarLab('ic')" placeholder="Escribe para buscar una labor..." autocomplete="off"/><datalist id="ic-lab-list"></datalist></div>
           <div class="fld" style="min-width:120px"><label>Sede</label>
-            <select id="ic-sede"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
+            <select id="ic-sede" onchange="infPoblarLab('ic')"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
           </div>
+          <button class="btn ba" onclick="calcIC()" style="height:34px;margin-top:16px">Ver</button>
           <button class="btn bg" onclick="expCSV('ic-t','inf_coord')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
         <div class="card"><div class="tw"><table id="ic-t"><thead><tr><th>Coordinador</th><th>Admin</th><th>Semana</th><th>Empleados</th><th>Tareas</th><th>Pago</th><th>Cobro</th><th>Diferencia</th></tr></thead><tbody id="ic-tb"></tbody><tfoot id="ic-tf"></tfoot></table></div></div>
       </div>
       <div id="inf-em" style="display:none">
         <div class="card no-print"><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div class="fld" style="flex:1;min-width:110px"><label>Semana</label><select id="ie-sem"></select></div>
+          <div class="fld" style="flex:1;min-width:110px"><label>Sem. desde</label><select id="ie-s1"></select></div>
+          <div class="fld" style="flex:1;min-width:110px"><label>Sem. hasta</label><select id="ie-s2"></select></div>
+          <div class="fld" style="flex:1;min-width:130px"><label>o Fecha desde</label><input type="date" id="ie-f1"/></div>
+          <div class="fld" style="flex:1;min-width:130px"><label>Fecha hasta</label><input type="date" id="ie-f2"/></div>
           <div class="fld" style="flex:1;min-width:150px"><label>Coordinador</label><select id="ie-co"><option value="">Todos</option></select></div>
           <div class="fld" style="min-width:120px"><label>Sede</label>
-            <select id="ie-sede"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
+            <select id="ie-sede" onchange="infPoblarLab('ie')"><option value="">Todas</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select>
           </div>
           <div class="fld" style="flex:1;min-width:140px"><label>Buscar empleado</label><div style="position:relative">
               <input type="text" id="ie-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>
               <div id="ie-emp-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--w);border:1px solid var(--bd);border-radius:var(--rads);max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
             </div></div>
+          <div class="fld" style="flex:2;min-width:200px"><label>Labor (opcional)</label><input type="text" id="ie-lab" list="ie-lab-list" onfocus="infPoblarLab('ie')" placeholder="Escribe para buscar una labor..." autocomplete="off"/><datalist id="ie-lab-list"></datalist></div>
           <button class="btn ba" onclick="calcIE()" style="height:34px;margin-top:16px">Ver</button>
           <button class="btn bg" onclick="expCSV('ie-t','inf_emp')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
@@ -3761,7 +3768,7 @@ function logout(){
 // ══════════════════════════════════════════
 function poblarSelsSems(){
   // Semanas
-  var semIds=['r-sem','mr-sem','da-sem','td-sem','ic-s1','ic-s2','ie-sem','il-s1','il-s2','cm-sems','cn-sem','fs-sem','fi-sem','mb-sem','fi2-s1','fi2-s2','me-sem'];
+  var semIds=['r-sem','mr-sem','da-sem','td-sem','ic-s1','ic-s2','ie-s1','ie-s2','il-s1','il-s2','cm-sems','cn-sem','fs-sem','fi-sem','mb-sem','fi2-s1','fi2-s2','me-sem'];
   semIds.forEach(function(id){
     var el=document.getElementById(id); if(!el) return;
     el.innerHTML='';
@@ -5694,33 +5701,81 @@ function swInf(s,btn){
   }
 }
 
+function infRango(p){
+  var f1=(document.getElementById(p+'-f1')||{}).value||'';
+  var f2=(document.getElementById(p+'-f2')||{}).value||'';
+  var usaFecha=!!(f1&&f2), s1, s2;
+  if(usaFecha){ s1=ilSemDeFecha(f1); s2=ilSemDeFecha(f2); if(s1>s2){var t=s1;s1=s2;s2=t;} }
+  else { s1=parseInt((document.getElementById(p+'-s1')||{}).value)||1; s2=parseInt((document.getElementById(p+'-s2')||{}).value)||52; }
+  return {s1:Math.max(1,s1), s2:Math.min(52,s2), usaFecha:usaFecha, f1:f1, f2:f2};
+}
+function infLabCodigos(p, sede){
+  var v=(document.getElementById(p+'-lab')||{value:''}).value.trim();
+  if(!v) return null;
+  var lf=v.toUpperCase(), cods={};
+  (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){ if(sede&&t.sede&&t.sede!==sede)return; if(String(t.d||'').trim().toUpperCase()===lf) cods[t.id]=1; });
+  if(!Object.keys(cods).length){ (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){ if(sede&&t.sede&&t.sede!==sede)return; if(String(t.d||'').toUpperCase().indexOf(lf)>=0) cods[t.id]=1; }); }
+  return cods;
+}
+function infPoblarLab(p){
+  var sede=(document.getElementById(p+'-sede')||{value:''}).value||'';
+  var dl=document.getElementById(p+'-lab-list'); if(!dl) return;
+  var vistos={}, opts=[];
+  (typeof TAR!=='undefined'?TAR:[]).forEach(function(t){ if(sede&&t.sede&&t.sede!==sede)return; var d=String(t.d||'').trim(); if(!d||vistos[d])return; vistos[d]=1; opts.push(d); });
+  opts.sort(function(a,b){return a.localeCompare(b,'es');});
+  dl.innerHTML=opts.map(function(d){return '<option value="'+d.replace(/"/g,'&quot;')+'"></option>';}).join('');
+}
+function infCargar(s1,s2,cb){
+  var sems=[]; for(var i=s1;i<=s2;i++) sems.push(('0'+i).slice(-2));
+  if(typeof cargarSemanasMultiples==='function' && sems.length){ cargarSemanasMultiples(sems.slice(), cb); } else { cb(); }
+}
 function calcIC(){
-  var s1=parseInt(document.getElementById('ic-s1').value)||1;
-  var s2=parseInt(document.getElementById('ic-s2').value)||52;
   var co=document.getElementById('ic-co').value;
   var icSede=document.getElementById('ic-sede')&&document.getElementById('ic-sede').value||'';
-  var data=getAllRegs().filter(function(r){var s=parseInt(r.sem);return s>=s1&&s<=s2&&(!co||r.coord===co)&&(!icSede||(EMP.find(function(e){return e.c===r.ced&&e.sede===icSede;})));});
-  var by={};
-  data.forEach(function(r){var k=r.coord+'|'+r.sem;if(!by[k])by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};by[k].emp.add(r.ced);by[k].tar++;by[k].pago+=r.pago;by[k].cobro+=r.cobro;});
-  var rows=Object.values(by).sort(function(a,b){return a.coord.localeCompare(b.coord)||a.sem.localeCompare(b.sem);});
-  var tP=0,tC=0,tT=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;tT+=r.tar;});
-  document.getElementById('ic-tb').innerHTML=rows.length?rows.map(function(r){return '<tr><td><strong>'+r.coord+'</strong></td><td>'+r.adm+'</td><td><span class="bdg ba2">S'+r.sem+'</span></td><td>'+r.emp.size+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td><td>'+cop(r.cobro-r.pago)+'</td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos</td></tr>';
-  document.getElementById('ic-tf').innerHTML='<tr><td colspan="4"><strong>TOTAL</strong></td><td><strong>'+tT+'</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td><td><strong>'+cop(tC-tP)+'</strong></td></tr>';
+  var R=infRango('ic'); var labCods=infLabCodigos('ic', icSede);
+  var tb=document.getElementById('ic-tb');
+  tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando semanas '+R.s1+'–'+R.s2+'...</td></tr>';
+  infCargar(R.s1,R.s2,function(){
+    var data=getAllRegs().filter(function(r){
+      if(co&&r.coord!==co) return false;
+      if(icSede && !EMP.find(function(e){return e.c===r.ced&&e.sede===icSede;})) return false;
+      if(labCods && !labCods[r.labId]) return false;
+      if(R.usaFecha){ var fr=ilDdmmISO(r.fecha); return fr && fr>=R.f1 && fr<=R.f2; }
+      var s=parseInt(r.sem); return s>=R.s1 && s<=R.s2;
+    });
+    var by={};
+    data.forEach(function(r){var k=r.coord+'|'+r.sem;if(!by[k])by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};by[k].emp.add(r.ced);by[k].tar++;by[k].pago+=r.pago;by[k].cobro+=(r.cobro||0)+(r.cobroVig||0);});
+    var rows=Object.values(by).sort(function(a,b){return a.coord.localeCompare(b.coord)||a.sem.localeCompare(b.sem);});
+    var tP=0,tC=0,tT=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;tT+=r.tar;});
+    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><strong>'+r.coord+'</strong></td><td>'+r.adm+'</td><td><span class="bdg ba2">S'+r.sem+'</span></td><td>'+r.emp.size+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td><td>'+cop(r.cobro-r.pago)+'</td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    document.getElementById('ic-tf').innerHTML='<tr><td colspan="4"><strong>TOTAL</strong></td><td><strong>'+tT+'</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td><td><strong>'+cop(tC-tP)+'</strong></td></tr>';
+  });
 }
-
 function calcIE(){
-  var sem=document.getElementById('ie-sem').value;
   var co=document.getElementById('ie-co').value;
   var ieSede=document.getElementById('ie-sede')&&document.getElementById('ie-sede').value||'';
   var ieRaw=(document.getElementById('ie-q').value||'').trim();
-  var q=ieRaw.includes(' · ')?ieRaw.split(' · ').pop().trim():ieRaw.toLowerCase();
-  var data=getAllRegs().filter(function(r){return r.sem===sem&&(!co||r.coord===co)&&(!ieSede||(EMP.find(function(e){return e.c===r.ced&&e.sede===ieSede;})))&&(!q||r.emp.toLowerCase().includes(q)||r.ced.includes(q));});
-  var by={};
-  data.forEach(function(r){if(!by[r.ced])by[r.ced]={emp:r.emp,ced:r.ced,sem:r.sem,coords:new Set(),dias:new Set(),tar:0,pago:0,cobro:0};by[r.ced].coords.add(r.coord);by[r.ced].dias.add(r.dia);by[r.ced].tar++;by[r.ced].pago+=r.pago;by[r.ced].cobro+=r.cobro;});
-  var rows=Object.values(by);
-  var tP=0,tC=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;});
-  document.getElementById('ie-tb').innerHTML=rows.length?rows.map(function(r){return '<tr><td><strong>'+r.emp+'</strong></td><td>'+r.ced+'</td><td><span class="bdg ba2">S'+r.sem+'</span></td><td style="font-size:11px">'+(Array.from(r.coords).join(', '))+'</td><td>'+(Array.from(r.dias).map(function(d){return'<span class="bdg bv2">'+d+'</span>';}).join(' '))+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos</td></tr>';
-  document.getElementById('ie-tf').innerHTML='<tr><td colspan="6"><strong>TOTAL</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td></tr>';
+  var q=ieRaw.includes(' \u00b7 ')?ieRaw.split(' \u00b7 ').pop().trim():ieRaw.toLowerCase();
+  var R=infRango('ie'); var labCods=infLabCodigos('ie', ieSede);
+  var tb=document.getElementById('ie-tb');
+  tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando semanas '+R.s1+'–'+R.s2+'...</td></tr>';
+  infCargar(R.s1,R.s2,function(){
+    var data=getAllRegs().filter(function(r){
+      if(co&&r.coord!==co) return false;
+      if(ieSede && !EMP.find(function(e){return e.c===r.ced&&e.sede===ieSede;})) return false;
+      if(q && !(r.emp.toLowerCase().includes(q)||r.ced.includes(q))) return false;
+      if(labCods && !labCods[r.labId]) return false;
+      if(R.usaFecha){ var fr=ilDdmmISO(r.fecha); return fr && fr>=R.f1 && fr<=R.f2; }
+      var s=parseInt(r.sem); return s>=R.s1 && s<=R.s2;
+    });
+    var by={};
+    data.forEach(function(r){if(!by[r.ced])by[r.ced]={emp:r.emp,ced:r.ced,coords:new Set(),dias:new Set(),tar:0,pago:0,cobro:0};by[r.ced].coords.add(r.coord);by[r.ced].dias.add(r.dia);by[r.ced].tar++;by[r.ced].pago+=r.pago;by[r.ced].cobro+=(r.cobro||0)+(r.cobroVig||0);});
+    var rows=Object.values(by).sort(function(a,b){return b.cobro-a.cobro;});
+    var tP=0,tC=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;});
+    var rango=R.usaFecha?('S'+R.s1+'–S'+R.s2):(R.s1===R.s2?('S'+R.s1):('S'+R.s1+'–S'+R.s2));
+    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><strong>'+r.emp+'</strong></td><td>'+r.ced+'</td><td><span class="bdg ba2">'+rango+'</span></td><td style="font-size:11px">'+(Array.from(r.coords).join(', '))+'</td><td>'+(Array.from(r.dias).map(function(d){return'<span class="bdg bv2">'+d+'</span>';}).join(' '))+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    document.getElementById('ie-tf').innerHTML='<tr><td colspan="6"><strong>TOTAL</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td></tr>';
+  });
 }
 
 function ilPoblarCoordAdmin(){
