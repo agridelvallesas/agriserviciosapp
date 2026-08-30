@@ -31,6 +31,8 @@ const PORTADAS = new Set([
   // Gestión de accesos (Administrativo):
   'getUsuariosAdmin', 'guardarUsuario', 'editarUsuario', 'eliminarUsuario',
   'getCoordinadoresAdmin', 'guardarCoordinador', 'editarCoordinador', 'eliminarCoordinador',
+  // Conceptos del importador de acumulados:
+  'getConceptosAcum', 'guardarConceptoAcum', 'eliminarConceptoAcum',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -92,6 +94,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarCoordinador')    r = await accionGuardarCoordinador(body, env);
     else if (accion === 'editarCoordinador')     r = await accionEditarCoordinador(body, env);
     else if (accion === 'eliminarCoordinador')   r = await accionEliminarCoordinador(body, env);
+    else if (accion === 'getConceptosAcum')      r = await accionGetConceptosAcum(body, env);
+    else if (accion === 'guardarConceptoAcum')   r = await accionGuardarConceptoAcum(body, env);
+    else if (accion === 'eliminarConceptoAcum')  r = await accionEliminarConceptoAcum(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1193,5 +1198,27 @@ async function accionEliminarCoordinador(body, env) {
     if (m.includes('23503') || m.includes('foreign')) return { ok: false, error: 'No se puede eliminar: el coordinador tiene registros asociados' };
     throw e;
   }
+  return { ok: true };
+}
+
+// ===== CONCEPTOS DEL IMPORTADOR DE ACUMULADOS (concepto -> tipo/categoria) =====
+async function accionGetConceptosAcum(body, env) {
+  const rows = await sbAll(env, 'conceptos_acumulados?select=concepto,tipo,categoria&order=concepto');
+  return { ok: true, data: rows.map((r) => ({ concepto: String(r.concepto || ''), tipo: String(r.tipo || ''), categoria: String(r.categoria || '') })) };
+}
+async function accionGuardarConceptoAcum(body, env) {
+  const concepto = String(body.concepto || '').trim().toUpperCase();
+  if (!concepto) return { ok: false, error: 'Falta el concepto' };
+  const tipo = String(body.tipo || 'OTRO').trim().toUpperCase();
+  const categoria = String(body.categoria || 'Otro').trim();
+  const ex = await sb(env, `conceptos_acumulados?select=concepto&concepto=eq.${encodeURIComponent(concepto)}&limit=1`);
+  if (ex.length) await sbWrite(env, 'PATCH', `conceptos_acumulados?concepto=eq.${encodeURIComponent(concepto)}`, { tipo, categoria });
+  else await sbWrite(env, 'POST', 'conceptos_acumulados', { concepto, tipo, categoria });
+  return { ok: true };
+}
+async function accionEliminarConceptoAcum(body, env) {
+  const concepto = String(body.concepto || '').trim().toUpperCase();
+  if (!concepto) return { ok: false, error: 'Falta el concepto' };
+  await sbWrite(env, 'DELETE', `conceptos_acumulados?concepto=eq.${encodeURIComponent(concepto)}`);
   return { ok: true };
 }
