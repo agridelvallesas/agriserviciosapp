@@ -1185,6 +1185,13 @@ tfoot td{background:var(--gf);font-weight:700}
           <button class="btn bg" onclick="expCSV('il-t','inf_labor')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
         <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas (vigilancia)">H. día</th><th title="Horas nocturnas (vigilancia)">H. noche</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
+        <div class="card" id="il-desglose-card" style="display:none">
+          <div class="ct">👥 Desglose por coordinador / administrador <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Quiénes realizaron lo filtrado</span></div>
+          <div class="tw"><table id="il-desglose" class="ordenable">
+            <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th>H. día</th><th>H. noche</th><th>Cobro</th></tr></thead>
+            <tbody id="il-desglose-tb"></tbody>
+          </table></div>
+        </div>
       </div>
       <div id="inf-cm" style="display:none">
         <div class="card no-print"><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -5792,6 +5799,24 @@ function calcIL(){
     data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),hd:0,hn:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);g.hd+=(r.vigHd||0);g.hn+=(r.vigHn||0);if(r.domFest)g.df++;});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
     tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+(r.hd||0).toFixed(1)+'</td><td>'+(r.hn||0).toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    // Desglose por coordinador-administrador de lo filtrado
+    var byCA={};
+    data.forEach(function(r){
+      var k=(r.coord||'?')+'|'+(r.adm||'?');
+      if(!byCA[k]) byCA[k]={coord:r.coord||'',adm:r.adm||'',trab:new Set(),veces:0,cant:0,hd:0,hn:0,cobro:0};
+      var g=byCA[k]; g.veces++; g.cant+=r.cant; g.hd+=(r.vigHd||0); g.hn+=(r.vigHn||0); g.cobro+=(r.cobro||0)+(r.cobroVig||0); g.trab.add(r.ced);
+    });
+    var caRows=Object.values(byCA).sort(function(a,b){return b.cobro-a.cobro;});
+    var dtb=document.getElementById('il-desglose-tb');
+    var dcard=document.getElementById('il-desglose-card');
+    if(dtb){
+      dtb.innerHTML=caRows.length?caRows.map(function(g){
+        var cc=(typeof COORDS!=='undefined'?COORDS:[]).find(function(x){return x.coord===g.coord;});
+        var sede=cc&&cc.sede?cc.sede:'';
+        return '<tr><td><strong>'+g.coord+'</strong></td><td>'+g.adm+'</td><td>'+sede+'</td><td><strong>'+g.trab.size+'</strong></td><td style="color:var(--g3)">'+g.veces+'</td><td>'+g.cant.toFixed(1)+'</td><td>'+g.hd.toFixed(1)+'</td><td>'+g.hn.toFixed(1)+'</td><td>'+cop(g.cobro)+'</td></tr>';
+      }).join(''):'<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--g3)">Sin datos</td></tr>';
+    }
+    if(dcard) dcard.style.display=caRows.length?'block':'none';
   };
   if(typeof cargarSemanasMultiples==='function' && sems.length){ cargarSemanasMultiples(sems.slice(), doRender); }
   else { doRender(); }
