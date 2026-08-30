@@ -4870,28 +4870,33 @@ async function eliminarRegistroDup(id, btn){
   }
 }
 
+var DA_INIT=false;
 function carDA(){
-  var sem=document.getElementById('da-sem')&&document.getElementById('da-sem').value||'16';
-  var todos=getAllRegs().filter(function(r){return r.sem===sem;});
-  document.getElementById('da-e').textContent=[...new Set(todos.map(function(r){return r.ced;}))].length;
-  document.getElementById('da-co').textContent=[...new Set(todos.map(function(r){return r.coord;}))].length;
-  document.getElementById('da-t').textContent=todos.filter(function(r){return r.tipo==='labor';}).length;
-  var daPago=todos.reduce(function(s,r){return s+r.pago;},0);
-  var daCobro=todos.reduce(function(s,r){return s+r.cobro;},0);
-  var daCobroV=todos.reduce(function(s,r){return s+(r.cobroVig||0);},0);
-  document.getElementById('da-p').textContent=cop(daPago);
-  document.getElementById('da-c').textContent=cop(daCobro);
-  var daCVel=document.getElementById('da-cv'); if(daCVel) daCVel.textContent=cop(daCobroV);
-  var daCTel=document.getElementById('da-ct'); if(daCTel) daCTel.textContent=cop(daCobro+daCobroV);
-  var daCL=document.getElementById('da-cl');
-  if(daCL) daCL.innerHTML=costoLaboral(daPago,daCobro);
-  var alts=detectAlts(todos); // se usa para el conteo por coord pero no se muestra aquí
-  var byC={};
-  todos.forEach(function(r){if(!byC[r.coord])byC[r.coord]={adm:r.adm,emp:new Set(),tar:0,pago:0,cobro:0,cobroVig:0,alts:0};byC[r.coord].emp.add(r.ced);byC[r.coord].tar++;byC[r.coord].pago+=r.pago;byC[r.coord].cobro+=r.cobro;byC[r.coord].cobroVig+=(r.cobroVig||0);});
-  alts.forEach(function(a){if(byC[a.coord])byC[a.coord].alts++;});
+  var daSemEl=document.getElementById('da-sem');
+  if(daSemEl && !DA_INIT){ try{ daSemEl.value=getSemActual(); }catch(e){} DA_INIT=true; }
+  var sem=(daSemEl&&daSemEl.value)||'16';
   var tb=document.getElementById('da-tb');
-  if(!Object.keys(byC).length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin datos esta semana</td></tr>';return;}
-  tb.innerHTML=Object.entries(byC).map(function(e){var co=e[0],d=e[1];return '<tr><td><strong>'+co+'</strong></td><td>'+d.adm+'</td><td>'+d.emp.size+'</td><td>'+d.tar+'</td><td>'+cop(d.pago)+'</td><td>'+cop(d.cobro)+'</td><td>'+(d.alts>0?'<span class="bdg br2">⚠️ '+d.alts+'</span>':'<span class="bdg bv2">OK</span>')+'</td></tr>';}).join('');
+  if(tb) tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando semana '+sem+'...</td></tr>';
+  infCargar(parseInt(sem)||1, parseInt(sem)||1, function(){
+    var todos=getAllRegs().filter(function(r){return r.sem===sem;});
+    var e1=document.getElementById('da-e'); if(e1) e1.textContent=[...new Set(todos.map(function(r){return r.ced;}))].length;
+    var e2=document.getElementById('da-co'); if(e2) e2.textContent=[...new Set(todos.map(function(r){return r.coord;}))].length;
+    document.getElementById('da-t').textContent=todos.filter(function(r){return r.tipo==='labor';}).length;
+    var daPago=todos.reduce(function(s,r){return s+r.pago;},0);
+    var daCobro=todos.reduce(function(s,r){return s+r.cobro;},0);
+    var daCobroV=todos.reduce(function(s,r){return s+(r.cobroVig||0);},0);
+    document.getElementById('da-p').textContent=cop(daPago);
+    document.getElementById('da-c').textContent=cop(daCobro);
+    var daCVel=document.getElementById('da-cv'); if(daCVel) daCVel.textContent=cop(daCobroV);
+    var daCTel=document.getElementById('da-ct'); if(daCTel) daCTel.textContent=cop(daCobro+daCobroV);
+    var daCL=document.getElementById('da-cl'); if(daCL) daCL.innerHTML=costoLaboral(daPago,daCobro);
+    var alts=detectAlts(todos);
+    var byC={};
+    todos.forEach(function(r){if(!byC[r.coord])byC[r.coord]={adm:r.adm,emp:new Set(),tar:0,pago:0,cobro:0,cobroVig:0,alts:0};byC[r.coord].emp.add(r.ced);byC[r.coord].tar++;byC[r.coord].pago+=r.pago;byC[r.coord].cobro+=r.cobro;byC[r.coord].cobroVig+=(r.cobroVig||0);});
+    alts.forEach(function(a){if(byC[a.coord])byC[a.coord].alts++;});
+    if(!Object.keys(byC).length){ if(tb) tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin datos esta semana</td></tr>'; return; }
+    if(tb) tb.innerHTML=Object.entries(byC).map(function(en){var co=en[0],d=en[1];return '<tr><td><strong>'+co+'</strong></td><td>'+d.adm+'</td><td>'+d.emp.size+'</td><td>'+d.tar+'</td><td>'+cop(d.pago)+'</td><td>'+cop(d.cobro)+'</td><td>'+(d.alts>0?'<span class="bdg br2">⚠️ '+d.alts+'</span>':'<span class="bdg bv2">OK</span>')+'</td></tr>';}).join('');
+  });
 }
 
 var MR_CACHE=[];
