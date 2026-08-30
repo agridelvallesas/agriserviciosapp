@@ -9161,7 +9161,7 @@ function filtTar(){
       +'<td>'+t.d+'</td><td>'+t.u+'</td>'
       +'<td><strong>'+cop(t.p)+'</strong></td>'
       +'<td>'+cop(t.c)+'</td>'
-      +'<td>'+(t.eficiencia?'<span style="font-size:11px;color:var(--g2)">'+t.eficiencia+'</span>':'—')+'</td>'
+      +'<td>'+((t.p&&t.p>0)?'<span style="font-size:11px;color:var(--g2)">'+Math.ceil(UMBRAL/t.p)+'</span>':'—')+'</td>'
       +'<td>'+sdBadge(t.sede)+'</td>'
       +'</tr>';
   }).join('')||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin resultados</td></tr>';
