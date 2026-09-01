@@ -13274,6 +13274,7 @@ function vacGenerarCarta(id){
 
     // Reemplazar variables en HTML
     var html=plt.CONTENIDO_HTML;
+    derivarVars(vars);
     Object.keys(vars).forEach(function(k){
       html=html.replace(new RegExp('\\{'+k+'\\}','g'), vars[k]);
     });
@@ -13361,6 +13362,14 @@ function cartasPlantillaChange(){
   });
   cont.innerHTML=htmlInputs||'<div style="font-size:12px;color:var(--g3)">Esta plantilla solo usa datos del trabajador — no hay que llenar nada más.</div>';
 }
+function derivarVars(vars){
+  Object.keys(vars).forEach(function(k){
+    if(/_(LARGA|LETRAS)$/.test(k)) return;
+    var val=String(vars[k]||'').trim();
+    if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(val)){ if(vars[k+'_LARGA']===undefined) vars[k+'_LARGA']=fechaLarga(val); }
+    else if(/^\$?[\d][\d.,]*$/.test(val)){ var n=parseFloat(val.replace(/[.$\s]/g,'').replace(',','.')); if(!isNaN(n)&&vars[k+'_LETRAS']===undefined) vars[k+'_LETRAS']=numeroALetras(n); }
+  });
+}
 function cartasGenerar(preview){
   var t=cartasTrabActual();
   if(!t){alert('Elige un trabajador de la lista');return;}
@@ -13369,12 +13378,7 @@ function cartasGenerar(preview){
   if(!p){alert('Elige el tipo de carta');return;}
   var vars=cartasVarsBase(t);
   document.querySelectorAll('[id^="crv-"]').forEach(function(inp){ vars[inp.id.replace('crv-','')]=inp.value; });
-  // Auto: {X_LARGA} para fechas y {X_LETRAS} para números
-  Object.keys(vars).forEach(function(k){
-    var val=String(vars[k]||'').trim();
-    if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(val)){ if(vars[k+'_LARGA']===undefined) vars[k+'_LARGA']=fechaLarga(val); }
-    else if(/^\$?[\d][\d.,]*$/.test(val)){ var n=parseFloat(val.replace(/[.$\s]/g,'').replace(',','.')); if(!isNaN(n)&&vars[k+'_LETRAS']===undefined) vars[k+'_LETRAS']=numeroALetras(n); }
-  });
+  derivarVars(vars);
   var html=p.CONTENIDO_HTML||'';
   Object.keys(vars).forEach(function(k){ html=html.replace(new RegExp('\\{'+k+'\\}','g'), vars[k]); });
   if(preview){
@@ -13470,7 +13474,7 @@ var PLT_DATA=[];
 var PLT_CURRENT=null;
 
 // Lista canónica de variables disponibles según tipo de plantilla
-var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','DIAS','VALOR','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
+var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','DIAS','DIAS_LETRAS','VALOR','VALOR_LETRAS','SALARIO','SALARIO_LETRAS','PROMEDIO','PROMEDIO_LETRAS','FECHA_RETIRO','FECHA_RETIRO_LARGA','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
 
 function pltInit(){
   pltCargar();
@@ -13565,8 +13569,10 @@ function pltVistaPrevia(){
     FECHA_INGRESO:'2020-03-15',
     FECHA_INGRESO_LARGA:'15 de marzo de 2020',
     FECHA_CARTA_LARGA:'29 de mayo de 2026',
+    SALARIO:'$1.300.000',PROMEDIO:'$1.450.000',FECHA_RETIRO:'2024-11-13',
     REPRESENTANTE:'JESÚS ARBEY SÁNCHEZ RENGIFO'
   };
+  derivarVars(ejemplo);
   Object.keys(ejemplo).forEach(function(k){
     html=html.replace(new RegExp('\\{'+k+'\\}','g'), ejemplo[k]);
   });
