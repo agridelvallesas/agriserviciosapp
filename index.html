@@ -1964,6 +1964,8 @@ tfoot td{background:var(--gf);font-weight:700}
               <div class="fld"><label>Límite horas ordinarias/quincena</label><input type="number" id="cfg-lim" value="96" oninput="cfgGuardar()"/></div>
               <div class="fld"><label>Horas/día aux. transporte</label><input type="number" id="cfg-hat" value="7.33" step="0.01" oninput="cfgGuardar()"/></div>
               <div class="fld"><label>Domingo descanso vigilancia</label><input type="number" id="cfg-dd" value="58364" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>Horas para domingo descanso</label><input type="number" id="cfg-ddh" value="44" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>¿Pagar domingo descanso?</label><label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cfg-ddOn" checked onchange="cfgGuardar()" style="width:auto;margin:0"/> Sí, pagarlo</label></div>
               <div class="fld"><label>Tarifa cobro Riopaila (por hora)</label><input type="number" id="cfg-vigCobro" value="18134" oninput="cfgGuardar()"/></div>
             </div>
           </div>
@@ -5884,7 +5886,7 @@ function vigPagoWorker(regs, T){
   });
   var domVig=0; Object.keys(domVigByDia).forEach(function(k){domVig+=domVigByDia[k];});
   var trabajoDom=Object.keys(domVigByDia).some(function(k){return k.indexOf('_sig_')<0;});
-  if(!trabajoDom && hVigTotal>0){ domVig+=Math.floor(hVigTotal/44)*(T.dd||58364); }
+  if(T.ddOn!==false && !trabajoDom && hVigTotal>0){ domVig+=Math.floor(hVigTotal/(T.ddh||44))*(T.dd||58364); }
   return {sal:salVig, dom:domVig, extra:extraVig, total:salVig+domVig+extraVig};
 }
 function vigSegHoras(r){
@@ -6286,7 +6288,7 @@ function carConsRender(sem, filtro, cnSede, UMBRAL_DIA){
 // CONFIGURACIÓN NÓMINA
 // ══════════════════════════════════════════
 var NOM_CFG={t1:7959,t2:9948,t3:10744,t4:13927,t5:14325,t6:16315,t7:17111,t8:20294,
-  at:249095,aa:249095,dom:105055,lim:110,hat:7.33,dd:58364,vigCobro:18134};
+  at:249095,aa:249095,dom:105055,lim:110,hat:7.33,dd:58364,ddh:44,ddOn:true,vigCobro:18134};
 var NOM_ROWS_CACHE=[]; // filas de la última nómina calculada (para exportar y cuadrar)
 // Cargar configuración guardada al iniciar (no esperar a abrir pestaña Configuración)
 (function(){
@@ -6302,17 +6304,19 @@ function cfgCargar(){
     var el=document.getElementById('cfg-'+k);
     if(el) el.value=NOM_CFG[k];
   });
+  var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) ddOnEl.checked=NOM_CFG.ddOn!==false;
   // Sincronizar con módulo vigilancia
   cfgSyncVig();
 }
 
 function cfgGuardar(){
-  var keys=['t1','t2','t3','t4','t5','t6','t7','t8','at','aa','dom','lim','hat','dd'];
+  var keys=['t1','t2','t3','t4','t5','t6','t7','t8','at','aa','dom','lim','hat','dd','ddh'];
   keys.forEach(function(k){
     var el=document.getElementById('cfg-'+k);
     if(el) NOM_CFG[k]=parseFloat(el.value)||NOM_CFG[k];
   });
   // Tarifa de cobro de vigilancia a Riopaila
+  var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) NOM_CFG.ddOn=ddOnEl.checked;
   var vcEl=document.getElementById('cfg-vigCobro');
   if(vcEl){ NOM_CFG.vigCobro=parseFloat(vcEl.value)||NOM_CFG.vigCobro; VIG_COBRO_TARIFA=NOM_CFG.vigCobro; }
   try{localStorage.setItem('nom_cfg',JSON.stringify(NOM_CFG));}catch(e){}
@@ -7243,8 +7247,8 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       // madrugada (12am-6am) que cae en el día siguiente. La clave es "sem_dia" y para
       // la madrugada queda "sem_sig_dia", por eso se busca '_sig_' y no un prefijo.
       var trabajoDomVig=Object.keys(domVigByDia).some(function(k){return k.indexOf('_sig_')<0;});
-      if(!trabajoDomVig&&hVigTotal>0){
-        var descDescanso=Math.floor(hVigTotal/44)*(NOM_CFG.dd||58364);
+      if(NOM_CFG.ddOn!==false && !trabajoDomVig&&hVigTotal>0){
+        var descDescanso=Math.floor(hVigTotal/(NOM_CFG.ddh||44))*(NOM_CFG.dd||58364);
         domVigN+=descDescanso;
       }
       ajDomVigN=0; // no hay ajuste dominical en vigilancia
