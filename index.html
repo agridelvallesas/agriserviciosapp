@@ -1191,11 +1191,11 @@ tfoot td{background:var(--gf);font-weight:700}
           </div>
           <button class="btn bg" onclick="expCSV('il-t','inf_labor')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
-        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas (vigilancia)">H. día</th><th title="Horas nocturnas (vigilancia)">H. noche</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas NO festivas">H. día ord.</th><th title="Horas nocturnas NO festivas">H. noche ord.</th><th title="Horas diurnas en dominical/festivo">H. día fest.</th><th title="Horas nocturnas en dominical/festivo">H. noche fest.</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
         <div class="card" id="il-desglose-card" style="display:none">
           <div class="ct">👥 Desglose por coordinador / administrador <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Quiénes realizaron lo filtrado</span></div>
           <div class="tw"><table id="il-desglose" class="ordenable">
-            <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th>H. día</th><th>H. noche</th><th>Cobro</th></tr></thead>
+            <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th title="Diurnas NO festivas">H. día ord.</th><th title="Nocturnas NO festivas">H. noche ord.</th><th title="Diurnas festivo/dom">H. día fest.</th><th title="Nocturnas festivo/dom">H. noche fest.</th><th>Cobro</th></tr></thead>
             <tbody id="il-desglose-tb"></tbody>
           </table></div>
         </div>
@@ -2263,7 +2263,7 @@ tfoot td{background:var(--gf);font-weight:700}
               </select>
             </div>
           </div>
-          <div class="tw"><table id="fac-lista-t"><thead><tr>
+          <div class="tw"><table id="fac-lista-t" class="ordenable"><thead><tr>
             <th>Det.</th><th>Fecha fac.</th><th>Vence</th><th>N° Factura</th><th>N° Acta</th>
             <th>Semana(s)</th><th>Contrato</th><th>Responsable</th>
             <th>Valor factura</th><th>Retención</th><th>Valor a pagar</th>
@@ -5852,6 +5852,23 @@ function ilPoblarLabores(){
   opts.sort(function(a,b){return a.localeCompare(b,'es');});
   dl.innerHTML=opts.map(function(d){return '<option value="'+d.replace(/"/g,'&quot;')+'"></option>';}).join('');
 }
+function vigSegHoras(r){
+  var res={dOrd:0,nOrd:0,dFest:0,nFest:0};
+  var hd=r.vigHd||0, hn=r.vigHn||0;
+  if(!hd && !hn) return res;
+  var fechaDia=(typeof getFecha==='function')?getFecha(r.sem,r.dia):null;
+  if(!fechaDia){ if(hn>0){hd+=1;hn-=1;} res[r.domFest?'dFest':'dOrd']+=hd; res[r.domFest?'nFest':'nOrd']+=hn; return res; }
+  var festDia=esDomFest(fechaDia);
+  var fechaSig=new Date(fechaDia.getTime()+24*3600*1000);
+  var festSig=esDomFest(fechaSig);
+  if(hn>0){ hd+=1; hn-=1; }
+  if(hd>0) res[festDia?'dFest':'dOrd']+=hd;
+  var hn1=Math.min(5,hn);
+  if(hn1>0) res[festDia?'nFest':'nOrd']+=hn1;
+  var hn2=hn-hn1;
+  if(hn2>0) res[festSig?'nFest':'nOrd']+=hn2;
+  return res;
+}
 function ilSemDeFecha(iso){
   var p=String(iso).split('-'); // yyyy-mm-dd
   if(p.length<3) return 1;
@@ -5896,15 +5913,15 @@ function calcIL(){
       var s=parseInt(r.sem); return s>=s1 && s<=s2;
     });
     var by={};
-    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),hd:0,hn:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);g.hd+=(r.vigHd||0);g.hn+=(r.vigHn||0);if(r.domFest)g.df++;});
+    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),dOrd:0,nOrd:0,dFest:0,nFest:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);var sg=vigSegHoras(r);g.dOrd+=sg.dOrd;g.nOrd+=sg.nOrd;g.dFest+=sg.dFest;g.nFest+=sg.nFest;if(r.domFest)g.df++;});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
-    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+(r.hd||0).toFixed(1)+'</td><td>'+(r.hn||0).toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+r.dOrd.toFixed(1)+'</td><td>'+r.nOrd.toFixed(1)+'</td><td>'+r.dFest.toFixed(1)+'</td><td>'+r.nFest.toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
     // Desglose por coordinador-administrador de lo filtrado
     var byCA={};
     data.forEach(function(r){
       var k=(r.coord||'?')+'|'+(r.adm||'?');
-      if(!byCA[k]) byCA[k]={coord:r.coord||'',adm:r.adm||'',trab:new Set(),veces:0,cant:0,hd:0,hn:0,cobro:0};
-      var g=byCA[k]; g.veces++; g.cant+=r.cant; g.hd+=(r.vigHd||0); g.hn+=(r.vigHn||0); g.cobro+=(r.cobro||0)+(r.cobroVig||0); g.trab.add(r.ced);
+      if(!byCA[k]) byCA[k]={coord:r.coord||'',adm:r.adm||'',trab:new Set(),veces:0,cant:0,dOrd:0,nOrd:0,dFest:0,nFest:0,cobro:0};
+      var g=byCA[k]; g.veces++; g.cant+=r.cant; var sg=vigSegHoras(r); g.dOrd+=sg.dOrd; g.nOrd+=sg.nOrd; g.dFest+=sg.dFest; g.nFest+=sg.nFest; g.cobro+=(r.cobro||0)+(r.cobroVig||0); g.trab.add(r.ced);
     });
     var caRows=Object.values(byCA).sort(function(a,b){return b.cobro-a.cobro;});
     var dtb=document.getElementById('il-desglose-tb');
@@ -5913,8 +5930,8 @@ function calcIL(){
       dtb.innerHTML=caRows.length?caRows.map(function(g){
         var cc=(typeof COORDS!=='undefined'?COORDS:[]).find(function(x){return x.coord===g.coord;});
         var sede=cc&&cc.sede?cc.sede:'';
-        return '<tr><td><strong>'+g.coord+'</strong></td><td>'+g.adm+'</td><td>'+sede+'</td><td><strong>'+g.trab.size+'</strong></td><td style="color:var(--g3)">'+g.veces+'</td><td>'+g.cant.toFixed(1)+'</td><td>'+g.hd.toFixed(1)+'</td><td>'+g.hn.toFixed(1)+'</td><td>'+cop(g.cobro)+'</td></tr>';
-      }).join(''):'<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--g3)">Sin datos</td></tr>';
+        return '<tr><td><strong>'+g.coord+'</strong></td><td>'+g.adm+'</td><td>'+sede+'</td><td><strong>'+g.trab.size+'</strong></td><td style="color:var(--g3)">'+g.veces+'</td><td>'+g.cant.toFixed(1)+'</td><td>'+g.dOrd.toFixed(1)+'</td><td>'+g.nOrd.toFixed(1)+'</td><td>'+g.dFest.toFixed(1)+'</td><td>'+g.nFest.toFixed(1)+'</td><td>'+cop(g.cobro)+'</td></tr>';
+      }).join(''):'<tr><td colspan="11" style="text-align:center;padding:16px;color:var(--g3)">Sin datos</td></tr>';
     }
     if(dcard) dcard.style.display=caRows.length?'block':'none';
   };
@@ -7779,6 +7796,7 @@ function renderFacturas(){
     }
     return true;
   });
+  data.sort(function(a,b){return String(b.ffac||'').localeCompare(String(a.ffac||''));}); // más reciente primero
   // ── KPIs de detallado ──
   facActualizarKpisDet(FACTURAS_CACHE);
   if(!data.length){
@@ -16447,6 +16465,8 @@ function cnomEliminarConcepto(k){
 (function(){
   function valOrden(s){
     s=(s||'').trim();
+    var fm=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(fm) return {n:parseInt(fm[3]+('0'+fm[2]).slice(-2)+('0'+fm[1]).slice(-2))};
     var limpio=s.replace(/[\s$]/g,'').replace(/,/g,'');
     if(/^-?\d{1,3}(\.\d{3})+$/.test(limpio)) limpio=limpio.replace(/\./g,''); // 5.289.013 -> 5289013
     if(/^-?\d+(\.\d+)?$/.test(limpio)) return {n:parseFloat(limpio)};
