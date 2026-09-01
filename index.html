@@ -1191,11 +1191,11 @@ tfoot td{background:var(--gf);font-weight:700}
           </div>
           <button class="btn bg" onclick="expCSV('il-t','inf_labor')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
-        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas NO festivas">H. día ord.</th><th title="Horas nocturnas NO festivas">H. noche ord.</th><th title="Horas diurnas en dominical/festivo">H. día fest.</th><th title="Horas nocturnas en dominical/festivo">H. noche fest.</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
+        <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas NO festivas">H. día ord.</th><th title="Horas nocturnas NO festivas">H. noche ord.</th><th title="Horas diurnas en dominical/festivo">H. día fest.</th><th title="Horas nocturnas en dominical/festivo">H. noche fest.</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th title="Pago de vigilancia calculado igual que la nómina">Pago vig.</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
         <div class="card" id="il-desglose-card" style="display:none">
           <div class="ct">👥 Desglose por coordinador / administrador <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Quiénes realizaron lo filtrado</span></div>
           <div class="tw"><table id="il-desglose" class="ordenable">
-            <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th title="Diurnas NO festivas">H. día ord.</th><th title="Nocturnas NO festivas">H. noche ord.</th><th title="Diurnas festivo/dom">H. día fest.</th><th title="Nocturnas festivo/dom">H. noche fest.</th><th>Cobro</th></tr></thead>
+            <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th title="Diurnas NO festivas">H. día ord.</th><th title="Nocturnas NO festivas">H. noche ord.</th><th title="Diurnas festivo/dom">H. día fest.</th><th title="Nocturnas festivo/dom">H. noche fest.</th><th title="Pago de vigilancia como la nómina">Pago vig.</th><th>Cobro</th></tr></thead>
             <tbody id="il-desglose-tb"></tbody>
           </table></div>
         </div>
@@ -5852,6 +5852,41 @@ function ilPoblarLabores(){
   opts.sort(function(a,b){return a.localeCompare(b,'es');});
   dl.innerHTML=opts.map(function(d){return '<option value="'+d.replace(/"/g,'&quot;')+'"></option>';}).join('');
 }
+function vigPagoWorker(regs, T){
+  var segmentos=[], hVigTotal=0;
+  regs.forEach(function(r){
+    var hd=r.vigHd||0, hn=r.vigHn||0;
+    hVigTotal+=hd+hn;
+    if(!hd && !hn) return;
+    var fechaDia=(typeof getFecha==='function')?getFecha(r.sem,r.dia):null;
+    var festDia=fechaDia?esDomFest(fechaDia):!!r.domFest;
+    var fechaSig=fechaDia?new Date(fechaDia.getTime()+24*3600000):null;
+    var festSig=fechaSig?esDomFest(fechaSig):festDia;
+    var base=fechaDia?fechaDia.getTime():0;
+    if(hn>0){hd+=1;hn-=1;}
+    if(hd>0) segmentos.push({h:hd,fest:festDia,tipo:'D',dia:r.dia,sem:r.sem,ts:base+6*3600000});
+    var hn1=Math.min(5,hn);
+    if(hn1>0) segmentos.push({h:hn1,fest:festDia,tipo:'N',dia:r.dia,sem:r.sem,ts:base+19*3600000});
+    var hn2=hn-hn1;
+    if(hn2>0) segmentos.push({h:hn2,fest:festSig,tipo:'N',dia:'sig_'+r.dia,sem:r.sem,ts:base+24*3600000});
+  });
+  segmentos.sort(function(a,b){return a.ts-b.ts;});
+  var LIMITE=T.lim||110, horasOrd=0, salVig=0, extraVig=0, domVigByDia={};
+  segmentos.forEach(function(seg){
+    var ordEste=Math.min(seg.h, LIMITE-horasOrd); if(ordEste<0)ordEste=0;
+    var extEste=seg.h-ordEste; horasOrd+=ordEste;
+    var tarOrd=seg.tipo==='D'?(seg.fest?T.t5:T.t1):(seg.fest?T.t7:T.t3);
+    var tarExt=seg.tipo==='D'?(seg.fest?T.t6:T.t2):(seg.fest?T.t8:T.t4);
+    extraVig+=Math.round(extEste*tarExt);
+    var pagoOrd=Math.round(ordEste*tarOrd);
+    if(seg.fest){ var dk=seg.sem+'_'+seg.dia; domVigByDia[dk]=(domVigByDia[dk]||0)+pagoOrd; }
+    else salVig+=pagoOrd;
+  });
+  var domVig=0; Object.keys(domVigByDia).forEach(function(k){domVig+=domVigByDia[k];});
+  var trabajoDom=Object.keys(domVigByDia).some(function(k){return k.indexOf('_sig_')<0;});
+  if(!trabajoDom && hVigTotal>0){ domVig+=Math.floor(hVigTotal/44)*(T.dd||58364); }
+  return {sal:salVig, dom:domVig, extra:extraVig, total:salVig+domVig+extraVig};
+}
 function vigSegHoras(r){
   var res={dOrd:0,nOrd:0,dFest:0,nFest:0};
   var hd=r.vigHd||0, hn=r.vigHn||0;
@@ -5915,7 +5950,8 @@ function calcIL(){
     var by={};
     data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),dOrd:0,nOrd:0,dFest:0,nFest:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);var sg=vigSegHoras(r);g.dOrd+=sg.dOrd;g.nOrd+=sg.nOrd;g.dFest+=sg.dFest;g.nFest+=sg.nFest;if(r.domFest)g.df++;});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
-    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+r.dOrd.toFixed(1)+'</td><td>'+r.nOrd.toFixed(1)+'</td><td>'+r.dFest.toFixed(1)+'</td><td>'+r.nFest.toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+    (function(){ var Tv=getCFG(), vg={}; data.forEach(function(r){ if(!(r.esVig||((r.vigHd||0)+(r.vigHn||0)>0)))return; (vg[r.labId]=vg[r.labId]||{}); (vg[r.labId][r.ced]=vg[r.labId][r.ced]||[]).push(r); }); Object.keys(vg).forEach(function(lab){ var t=0; Object.keys(vg[lab]).forEach(function(ced){ t+=vigPagoWorker(vg[lab][ced],Tv).total; }); if(by[lab]) by[lab].pagoVig=t; }); })();
+    tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+r.dOrd.toFixed(1)+'</td><td>'+r.nOrd.toFixed(1)+'</td><td>'+r.dFest.toFixed(1)+'</td><td>'+r.nFest.toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+(r.pagoVig?cop(r.pagoVig):'—')+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
     // Desglose por coordinador-administrador de lo filtrado
     var byCA={};
     data.forEach(function(r){
@@ -5924,14 +5960,15 @@ function calcIL(){
       var g=byCA[k]; g.veces++; g.cant+=r.cant; var sg=vigSegHoras(r); g.dOrd+=sg.dOrd; g.nOrd+=sg.nOrd; g.dFest+=sg.dFest; g.nFest+=sg.nFest; g.cobro+=(r.cobro||0)+(r.cobroVig||0); g.trab.add(r.ced);
     });
     var caRows=Object.values(byCA).sort(function(a,b){return b.cobro-a.cobro;});
+    (function(){ var Tv=getCFG(), vg={}; data.forEach(function(r){ if(!(r.esVig||((r.vigHd||0)+(r.vigHn||0)>0)))return; var k=(r.coord||'?')+'|'+(r.adm||'?'); (vg[k]=vg[k]||{}); (vg[k][r.ced]=vg[k][r.ced]||[]).push(r); }); Object.keys(vg).forEach(function(k){ var t=0; Object.keys(vg[k]).forEach(function(ced){ t+=vigPagoWorker(vg[k][ced],Tv).total; }); if(byCA[k]) byCA[k].pagoVig=t; }); })();
     var dtb=document.getElementById('il-desglose-tb');
     var dcard=document.getElementById('il-desglose-card');
     if(dtb){
       dtb.innerHTML=caRows.length?caRows.map(function(g){
         var cc=(typeof COORDS!=='undefined'?COORDS:[]).find(function(x){return x.coord===g.coord;});
         var sede=cc&&cc.sede?cc.sede:'';
-        return '<tr><td><strong>'+g.coord+'</strong></td><td>'+g.adm+'</td><td>'+sede+'</td><td><strong>'+g.trab.size+'</strong></td><td style="color:var(--g3)">'+g.veces+'</td><td>'+g.cant.toFixed(1)+'</td><td>'+g.dOrd.toFixed(1)+'</td><td>'+g.nOrd.toFixed(1)+'</td><td>'+g.dFest.toFixed(1)+'</td><td>'+g.nFest.toFixed(1)+'</td><td>'+cop(g.cobro)+'</td></tr>';
-      }).join(''):'<tr><td colspan="11" style="text-align:center;padding:16px;color:var(--g3)">Sin datos</td></tr>';
+        return '<tr><td><strong>'+g.coord+'</strong></td><td>'+g.adm+'</td><td>'+sede+'</td><td><strong>'+g.trab.size+'</strong></td><td style="color:var(--g3)">'+g.veces+'</td><td>'+g.cant.toFixed(1)+'</td><td>'+g.dOrd.toFixed(1)+'</td><td>'+g.nOrd.toFixed(1)+'</td><td>'+g.dFest.toFixed(1)+'</td><td>'+g.nFest.toFixed(1)+'</td><td>'+(g.pagoVig?cop(g.pagoVig):'—')+'</td><td>'+cop(g.cobro)+'</td></tr>';
+      }).join(''):'<tr><td colspan="12" style="text-align:center;padding:16px;color:var(--g3)">Sin datos</td></tr>';
     }
     if(dcard) dcard.style.display=caRows.length?'block':'none';
   };
