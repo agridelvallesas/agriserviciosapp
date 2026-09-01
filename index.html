@@ -1580,6 +1580,32 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ════════════════════════════════════════
          PLANTILLAS DE CARTAS — Editor modular
          ════════════════════════════════════════ -->
+    <div class="page" id="p-cartas">
+      <div class="card">
+        <div class="ct">📜 Generar carta <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Elige el trabajador y el tipo de carta</span></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+          <div class="fld" style="flex:2;min-width:240px;margin:0"><label>Trabajador</label>
+            <input type="text" id="cr-trab" list="cr-trab-list" placeholder="Escribe nombre o cédula..." autocomplete="off" onfocus="cartasTrabList()" onchange="cartasTrabChange()"/>
+            <datalist id="cr-trab-list"></datalist>
+          </div>
+          <div class="fld" style="flex:2;min-width:220px;margin:0"><label>Tipo de carta</label>
+            <select id="cr-plt" onchange="cartasPlantillaChange()"><option value="">— Selecciona —</option></select>
+          </div>
+          <button class="btn bv" onclick="cartasInit(true)" style="height:38px" title="Recargar">🔄</button>
+        </div>
+        <div id="cr-datos-trab" style="font-size:12px;color:var(--v);margin-bottom:10px;font-weight:600"></div>
+        <div id="cr-vars" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bvs" onclick="cartasGenerar(true)">👁️ Vista previa</button>
+          <button class="btn bf" onclick="cartasGenerar(false)">🖨️ Generar / Imprimir</button>
+        </div>
+      </div>
+      <div class="card" id="cr-preview-card" style="display:none">
+        <div class="ct">Vista previa</div>
+        <div id="cr-preview" style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:30px;min-height:200px"></div>
+      </div>
+    </div>
+
     <div class="page" id="p-plantillas">
       <div class="card no-print">
         <div class="ct">📜 Plantillas de cartas
@@ -3859,7 +3885,7 @@ function buildNav(){
       '<button class="ni" onclick="go(\'vacac\')"><span class="ni-ico">🌴</span>Vacaciones</button>'+
       '<button class="ni" onclick="go(\'plantillas\')"><span class="ni-ico">📜</span>Plantillas de cartas</button>'+
       '<button class="ni" onclick="go(\'acum\')"><span class="ni-ico">📊</span>Acumulados</button>'+
-      '<button class="ni rh-pronto" onclick="rhProximamente(\'Cartas laborales\')"><span class="ni-ico">📜</span>Cartas laborales <span class="rh-tag">Pronto</span></button>'+
+      '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Reportes ejecutivos\')"><span class="ni-ico">📈</span>Reportes ejecutivos <span class="rh-tag">Pronto</span></button>';
   } else if(S.rol==='c'){
@@ -3884,7 +3910,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -3902,6 +3928,7 @@ function go(pg){
   if(pg==='rrhh') rhInit();
   if(pg==='vacac') vacInit();
   if(pg==='plantillas') pltInit();
+  if(pg==='cartas') cartasInit();
   if(pg==='acum') acumInit();
   if(pg==='dups') dupsInit();
   if(pg==='cobertura') carCobertura();
@@ -13248,6 +13275,80 @@ function vacGenerarCarta(id){
 }
 
 // Construye el diccionario de variables disponibles para reemplazar en cartas
+var CR_PLT=[];
+function cartasInit(force){
+  if((typeof RH_DATA==='undefined'||!RH_DATA.length) && typeof rhCargar==='function'){ rhCargar(); setTimeout(cartasTrabList,600); }
+  cartasTrabList();
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getPlantillas'})})
+  .then(function(r){return r.json();}).then(function(d){
+    CR_PLT=(d&&d.plantillas)||[];
+    var sel=document.getElementById('cr-plt'); if(!sel) return;
+    sel.innerHTML='<option value="">— Selecciona —</option>'+CR_PLT.map(function(p){return '<option value="'+p.CLAVE+'">'+(p.NOMBRE||p.CLAVE)+'</option>';}).join('');
+  }).catch(function(){});
+}
+function cartasTrabList(){
+  var dl=document.getElementById('cr-trab-list'); if(!dl) return;
+  var arr=(typeof RH_DATA!=='undefined'?RH_DATA:[]);
+  dl.innerHTML=arr.map(function(t){ return '<option value="'+String(t.NOMBRES||'').replace(/"/g,'&quot;')+' · '+String(t.CEDULA||'')+'"></option>'; }).join('');
+}
+function cartasTrabActual(){
+  var v=(document.getElementById('cr-trab').value||'').trim();
+  var ced=v.indexOf(' · ')>=0?v.split(' · ').pop().trim():v;
+  var arr=(typeof RH_DATA!=='undefined'?RH_DATA:[]);
+  return arr.find(function(t){return String(t.CEDULA)===String(ced);}) || arr.find(function(t){return String(t.NOMBRES||'').toLowerCase()===v.toLowerCase();}) || null;
+}
+function cartasTrabChange(){
+  var t=cartasTrabActual(); var el=document.getElementById('cr-datos-trab');
+  if(t) el.innerHTML='✓ '+(t.NOMBRES||'')+' · CC '+(t.CEDULA||'')+' · '+(t.CARGO||'sin cargo')+' · Ingreso: '+(t.FECHA_INGRESO||'—');
+  else el.innerHTML='<span style="color:var(--r)">No se encontró ese trabajador — elígelo de la lista.</span>';
+}
+function cartasVarsBase(t){
+  var meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var fmt=function(iso){ if(!iso)return''; var p=String(iso).split('-'); if(p.length<3)return iso; var d=parseInt(p[2]),m=parseInt(p[1])-1,a=parseInt(p[0]); if(isNaN(d)||isNaN(m)||isNaN(a))return iso; return d+' de '+meses[m]+' de '+a; };
+  var hoy=new Date();
+  var cedFmt=String((t&&t.CEDULA)||'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return {
+    NOMBRES:(t&&t.NOMBRES)||'', CEDULA:cedFmt, CIUDAD_EXP:(t&&t.LUGAR_EXP)||'Zarzal (V)',
+    CARGO:(t&&t.CARGO)||'', FECHA_INGRESO:(t&&t.FECHA_INGRESO)||'', FECHA_INGRESO_LARGA:fmt(t&&t.FECHA_INGRESO),
+    FECHA_CARTA_LARGA:hoy.getDate()+' de '+meses[hoy.getMonth()]+' de '+hoy.getFullYear(),
+    REPRESENTANTE:'JESÚS ARBEY SÁNCHEZ RENGIFO'
+  };
+}
+function cartasPlantillaChange(){
+  var clave=document.getElementById('cr-plt').value;
+  var cont=document.getElementById('cr-vars'); if(!cont) return; cont.innerHTML='';
+  if(!clave) return;
+  var p=CR_PLT.find(function(x){return x.CLAVE===clave;}); if(!p) return;
+  var html=p.CONTENIDO_HTML||'';
+  var base=cartasVarsBase({});
+  var encontr=(html.match(/\{([A-Z0-9_]+)\}/g)||[]).map(function(s){return s.replace(/[{}]/g,'');});
+  var vistos={}, htmlInputs='';
+  encontr.forEach(function(v){
+    if(vistos[v]) return; vistos[v]=1;
+    if(v==='FIRMA' || base.hasOwnProperty(v)) return;
+    htmlInputs+='<div class="fld" style="flex:1;min-width:170px;margin:0"><label style="font-size:10px">'+v.replace(/_/g,' ')+'</label><input type="text" id="crv-'+v+'" placeholder="'+v.replace(/_/g,' ').toLowerCase()+'"/></div>';
+  });
+  cont.innerHTML=htmlInputs||'<div style="font-size:12px;color:var(--g3)">Esta plantilla solo usa datos del trabajador — no hay que llenar nada más.</div>';
+}
+function cartasGenerar(preview){
+  var t=cartasTrabActual();
+  if(!t){alert('Elige un trabajador de la lista');return;}
+  var clave=document.getElementById('cr-plt').value;
+  var p=CR_PLT.find(function(x){return x.CLAVE===clave;});
+  if(!p){alert('Elige el tipo de carta');return;}
+  var vars=cartasVarsBase(t);
+  document.querySelectorAll('[id^="crv-"]').forEach(function(inp){ vars[inp.id.replace('crv-','')]=inp.value; });
+  var html=p.CONTENIDO_HTML||'';
+  Object.keys(vars).forEach(function(k){ html=html.replace(new RegExp('\\{'+k+'\\}','g'), vars[k]); });
+  if(preview){
+    html=html.replace(/\{FIRMA\}/g, FIRMA_IMG);
+    document.getElementById('cr-preview').innerHTML=html;
+    document.getElementById('cr-preview-card').style.display='block';
+    document.getElementById('cr-preview-card').scrollIntoView({behavior:'smooth'});
+  } else {
+    abrirCartaImprimible(html, p.NOMBRE||'Carta');
+  }
+}
 function vacConstruirVariables(v, trab){
   var fmt=function(iso){
     if(!iso) return '';
