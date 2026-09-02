@@ -2480,6 +2480,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bg" onclick="consExpandirTodos()" style="height:36px" title="Expandir todas las tarjetas">⬇ Expandir</button>
             <button class="btn bg" onclick="consContraerTodos()" style="height:36px" title="Contraer todas las tarjetas">⬆ Contraer</button>
             <button class="btn bf" onclick="consExportar()" style="height:36px" title="Descargar Excel para enviar a supervisores">📊 Exportar Excel</button>
+            <button class="btn ba" onclick="cruzarAbrir()" style="height:36px" title="Cruzar saldos entre dos coordinadores">🔄 Cruzar saldos</button>
           </div>
           <div style="background:var(--vs);border-radius:var(--rads);padding:10px;font-size:12px;color:var(--g2)">
             <strong style="color:var(--v)">💡 Cómo funciona:</strong>
@@ -11076,6 +11077,58 @@ function consNombreHoja(base,usados){
   var n=String(base||'coord').replace(/[\\\/?*\[\]:]/g,' ').substring(0,28).trim()||'coord';
   var final=n, k=1; while(usados[final.toLowerCase()]){ final=n.substring(0,25)+' '+(++k); }
   usados[final.toLowerCase()]=1; return final;
+}
+var CRUCE_LISTA=[], CRUCE_S1=1, CRUCE_S2=52;
+function cruzarAbrir(){
+  if(typeof CONS_DATA==='undefined' || !Object.keys(CONS_DATA||{}).length){ alert('Primero presiona "🔄 Cargar datos" para ver los saldos de los coordinadores.'); return; }
+  var s1=parseInt(document.getElementById('cons-s1').value)||1, s2=parseInt(document.getElementById('cons-s2').value)||52;
+  CRUCE_LISTA=Object.keys(CONS_DATA).map(function(k){ var d=CONS_DATA[k]; return {coord:d.coord, adm:d.adm, saldo:consSaldoFinal(d,s1,s2)}; }).sort(function(a,b){return a.coord.localeCompare(b.coord);});
+  CRUCE_S1=s1; CRUCE_S2=s2;
+  var semOpts=''; for(var _i=1;_i<=52;_i++) semOpts+='<option value="'+_i+'">Semana '+_i+'</option>';
+  var opts='<option value="">— Elegir —</option>'+CRUCE_LISTA.map(function(x,i){return '<option value="'+i+'">'+x.coord+(x.adm?' · '+x.adm:'')+'  (saldo '+cop(x.saldo)+')</option>';}).join('');
+  cruzarCerrar();
+  var ov=document.createElement('div'); ov.id='cruce-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)cruzarCerrar();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.2)">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:4px">🔄 Cruzar saldos entre coordinadores</div>'
+    +'<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Traslada saldo de un coordinador a otro. El total no cambia — solo se mueve. Queda registrado en Cobros históricos como "CRUCE".</div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Coordinador que DA (le baja el saldo)</label><select id="cruce-origen" onchange="cruzarActualizar()">'+opts+'</select></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Coordinador que RECIBE (le sube el saldo)</label><select id="cruce-destino" onchange="cruzarActualizar()">'+opts+'</select></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>¿A qué corresponde el cruce?</label><select id="cruce-sem" onchange="cruzarActualizar()"><option value="0">Saldo general (permanente)</option>'+semOpts+'</select></div>'
+    +'<div class="fld" style="margin-bottom:12px"><label>Monto a cruzar</label><input type="number" id="cruce-monto" oninput="cruzarActualizar()" placeholder="Ej. 23000000"/></div>'
+    +'<div id="cruce-prev" style="background:var(--gf);border-radius:8px;padding:12px;font-size:13px;margin-bottom:16px;min-height:40px;color:var(--g3)">Elige los dos coordinadores y el monto.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn bg" onclick="cruzarCerrar()">Cancelar</button><button class="btn bv" id="cruce-btn" onclick="cruzarConfirmar()">Hacer el cruce</button></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+}
+function cruzarCerrar(){var ov=document.getElementById('cruce-ov');if(ov)ov.remove();}
+function cruzarSel(){ var oi=document.getElementById('cruce-origen').value, di=document.getElementById('cruce-destino').value; var monto=Math.abs(parseFloat(document.getElementById('cruce-monto').value)||0); return {oi:oi,di:di,monto:monto,o:oi!==''?CRUCE_LISTA[+oi]:null,d:di!==''?CRUCE_LISTA[+di]:null}; }
+function cruzarActualizar(){
+  var s=cruzarSel(), prev=document.getElementById('cruce-prev');
+  if(!s.o||!s.d){ prev.innerHTML='Elige los dos coordinadores y el monto.'; return; }
+  if(s.o.coord===s.d.coord){ prev.innerHTML='<span style="color:var(--r)">El origen y el destino no pueden ser el mismo coordinador.</span>'; return; }
+  if(!s.monto){ prev.innerHTML='Escribe el monto a cruzar.'; return; }
+  var _sem=parseInt((document.getElementById('cruce-sem')||{value:'0'}).value)||0;
+  var _nota=(_sem>0 && (_sem<CRUCE_S1||_sem>CRUCE_S2))?'<div style="color:#92400e;margin-top:6px;font-size:11px">⚠️ El cruce es de la semana '+_sem+', que está fuera del rango que consultas ('+CRUCE_S1+'–'+CRUCE_S2+'). El efecto se verá cuando esa semana esté dentro del rango.</div>':(_sem>0?'<div style="color:var(--g3);margin-top:6px;font-size:11px">Cruce atado a la semana '+_sem+'.</div>':'<div style="color:var(--g3);margin-top:6px;font-size:11px">Cruce del saldo general (permanente).</div>');
+  prev.innerHTML='<div style="margin-bottom:5px;color:var(--g2)"><strong>'+s.o.coord+'</strong>: '+cop(s.o.saldo)+' &nbsp;→&nbsp; <strong>'+cop(s.o.saldo-s.monto)+'</strong></div>'
+    +'<div style="color:var(--g2)"><strong>'+s.d.coord+'</strong>: '+cop(s.d.saldo)+' &nbsp;→&nbsp; <strong>'+cop(s.d.saldo+s.monto)+'</strong></div>'+_nota;
+}
+function cruzarConfirmar(){
+  var s=cruzarSel();
+  if(!s.o||!s.d){alert('Elige origen y destino');return;}
+  if(s.o.coord===s.d.coord){alert('Origen y destino no pueden ser el mismo');return;}
+  if(!s.monto){alert('Escribe el monto');return;}
+  if(!confirm('¿Cruzar '+cop(s.monto)+' de '+s.o.coord+' a '+s.d.coord+'?\n\n'+s.o.coord+': '+cop(s.o.saldo)+' → '+cop(s.o.saldo-s.monto)+'\n'+s.d.coord+': '+cop(s.d.saldo)+' → '+cop(s.d.saldo+s.monto))) return;
+  var btn=document.getElementById('cruce-btn'); if(btn){btn.disabled=true;btn.textContent='Cruzando...';}
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'cruzarSaldos', origen:s.o.coord, destino:s.d.coord, valor:s.monto, semana:(parseInt((document.getElementById('cruce-sem')||{value:'0'}).value)||0)})})
+  .then(function(r){return r.json();}).then(function(res){
+    if(res&&res.ok){
+      alert('Cruce hecho ✓ — quedó registrado en Cobros históricos.');
+      cruzarCerrar();
+      fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getCobrosHist'})}).then(function(r){return r.json();}).then(function(d){ if(d&&d.cobros&&typeof COBROS_HIST_CACHE!=='undefined') COBROS_HIST_CACHE=d.cobros; if(typeof consCargar==='function') consCargar(); }).catch(function(){ if(typeof consCargar==='function') consCargar(); });
+    } else { if(btn){btn.disabled=false;btn.textContent='Hacer el cruce';} alert('Error: '+((res&&res.error)||'no se pudo')); }
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Hacer el cruce';} alert('Error de red: '+e.message); });
 }
 function consExportar(){
   var s1=parseInt(document.getElementById('cons-s1').value)||1;
