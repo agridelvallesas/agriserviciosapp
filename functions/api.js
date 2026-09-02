@@ -14,6 +14,7 @@ const PORTADAS = new Set([
   'login', 'getDatos',
   // Módulo Coordinadores:
   'guardar', 'getRegistros', 'verificarDuplicado', 'editarReg', 'eliminarReg',
+  'eliminarRegistros',
   // Módulo Administrativo:
   'coberturaSemanas', 'nuevoEmpleado', 'getUsuarios', 'getTrabajadores',
   // Módulo Facturación:
@@ -52,6 +53,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'verificarDuplicado') r = await accionVerificarDuplicado(body, env);
     else if (accion === 'editarReg')          r = await accionEditarReg(body, env);
     else if (accion === 'eliminarReg')        r = await accionEliminarReg(body, env);
+    else if (accion === 'eliminarRegistros')  r = await accionEliminarRegistros(body, env);
     else if (accion === 'coberturaSemanas')   r = await accionCoberturaSemanas(body, env);
     else if (accion === 'nuevoEmpleado')      r = await accionNuevoEmpleado(body, env);
     else if (accion === 'getUsuarios')        r = await accionGetUsuarios(body, env);
@@ -1221,4 +1223,17 @@ async function accionEliminarConceptoAcum(body, env) {
   if (!concepto) return { ok: false, error: 'Falta el concepto' };
   await sbWrite(env, 'DELETE', `conceptos_acumulados?concepto=eq.${encodeURIComponent(concepto)}`);
   return { ok: true };
+}
+
+// Borrado MASIVO de registros (varios ids a la vez, por lotes)
+async function accionEliminarRegistros(body, env) {
+  const ids = (body.ids || []).map((x) => String(x).trim()).filter(Boolean);
+  if (!ids.length) return { ok: false, error: 'Sin registros seleccionados' };
+  let borrados = 0;
+  for (let i = 0; i < ids.length; i += 100) {
+    const lote = ids.slice(i, i + 100).map((x) => encodeURIComponent(x)).join(',');
+    await sbWrite(env, 'DELETE', `detalle_dia?id=in.(${lote})`, undefined);
+    borrados += Math.min(100, ids.length - i);
+  }
+  return { ok: true, borrados };
 }
