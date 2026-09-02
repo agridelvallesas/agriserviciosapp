@@ -950,7 +950,7 @@ tfoot td{background:var(--gf);font-weight:700}
         </tr></thead><tbody id="td-il-tb"></tbody>
         <tfoot id="td-il-tf"></tfoot></table></div>
       </div>
-      <div class="card"><div class="ct">Todos los registros <span id="td-count" style="font-size:11px;color:var(--g3);font-weight:400"></span></div>
+      <div class="card"><div class="ct">Todos los registros <span id="td-count" style="font-size:11px;color:var(--g3);font-weight:400"></span><button id="td-del-btn" class="btn br no-print" style="float:right;padding:4px 12px;font-size:12px;display:none" onclick="tdBorrarSeleccionados()">🗑️ Borrar seleccionados</button></div>
         <div class="sg" id="td-kpi" style="grid-template-columns:repeat(6,1fr);margin-bottom:10px">
           <div class="st"><div class="sl">Registros</div><div class="sv" id="td-kpi-n">0</div></div>
           <div class="st"><div class="sl">Total pago trabajadores</div><div class="sv gv" id="td-kpi-p" style="font-size:14px">$0</div></div>
@@ -977,8 +977,9 @@ tfoot td{background:var(--gf);font-weight:700}
           <th>Obs. tarea</th>
           <th onclick="sortTable('td-t',15)" style="cursor:pointer">Fecha reg. ↕</th>
           <th class="no-print">Acc.</th>
+          <th class="no-print" style="width:34px"><input type="checkbox" id="td-chk-all" onclick="tdChkAll(this)" title="Seleccionar todos los visibles"/></th>
         </tr></thead>
-        <tbody id="td-tb"><tr><td colspan="17" style="text-align:center;padding:20px;color:var(--g3)">Usa los filtros y presiona Buscar</td></tr></tbody></table></div>
+        <tbody id="td-tb"><tr><td colspan="18" style="text-align:center;padding:20px;color:var(--g3)">Usa los filtros y presiona Buscar</td></tr></tbody></table></div>
       </div>
     </div>
 
@@ -5595,6 +5596,20 @@ function expCobertura(){
   URL.revokeObjectURL(a.href);
 }
 
+function tdChkAll(cb){ document.querySelectorAll('#td-tb .td-chk').forEach(function(c){ c.checked=cb.checked; }); }
+function tdBorrarSeleccionados(){
+  if(!esSuperAdmin()){ alert('Solo el administrador puede borrar registros.'); return; }
+  var ids=[]; document.querySelectorAll('#td-tb .td-chk:checked').forEach(function(c){ ids.push(c.value); });
+  if(!ids.length){ alert('No has seleccionado ningún registro. Marca las casillas de los que quieres borrar (o usa la casilla del encabezado para todos).'); return; }
+  if(!confirm('¿Borrar '+ids.length+' registro(s) seleccionado(s)?\n\nEsta acción NO se puede deshacer.')) return;
+  var btn=document.getElementById('td-del-btn'); if(btn){btn.disabled=true;btn.textContent='Borrando...';}
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarRegistros', ids:ids})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='🗑️ Borrar seleccionados';}
+    if(d&&d.ok){ alert('Se borraron '+(d.borrados||ids.length)+' registro(s).'); carTodos(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo borrar'));
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='🗑️ Borrar seleccionados';} alert('Error de red: '+e.message); });
+}
 function carTodos(desde){
   var sem=document.getElementById('td-sem').value;
   var co=document.getElementById('td-co').value;
@@ -5713,13 +5728,16 @@ function carTodos(desde){
         +'<td style="font-size:10px;color:var(--g3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obsTarea||'')+'">'+(r.obsTarea?r.obsTarea.substring(0,25):'—')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);white-space:nowrap">'+(r.fReg?String(r.fReg).slice(0,16).replace('T',' '):'—')+'</td>'
         +'<td class="no-print">'+(esSuperAdmin()?'<button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="abrirME(\''+r.id+'\')">Editar</button>':'<span style="color:var(--g3)">\u2014</span>')+'</td>'
+        +'<td class="no-print">'+(esSuperAdmin()?'<input type="checkbox" class="td-chk" value="'+r.id+'"/>':'')+'</td>'
         +'</tr>';
     }).join('')
-    +(TD_HAY_MAS?'<tr id="td-mas-row"><td colspan="17" style="text-align:center;padding:10px;color:var(--g3)">⏳ Cargando más registros...</td></tr>':'');
+    +(TD_HAY_MAS?'<tr id="td-mas-row"><td colspan="18" style="text-align:center;padding:10px;color:var(--g3)">⏳ Cargando más registros...</td></tr>':'');
     // Auto-cargar siguiente lote
+    var _db=document.getElementById('td-del-btn'); if(_db) _db.style.display=(esSuperAdmin()&&TD_REGS_CACHE.length)?'inline-block':'none';
+    var _ca=document.getElementById('td-chk-all'); if(_ca) _ca.checked=false;
     if(TD_HAY_MAS) setTimeout(function(){carTodos(TD_SIGUIENTE_FILA);},300);
   }).catch(function(e){
-    tb.innerHTML='<tr><td colspan="17" style="text-align:center;color:var(--r)">⚠ Error de conexión</td></tr>';
+    tb.innerHTML='<tr><td colspan="18" style="text-align:center;color:var(--r)">⚠ Error de conexión</td></tr>';
   });
 }
 
