@@ -21,6 +21,7 @@ const PORTADAS = new Set([
   'getFacturas', 'guardarFactura', 'actualizarFactura', 'eliminarFactura', 'actualizarEstadoFac',
   'getDetallado', 'guardarDetallado', 'editarDetallado', 'eliminarDetallado',
   'getCobrosHist', 'guardarCobrosHist', 'editarCobroHist',
+  'cruzarSaldos',
   // Módulo Nómina:
   'getAcumulados', 'getQuincenasAcum', 'importarAcumulados', 'eliminarAcumuladoQna', 'vaciarAcumulados',
   // Permisos de subida:
@@ -34,6 +35,8 @@ const PORTADAS = new Set([
   'getCoordinadoresAdmin', 'guardarCoordinador', 'editarCoordinador', 'eliminarCoordinador',
   // Conceptos del importador de acumulados:
   'getConceptosAcum', 'guardarConceptoAcum', 'eliminarConceptoAcum',
+  // Cruce de saldos entre coordinadores:
+  'getCruces', 'guardarCruce', 'eliminarCruce',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -70,6 +73,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getCobrosHist')       r = await accionGetCobrosHist(body, env);
     else if (accion === 'guardarCobrosHist')   r = await accionGuardarCobrosHist(body, env);
     else if (accion === 'editarCobroHist')     r = await accionEditarCobroHist(body, env);
+    else if (accion === 'cruzarSaldos')       r = await accionCruzarSaldos(body, env);
     else if (accion === 'getAcumulados')        r = await accionGetAcumulados(body, env);
     else if (accion === 'getQuincenasAcum')     r = await accionGetQuincenasAcum(body, env);
     else if (accion === 'importarAcumulados')   r = await accionImportarAcumulados(body, env);
@@ -99,6 +103,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getConceptosAcum')      r = await accionGetConceptosAcum(body, env);
     else if (accion === 'guardarConceptoAcum')   r = await accionGuardarConceptoAcum(body, env);
     else if (accion === 'eliminarConceptoAcum')  r = await accionEliminarConceptoAcum(body, env);
+    else if (accion === 'getCruces')            r = await accionGetCruces(body, env);
+    else if (accion === 'guardarCruce')         r = await accionGuardarCruce(body, env);
+    else if (accion === 'eliminarCruce')        r = await accionEliminarCruce(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1236,4 +1243,52 @@ async function accionEliminarRegistros(body, env) {
     borrados += Math.min(100, ids.length - i);
   }
   return { ok: true, borrados };
+}
+
+// ===== CRUCE DE SALDOS ENTRE COORDINADORES =====
+async function accionGetCruces(body, env) {
+  const rows = await sbAll(env, 'cruces_saldos?select=id,coord_origen,coord_destino,monto,fecha,motivo,usuario&order=fecha.desc');
+  return { ok: true, cruces: rows.map((r) => ({
+    id: String(r.id), origen: String(r.coord_origen || ''), destino: String(r.coord_destino || ''),
+    monto: parseFloat(r.monto) || 0, fecha: String(r.fecha || '').slice(0, 10),
+    motivo: String(r.motivo || ''), usuario: String(r.usuario || ''),
+  })) };
+}
+async function accionGuardarCruce(body, env) {
+  const origen = String(body.origen || '').trim();
+  const destino = String(body.destino || '').trim();
+  const monto = parseFloat(body.monto) || 0;
+  if (!origen || !destino) return { ok: false, error: 'Faltan los coordinadores' };
+  if (origen === destino) return { ok: false, error: 'El origen y el destino no pueden ser el mismo coordinador' };
+  if (monto <= 0) return { ok: false, error: 'El monto debe ser mayor a cero' };
+  await sbWrite(env, 'POST', 'cruces_saldos', {
+    coord_origen: origen, coord_destino: destino, monto,
+    motivo: String(body.motivo || '').trim(), usuario: String(body.usuario || '').trim(),
+  });
+  return { ok: true };
+}
+async function accionEliminarCruce(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `cruces_saldos?id=eq.${encodeURIComponent(id)}`);
+  return { ok: true };
+}
+
+// CRUZAR SALDOS entre dos coordinadores (traslada saldo; registra 2 movimientos sem 0 en cobros_historicos)
+async function accionCruzarSaldos(body, env) {
+  const origen = String(body.origen || '').trim();
+  const destino = String(body.destino || '').trim();
+  const valor = Math.abs(parseFloat(body.valor) || 0);
+  if (!origen || !destino) return { ok: false, error: 'Falta origen o destino' };
+  if (origen.toUpperCase() === destino.toUpperCase()) return { ok: false, error: 'Origen y destino no pueden ser el mismo' };
+  if (!valor) return { ok: false, error: 'El monto debe ser mayor a 0' };
+  const semana = parseInt(body.semana) || 0;
+  const vOrigen = semana === 0 ? -valor : valor;   // sem0: saldo += val; semana normal (rep): saldo -= val
+  const vDestino = semana === 0 ? valor : -valor;
+  const hoy = isoDate(new Date());
+  await sbWrite(env, 'POST', 'cobros_historicos', [
+    { coordinador: origen, administrador: 'CRUCE \u2192 ' + destino, semana, valor_cobro: vOrigen, fecha_registro: hoy },
+    { coordinador: destino, administrador: 'CRUCE \u2190 ' + origen, semana, valor_cobro: vDestino, fecha_registro: hoy }
+  ]);
+  return { ok: true };
 }
