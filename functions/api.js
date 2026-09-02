@@ -750,7 +750,7 @@ async function accionEliminarDetallado(body, env) {
 // COBROS HISTÓRICOS
 async function accionGetCobrosHist(body, env) {
   const [rows, coords] = await Promise.all([
-    sbAll(env, 'cobros_historicos?select=id,coordinador,administrador,semana,valor_cobro,fecha_registro'),
+    sbAll(env, 'cobros_historicos?select=id,coordinador,administrador,semana,valor_cobro,fecha_registro,nota'),
     sb(env, 'coordinadores?select=nombre,administrador'),
   ]);
   const adminMap = new Map();
@@ -761,6 +761,7 @@ async function accionGetCobrosHist(body, env) {
     admin: String(r.administrador || '').trim() || adminMap.get(String(r.coordinador || '').trim().toUpperCase()) || '',
     sem: String(r.semana == null ? '' : r.semana).trim(),
     val: parseFloat(r.valor_cobro) || 0,
+    nota: String(r.nota || '').trim(),
     fReg: r.fecha_registro ? String(r.fecha_registro).slice(0, 10) : '',
   }));
   return { ok: true, cobros };
@@ -1278,17 +1279,19 @@ async function accionEliminarCruce(body, env) {
 async function accionCruzarSaldos(body, env) {
   const origen = String(body.origen || '').trim();
   const destino = String(body.destino || '').trim();
+  const admOrigen = String(body.admOrigen || '').trim().toUpperCase();
+  const admDestino = String(body.admDestino || '').trim().toUpperCase();
   const valor = Math.abs(parseFloat(body.valor) || 0);
   if (!origen || !destino) return { ok: false, error: 'Falta origen o destino' };
-  if (origen.toUpperCase() === destino.toUpperCase()) return { ok: false, error: 'Origen y destino no pueden ser el mismo' };
+  if (origen.toUpperCase() === destino.toUpperCase() && admOrigen === admDestino) return { ok: false, error: 'Origen y destino no pueden ser el mismo' };
   if (!valor) return { ok: false, error: 'El monto debe ser mayor a 0' };
   const semana = parseInt(body.semana) || 0;
   const vOrigen = semana === 0 ? -valor : valor;   // sem0: saldo += val; semana normal (rep): saldo -= val
   const vDestino = semana === 0 ? valor : -valor;
   const hoy = isoDate(new Date());
   await sbWrite(env, 'POST', 'cobros_historicos', [
-    { coordinador: origen, administrador: 'CRUCE \u2192 ' + destino, semana, valor_cobro: vOrigen, fecha_registro: hoy },
-    { coordinador: destino, administrador: 'CRUCE \u2190 ' + origen, semana, valor_cobro: vDestino, fecha_registro: hoy }
+    { coordinador: origen, administrador: admOrigen, semana, valor_cobro: vOrigen, fecha_registro: hoy, nota: 'CRUCE \u2192 ' + destino },
+    { coordinador: destino, administrador: admDestino, semana, valor_cobro: vDestino, fecha_registro: hoy, nota: 'CRUCE \u2190 ' + origen }
   ]);
   return { ok: true };
 }
