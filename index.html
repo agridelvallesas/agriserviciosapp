@@ -1522,6 +1522,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
           <div class="fld" style="flex:1;min-width:200px;margin:0"><label>Buscar trabajador</label>
           <input type="text" id="td-emp" placeholder="Cédula o nombre..." autocomplete="on"  oninput="vacRender()" style="width:100%"/>
+            <div id="td-emp-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--w);border:1px solid var(--bd);border-radius:var(--rads);max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
           </div>
           <div class="fld" style="min-width:120px;margin:0"><label>Sede</label>
             <select id="vac-sede" onchange="vacRender()">
