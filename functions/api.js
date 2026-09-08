@@ -28,7 +28,7 @@ const PORTADAS = new Set([
   'getPermisosSubida', 'guardarPermisoSubida', 'revocarPermisoSubida',
   // Módulo RH:
   'guardarTrabajador', 'editarTrabajador', 'eliminarTrabajador', 'importarTrabajadores',
-  'getVacaciones', 'eliminarVacacion', 'importarVacaciones',
+  'getVacaciones', 'eliminarVacacion', 'importarVacaciones', 'guardarVacacion', 'editarVacacion',
   'getPlantillas', 'guardarPlantilla', 'eliminarPlantilla',
   // Gestión de accesos (Administrativo):
   'getUsuariosAdmin', 'guardarUsuario', 'editarUsuario', 'eliminarUsuario',
@@ -89,6 +89,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getVacaciones')        r = await accionGetVacaciones(body, env);
     else if (accion === 'eliminarVacacion')     r = await accionEliminarVacacion(body, env);
     else if (accion === 'importarVacaciones')   r = await accionImportarVacaciones(body, env);
+    else if (accion === 'guardarVacacion')      r = await accionGuardarVacacion(body, env);
+    else if (accion === 'editarVacacion')       r = await accionEditarVacacion(body, env);
     else if (accion === 'getPlantillas')        r = await accionGetPlantillas(body, env);
     else if (accion === 'guardarPlantilla')     r = await accionGuardarPlantilla(body, env);
     else if (accion === 'eliminarPlantilla')    r = await accionEliminarPlantilla(body, env);
@@ -1293,5 +1295,47 @@ async function accionCruzarSaldos(body, env) {
     { coordinador: origen, administrador: admOrigen, semana, valor_cobro: vOrigen, fecha_registro: hoy, nota: 'CRUCE \u2192 ' + destino },
     { coordinador: destino, administrador: admDestino, semana, valor_cobro: vDestino, fecha_registro: hoy, nota: 'CRUCE \u2190 ' + origen }
   ]);
+  return { ok: true };
+}
+
+// GUARDAR una sola vacación (agregar un periodo)
+async function accionGuardarVacacion(body, env) {
+  const v = body.vacacion || {};
+  const cedula = parseInt(String(v.CEDULA || '').replace(/,/g, '')) || null;
+  if (!cedula) return { ok: false, error: 'Falta la cédula del trabajador' };
+  const fila = {
+    id: v.ID || ('V' + Date.now() + Math.floor(Math.random() * 100000)),
+    cedula,
+    periodo_causado: v.PERIODO_CAUSADO || '',
+    fecha_inicio: fechaONull(v.FECHA_INICIO),
+    fecha_fin: fechaONull(v.FECHA_FIN),
+    dias: v.DIAS || 0,
+    pago_quincenas: v.PAGO_QUINCENAS || '',
+    valor: v.VALOR || 0,
+    observaciones: v.OBSERVACIONES || '',
+    fecha_creacion: new Date().toISOString(),
+    actualizado_por: String(body.usuario || '') + ' · nuevo',
+  };
+  await sbWrite(env, 'POST', 'vacaciones', fila);
+  return { ok: true };
+}
+
+// EDITAR una vacación existente (por id)
+async function accionEditarVacacion(body, env) {
+  const v = body.vacacion || {};
+  const id = String(v.ID || '').trim();
+  if (!id) return { ok: false, error: 'Falta el id de la vacación' };
+  const cambios = {
+    cedula: parseInt(String(v.CEDULA || '').replace(/,/g, '')) || null,
+    periodo_causado: v.PERIODO_CAUSADO || '',
+    fecha_inicio: fechaONull(v.FECHA_INICIO),
+    fecha_fin: fechaONull(v.FECHA_FIN),
+    dias: v.DIAS || 0,
+    pago_quincenas: v.PAGO_QUINCENAS || '',
+    valor: v.VALOR || 0,
+    observaciones: v.OBSERVACIONES || '',
+    actualizado_por: String(body.usuario || '') + ' · edit',
+  };
+  await sbWrite(env, 'PATCH', `vacaciones?id=eq.${encodeURIComponent(id)}`, cambios);
   return { ok: true };
 }
