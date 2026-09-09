@@ -13652,16 +13652,27 @@ function abrirCartaImprimible(htmlBody, titulo){
   w.document.write(
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+titulo+'</title>'+
     '<style>'+
-      '@page{size:Letter;margin:2cm 2cm 2cm 2cm}'+
+      '@page{size:Letter;margin:0}'+
       'body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.5;color:#000;margin:0}'+
-      '.hdr{text-align:center;border-bottom:2px solid #2d5a3d;padding-bottom:14px;margin-bottom:30px}'+
+      /* HEADER */
+      '.hdr{text-align:center;border-bottom:2px solid #2d5a3d;padding:16px 2cm 12px;margin:0}'+
       '.hdr h1{margin:0;font-size:16pt;color:#2d5a3d}'+
       '.hdr .nit{font-size:11pt;color:#555;margin-top:4px}'+
       '.hdr img{max-height:75px;margin-bottom:6px}'+
-      '.ftr{margin-top:45px;text-align:center;font-size:9pt;color:#666;border-top:1px solid #ddd;padding-top:8px}'+
-      '.toolbar{position:fixed;top:10px;right:10px;display:flex;gap:6px}'+
+      /* FOOTER */
+      '.ftr{text-align:center;font-size:9pt;color:#666;border-top:1px solid #ddd;padding:8px 2cm 12px;margin:0}'+
+      /* CUERPO */
+      '.body{padding:16px 2cm 30px}'+
+      '.toolbar{position:fixed;top:10px;right:10px;display:flex;gap:6px;z-index:999}'+
       '.toolbar button{background:#2d5a3d;color:#fff;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:11pt;font-family:Arial}'+
-      '@media print{.toolbar{display:none}}'+
+      '@media print{'+
+        '.toolbar{display:none}'+
+        /* Header y footer FIJOS: se repiten en TODAS las hojas al imprimir */
+        '.hdr{position:fixed;top:0;left:0;right:0;background:#fff}'+
+        '.ftr{position:fixed;bottom:0;left:0;right:0;background:#fff}'+
+        /* El cuerpo reserva espacio para no solaparse con header/footer */
+        '.body{padding-top:44mm;padding-bottom:24mm}'+
+      '}'+
     '</style></head><body>'+
     '<div class="toolbar"><button onclick="window.print()">🖨️ Imprimir / PDF</button><button onclick="window.opener&&window.opener.descargarCartaWordActual()">📄 Word</button></div>'+
     doc+
