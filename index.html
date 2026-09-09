@@ -13602,7 +13602,7 @@ function cartasPromedioRender(t){
     // Tomar el SUBTOTAL ya calculado del devengo (no sumar conceptos sueltos)
     if(a.TIPO!=='SUBTOTAL') return;
     var cc=String(a.CONCEPTO||'').toUpperCase().trim();
-    if(cc!=='DEVENGO' && cc!=='TOTAL DEVENGO') return;
+    if(cc!=='DEVENGO') return;
     var mk=acumQnaAMes(a.QNA_LABEL);
     if(!mk) return;
     porMes[mk]=(porMes[mk]||0)+(Number(a.VALOR)||0);
