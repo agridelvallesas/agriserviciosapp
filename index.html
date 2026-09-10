@@ -1410,7 +1410,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
           <div class="fld" style="min-width:150px;margin:0"><label>Usuario</label><input type="text" id="us-user" placeholder="Nombre de usuario"/></div>
           <div class="fld" style="min-width:130px;margin:0"><label>Contraseña</label><input type="text" id="us-pass" placeholder="Clave"/></div>
-          <div class="fld" style="min-width:120px;margin:0"><label>Rol</label><select id="us-rol"><option value="coord">coord</option><option value="admin">admin</option><option value="nomina">nomina</option><option value="factura">factura</option></select></div>
+          <div class="fld" style="min-width:120px;margin:0"><label>Rol</label><select id="us-rol"><option value="coord">coord</option><option value="admin">admin</option><option value="nomina">nomina</option><option value="factura">factura</option><option value="rrhh">rrhh (Rec. Humanos)</option></select></div>
           <div class="fld" style="min-width:110px;margin:0"><label>Sede</label><select id="us-sede"><option value="TODAS">TODAS</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select></div>
           <button class="btn bn" onclick="usGuardar()" style="height:36px">➕ Agregar usuario</button>
           <button class="btn bv" onclick="usCargar()" style="height:36px" title="Recargar">🔄</button>
@@ -1602,8 +1602,12 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
       </div>
       <div class="card" id="cr-preview-card" style="display:none">
-        <div class="ct">Vista previa</div>
-        <div id="cr-preview" style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:30px;min-height:200px"></div>
+        <div class="ct">Vista previa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">✏️ Puedes editar el texto directamente aquí (ej. la ciudad de expedición) antes de imprimir</span></div>
+        <div id="cr-preview" contenteditable="true" style="background:#fff;border:1px dashed var(--v);border-radius:8px;padding:30px;min-height:200px;outline:none"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn bf" onclick="cartasImprimirEditada()">🖨️ Imprimir esta versión</button>
+          <button class="btn bg" onclick="cartasGenerar(true)" title="Descartar cambios y volver a armar la carta desde los datos del trabajador">↩️ Regenerar</button>
+        </div>
       </div>
     </div>
 
@@ -1694,6 +1698,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bvs" onclick="acumAbrirConsulta()" style="height:36px">🔍 Consultar trabajador</button>
             <button class="btn bvs" onclick="acumAbrirReporte()" style="height:36px">📈 Reporte por concepto</button>
             <button class="btn bvs" onclick="acumAbrirAnalisis()" style="height:36px">📅 Análisis temporal</button>
+            <button class="btn bvs" onclick="acumGestorConceptos()" style="height:36px" title="Clasificar o corregir el tipo y categoría de los conceptos">🏷️ Conceptos</button>
             <button class="btn ba" onclick="acumAbrirImportador()" style="height:36px">📥 Importar Excel</button>
             <button class="btn bg" onclick="acumExportar()" style="height:36px">📊 Exportar</button>
             <button class="btn br" onclick="acumLimpiarTodo()" style="height:36px;font-size:11px" title="Borrar TODO de la BD (peligroso)">🗑️ Limpiar BD</button>
@@ -3088,7 +3093,7 @@ var L_DEPS={
   a:{nom:'Administrativo',    ico:'🗂️', col:'var(--a)', bg:'#fef3c7', rolApi:'admin',   rrhh:false},
   n:{nom:'Nómina',            ico:'💵', col:'var(--n)', bg:'#dcfce7', rolApi:'nomina',  rrhh:false},
   f:{nom:'Facturación',       ico:'📊', col:'var(--f)', bg:'#dbeafe', rolApi:'factura', rrhh:false},
-  r:{nom:'Recursos Humanos',  ico:'🪪', col:'#7c3aed', bg:'#ede9fe', rolApi:'admin',   rrhh:true} // RRHH usa rol admin pero abre módulo Trabajadores
+  r:{nom:'Recursos Humanos',  ico:'🪪', col:'#7c3aed', bg:'#ede9fe', rolApi:'rrhh',   rrhh:true} // RRHH tiene su propia lista de usuarios (rol rrhh) + el ADMIN
 };
 
 // Llamado cuando el usuario toca un mosaico de departamento
@@ -13431,6 +13436,7 @@ function vacGenerarCarta(id){
 
 // Construye el diccionario de variables disponibles para reemplazar en cartas
 var CR_PLT=[];
+var CR_ULTIMA_NOMBRE='';
 function fechaLarga(iso){
   if(!iso) return '';
   var meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -13533,6 +13539,7 @@ function cartasGenerar(preview){
   Object.keys(vars).forEach(function(k){ html=html.replace(new RegExp('\\{'+k+'\\}','g'), vars[k]); });
   if(preview){
     html=html.replace(/\{FIRMA\}/g, FIRMA_IMG);
+    CR_ULTIMA_NOMBRE=p.NOMBRE||'Carta';
     document.getElementById('cr-preview').innerHTML=html;
     document.getElementById('cr-preview-card').style.display='block';
     document.getElementById('cr-preview-card').scrollIntoView({behavior:'smooth'});
@@ -13540,27 +13547,36 @@ function cartasGenerar(preview){
     abrirCartaImprimible(html, p.NOMBRE||'Carta');
   }
 }
+// Imprime la carta tal como quedó en la vista previa (con las ediciones manuales del usuario)
+function cartasImprimirEditada(){
+  var cont=document.getElementById('cr-preview');
+  if(!cont){ return; }
+  var html=cont.innerHTML;
+  if(!html || !html.trim()){ alert('No hay carta en la vista previa'); return; }
+  abrirCartaImprimible(html, CR_ULTIMA_NOMBRE||'Carta');
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PROMEDIO desde ACUMULADOS (para cartas laborales con promedio)
 // Suma el TOTAL DEVENGADO por mes y promedia los meses elegidos
 // ═══════════════════════════════════════════════════════════════
 var CPM_MESES=[]; // [{mk,label,total}]
+var CPM_ACUM=[];  // acumulados SOLO del trabajador actual (filtrado por cédula en el backend)
 
-// Carga silenciosa de acumulados (reutiliza cache local y paginación del módulo Nómina)
-function cartasCargarAcum(cb){
-  if(ACUM_LOADED && ACUM_DATA.length){ cb(); return; }
-  if(typeof acumCargarDesdeCacheLocal==='function' && acumCargarDesdeCacheLocal()){ ACUM_LOADED=true; cb(); return; }
-  ACUM_DATA.length=0;
+// Carga los acumulados de UN trabajador (por cédula). Rápido: no baja toda la tabla.
+function cartasCargarAcumTrab(ced, cb){
+  CPM_ACUM=[];
+  var cedNum=String(ced==null?'':ced).replace(/,/g,'').trim();
+  if(!cedNum){ cb('El trabajador no tiene cédula'); return; }
   var paginar=function(desde){
-    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getAcumulados',desde:desde,pageSize:5000})})
+    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getAcumulados',ced:cedNum,desde:desde,pageSize:5000})})
     .then(function(r){return r.json();})
     .then(function(data){
       if(data.ok && Array.isArray(data.acumulados)){
-        data.acumulados.forEach(function(a){ACUM_DATA.push(a);});
-        var pm=document.getElementById('cpm-cargando'); if(pm) pm.textContent='⏳ Cargando acumulados... '+ACUM_DATA.length.toLocaleString('es-CO')+' registros';
+        data.acumulados.forEach(function(a){CPM_ACUM.push(a);});
+        var pm=document.getElementById('cpm-cargando'); if(pm) pm.textContent='⏳ Buscando... '+CPM_ACUM.length+' registros';
         if(data.hayMas){ paginar(data.siguienteFila); }
-        else { ACUM_LOADED=true; if(typeof acumGuardarCacheLocal==='function') acumGuardarCacheLocal(); cb(); }
+        else { cb(); }
       } else { cb('Error al cargar acumulados: '+(data.error||'')); }
     })
     .catch(function(err){ cb('Sin conexión: '+err.message); });
@@ -13582,11 +13598,11 @@ function cartasAbrirPromedio(){
       '<button onclick="cartasCerrarPromedio()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'+
     '</div>'+
     '<div style="padding:18px" id="cpm-body">'+
-      '<div id="cpm-cargando" style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando acumulados...</div>'+
+      '<div id="cpm-cargando" style="text-align:center;color:var(--g3);padding:24px">⏳ Buscando registros del trabajador...</div>'+
     '</div>'+
   '</div>';
   document.body.appendChild(modal);
-  cartasCargarAcum(function(err){
+  cartasCargarAcumTrab(t.CEDULA, function(err){
     if(err){ var b=document.getElementById('cpm-body'); if(b) b.innerHTML='<div style="color:var(--r);padding:20px;text-align:center">'+err+'</div>'; return; }
     cartasPromedioRender(t);
   });
@@ -13597,8 +13613,7 @@ function cartasCerrarPromedio(){ var m=document.getElementById('cpm-modal'); if(
 function cartasPromedioRender(t){
   var ced=String(t.CEDULA);
   var porMes={};
-  ACUM_DATA.forEach(function(a){
-    if(String(a.CEDULA)!==ced) return;
+  CPM_ACUM.forEach(function(a){
     // Tomar el SUBTOTAL ya calculado del devengo (no sumar conceptos sueltos)
     if(a.TIPO!=='SUBTOTAL') return;
     var cc=String(a.CONCEPTO||'').toUpperCase().trim();
@@ -15313,6 +15328,122 @@ function acumGuardarConcepto(ix){
     else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
   }).catch(function(e){alert('Error de red: '+e.message);});
 }
+
+// ═══════════════════════════════════════════════════════════════
+// GESTOR DE CONCEPTOS DE ACUMULADOS (clasificar/corregir tipo y categoría)
+// Edita la tabla conceptos_acumulados (el mapa que usa el IMPORTADOR).
+// Nota: afecta futuras importaciones, no reclasifica lo ya cargado.
+// ═══════════════════════════════════════════════════════════════
+var GC_DATA=[]; // [{concepto,tipo,categoria}]
+function gcEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function acumGestorConceptos(){
+  var modal=document.createElement('div');
+  modal.id='gc-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick=function(e){ if(e.target===modal) acumGCCerrar(); };
+  modal.innerHTML='<div style="background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:92vh;overflow:auto">'+
+    '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
+      '<div><div style="font-size:16px;font-weight:700;color:var(--v)">🏷️ Clasificación de conceptos</div>'+
+      '<div style="font-size:11px;color:var(--g3)">Define el tipo y la categoría de cada concepto para el importador de acumulados</div></div>'+
+      '<button onclick="acumGCCerrar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'+
+    '</div>'+
+    '<div style="padding:18px" id="gc-body">'+
+      '<div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+  acumGCRecargar();
+}
+function acumGCCerrar(){ var m=document.getElementById('gc-modal'); if(m) m.remove(); acumCargarConceptos(); }
+function acumGCRecargar(){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConceptosAcum'})})
+  .then(function(r){return r.json();}).then(function(d){
+    GC_DATA=(d&&d.ok&&d.data)?d.data:[];
+    acumGCRender();
+  }).catch(function(e){ var b=document.getElementById('gc-body'); if(b) b.innerHTML='<div style="color:var(--r);padding:20px;text-align:center">Error de red: '+e.message+'</div>'; });
+}
+function acumGCRender(){
+  var body=document.getElementById('gc-body'); if(!body) return;
+  var tiposStd=['DEVENGO','DEDUCIDO','SUBTOTAL','RESUMEN','OTRO'];
+  var filtro=(document.getElementById('gc-filtro')?document.getElementById('gc-filtro').value:'').toUpperCase().trim();
+  var lista=GC_DATA.filter(function(c){ return !filtro || String(c.concepto).toUpperCase().indexOf(filtro)>=0 || String(c.tipo).toUpperCase().indexOf(filtro)>=0 || String(c.categoria).toUpperCase().indexOf(filtro)>=0; });
+  var colorTipo={DEVENGO:'#16a34a',DEDUCIDO:'#dc2626',SUBTOTAL:'#7c3aed',RESUMEN:'#0284c7',OTRO:'#78716c'};
+  body.innerHTML=
+    // Formulario agregar/editar
+    '<div style="background:var(--gf);border-radius:8px;padding:12px;margin-bottom:14px">'+
+      '<div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:8px" id="gc-form-tit">➕ Agregar o corregir concepto</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+
+        '<div class="fld" style="flex:2;min-width:180px;margin:0"><label style="font-size:10px">Concepto</label><input type="text" id="gc-concepto" placeholder="Ej. DCTO ANTICIPO" style="text-transform:uppercase"/></div>'+
+        '<div class="fld" style="flex:1;min-width:130px;margin:0"><label style="font-size:10px">Tipo</label><input type="text" id="gc-tipo" list="gc-tipos" placeholder="DEVENGO"/><datalist id="gc-tipos">'+tiposStd.map(function(t){return '<option value="'+t+'">';}).join('')+'</datalist></div>'+
+        '<div class="fld" style="flex:1;min-width:130px;margin:0"><label style="font-size:10px">Categoría</label><input type="text" id="gc-categoria" placeholder="Ej. Anticipo"/></div>'+
+        '<button class="btn bv" onclick="acumGCGuardar()" style="height:34px;white-space:nowrap">💾 Guardar</button>'+
+        '<button class="btn bg" onclick="acumGCLimpiarForm()" style="height:34px" title="Limpiar el formulario">↺</button>'+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--g3);margin-top:6px">Tipos estándar: DEVENGO, DEDUCIDO, SUBTOTAL, RESUMEN, OTRO. Si escribes un concepto que ya existe, se actualiza.</div>'+
+    '</div>'+
+    // Buscador + contador
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
+      '<input type="text" id="gc-filtro" placeholder="🔍 Filtrar..." oninput="acumGCRender()" value="'+(filtro||'')+'" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px"/>'+
+      '<span style="font-size:11px;color:var(--g3)">'+lista.length+' de '+GC_DATA.length+' conceptos</span>'+
+    '</div>'+
+    // Tabla
+    '<div style="max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead style="position:sticky;top:0;background:var(--gf);z-index:1"><tr>'+
+          '<th style="text-align:left;padding:8px 10px">Concepto</th>'+
+          '<th style="text-align:left;padding:8px 10px">Tipo</th>'+
+          '<th style="text-align:left;padding:8px 10px">Categoría</th>'+
+          '<th style="text-align:right;padding:8px 10px;width:90px">Acción</th>'+
+        '</tr></thead><tbody>'+
+        (lista.length? lista.map(function(c){
+          var tp=String(c.tipo||'').toUpperCase();
+          var col=colorTipo[tp]||'#78716c';
+          return '<tr style="border-top:1px solid var(--bd)">'+
+            '<td style="padding:7px 10px;font-weight:600">'+gcEsc(c.concepto)+'</td>'+
+            '<td style="padding:7px 10px"><span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">'+gcEsc(c.tipo)+'</span></td>'+
+            '<td style="padding:7px 10px;color:var(--g2)">'+gcEsc(c.categoria||'—')+'</td>'+
+            '<td style="padding:7px 10px;text-align:right;white-space:nowrap">'+
+              '<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="acumGCEditar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="Editar">✏️</button> '+
+              '<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="acumGCBorrar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="Borrar">🗑️</button>'+
+            '</td>'+
+          '</tr>';
+        }).join('') : '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Sin conceptos'+(filtro?' que coincidan':' guardados aún')+'</td></tr>')+
+        '</tbody></table>'+
+    '</div>';
+}
+function acumGCLimpiarForm(){
+  ['gc-concepto','gc-tipo','gc-categoria'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  var e=document.getElementById('gc-concepto'); if(e){ e.readOnly=false; e.style.background=''; }
+  var t=document.getElementById('gc-form-tit'); if(t) t.textContent='➕ Agregar o corregir concepto';
+}
+function acumGCEditar(concepto){
+  var c=GC_DATA.filter(function(x){return String(x.concepto)===String(concepto);})[0]; if(!c) return;
+  var ce=document.getElementById('gc-concepto'), te=document.getElementById('gc-tipo'), cae=document.getElementById('gc-categoria');
+  if(ce){ ce.value=c.concepto; ce.readOnly=true; ce.style.background='#f5f5f4'; }
+  if(te) te.value=c.tipo||'';
+  if(cae) cae.value=c.categoria||'';
+  var t=document.getElementById('gc-form-tit'); if(t) t.textContent='✏️ Editando: '+c.concepto;
+  var body=document.getElementById('gc-body'); if(body) body.scrollTop=0;
+}
+function acumGCGuardar(){
+  var concepto=(document.getElementById('gc-concepto').value||'').trim().toUpperCase();
+  var tipo=(document.getElementById('gc-tipo').value||'').trim().toUpperCase()||'OTRO';
+  var cat=(document.getElementById('gc-categoria').value||'').trim()||'Otro';
+  if(!concepto){ alert('Escribe el concepto'); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarConceptoAcum',concepto:concepto,tipo:tipo,categoria:cat})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ acumGCLimpiarForm(); acumGCRecargar(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+function acumGCBorrar(concepto){
+  if(!confirm('¿Borrar la clasificación del concepto "'+concepto+'"?\n\nEn próximas importaciones entrará como OTRO hasta que lo vuelvas a clasificar. No afecta los datos ya cargados.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarConceptoAcum',concepto:concepto})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ acumGCRecargar(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo borrar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
 function acumParseNum(v){
   var s=String(v==null?'':v).replace(/[^\d.,\-]/g,'');
   if(!s) return 0;
@@ -16880,7 +17011,7 @@ function usEditar(id){
   accModal('Editar usuario',
     '<div class="fld" style="margin-bottom:10px"><label>Usuario</label><input type="text" id="ae-1" value="'+String(u.usuario).replace(/"/g,'&quot;')+'"/></div>'
     +'<div class="fld" style="margin-bottom:10px"><label>Nueva contraseña <span style="color:var(--g3);font-weight:400">(vacío = no cambiar)</span></label><input type="text" id="ae-2" placeholder="••••••"/></div>'
-    +'<div class="fld" style="margin-bottom:10px"><label>Rol</label><select id="ae-3">'+['coord','admin','nomina','factura'].map(function(x){return '<option value="'+x+'"'+(u.rol===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Rol</label><select id="ae-3">'+['coord','admin','nomina','factura','rrhh'].map(function(x){return '<option value="'+x+'"'+(u.rol===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
     +'<div class="fld" style="margin-bottom:10px"><label>Sede</label><select id="ae-4">'+['TODAS','NORTE','SUR'].map(function(x){return '<option value="'+x+'"'+(u.sede===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
     +'<div class="fld" style="margin-bottom:6px"><label>Activo</label><select id="ae-5"><option value="true"'+(u.activo?' selected':'')+'>Sí</option><option value="false"'+(!u.activo?' selected':'')+'>No</option></select></div>',
     function(){
