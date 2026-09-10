@@ -570,7 +570,10 @@ async function accionGetUsuarios(body, env) {
     const activo = f.activo === true || ['SI', 'SÍ', 'TRUE', '1'].includes(String(f.activo).trim().toUpperCase());
     if (!activo) continue;
     const fRol = String(f.rol || '').trim().toLowerCase();
-    if (rol && fRol !== rol) continue;
+    if (rol && fRol !== rol) {
+      // El ADMIN (super usuario) aparece también en la lista de Recursos Humanos
+      if (!(rol === 'rrhh' && String(f.usuario).trim().toUpperCase() === 'ADMIN')) continue;
+    }
     lista.push({ usuario: String(f.usuario).trim(), rol: fRol, sede: String(f.sede || 'TODAS').trim().toUpperCase() });
   }
   return {
