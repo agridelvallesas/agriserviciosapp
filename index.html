@@ -1175,7 +1175,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <button class="btn ba" onclick="calcIE()" style="height:34px;margin-top:16px">Ver</button>
           <button class="btn bg" onclick="expCSV('ie-t','inf_emp')" style="height:34px;margin-top:16px">📥 Excel</button>
         </div></div>
-        <div class="card"><div class="tw"><table id="ie-t"><thead><tr><th>Empleado</th><th>Cédula</th><th>Semana</th><th>Coordinadores</th><th>Días</th><th>Tareas</th><th>Pago</th><th>Cobro</th></tr></thead><tbody id="ie-tb"></tbody><tfoot id="ie-tf"></tfoot></table></div></div>
+        <div class="card"><div class="tw"><table id="ie-t"><thead><tr><th onclick="ieSort('emp')" style="cursor:pointer" title="Ordenar por empleado">Empleado<span id="ie-si-emp"></span></th><th onclick="ieSort('ced')" style="cursor:pointer" title="Ordenar por cédula">Cédula<span id="ie-si-ced"></span></th><th>Semana</th><th onclick="ieSort('coords')" style="cursor:pointer" title="Ordenar por coordinadores">Coordinadores<span id="ie-si-coords"></span></th><th onclick="ieSort('dias')" style="cursor:pointer" title="Ordenar por días">Días<span id="ie-si-dias"></span></th><th onclick="ieSort('tar')" style="cursor:pointer" title="Ordenar por número de reportes">Tareas<span id="ie-si-tar"></span></th><th onclick="ieSort('pago')" style="cursor:pointer" title="Ordenar por pago">Pago<span id="ie-si-pago"></span></th><th onclick="ieSort('cobro')" style="cursor:pointer" title="Ordenar por cobro">Cobro<span id="ie-si-cobro"></span></th></tr></thead><tbody id="ie-tb"></tbody><tfoot id="ie-tf"></tfoot></table></div></div>
       </div>
       <div id="inf-la" style="display:none">
         <div class="card no-print"><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -5851,31 +5851,59 @@ function calcIE(){
       if(!g.labs[lk])g.labs[lk]={id:r.labId||'',lab:r.lab||r.labId||'?',u:r.u||'',veces:0,cant:0,dias:new Set(),pago:0,cobro:0};
       var L=g.labs[lk];L.veces++;L.cant+=(r.cant||0);L.dias.add(r.sem+'_'+r.dia);L.pago+=r.pago;L.cobro+=(r.cobro||0)+(r.cobroVig||0);
     });
-    var rows=Object.values(by).sort(function(a,b){return b.cobro-a.cobro;});
-    var tP=0,tC=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;});
-    var rango=R.usaFecha?('S'+R.s1+'–S'+R.s2):(R.s1===R.s2?('S'+R.s1):('S'+R.s1+'–S'+R.s2));
-    tb.innerHTML=rows.length?rows.map(function(r){
-      var cedId=String(r.ced).replace(/[^0-9A-Za-z]/g,'');
-      // Sub-tabla de labores del trabajador, ordenada por las que más ha hecho
-      var labList=Object.values(r.labs).sort(function(a,b){return b.veces-a.veces;});
-      var detRows=labList.map(function(L){
-        return '<tr><td style="padding:4px 8px">'+L.lab+(L.id?' <code style="font-size:9px;color:var(--g3)">'+L.id+'</code>':'')+'</td>'
-          +'<td style="padding:4px 8px;text-align:center"><strong>'+L.veces+'</strong></td>'
-          +'<td style="padding:4px 8px;text-align:right">'+(L.cant?L.cant.toFixed(1):'0')+'</td>'
-          +'<td style="padding:4px 8px;text-align:center">'+L.dias.size+'</td>'
-          +'<td style="padding:4px 8px;text-align:right">'+cop(L.pago)+'</td>'
-          +'<td style="padding:4px 8px;text-align:right">'+cop(L.cobro)+'</td></tr>';
-      }).join('');
-      var detTable='<tr id="ie-det-'+cedId+'" style="display:none"><td colspan="8" style="padding:0;background:#f5f5f4">'
-        +'<div style="padding:10px 14px">'
-        +'<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">🛠️ Labores de '+r.emp+' — de la que más ha hecho a la que menos</div>'
-        +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
-        +'<thead><tr style="color:var(--g3);border-bottom:1px solid var(--bd)"><th style="text-align:left;padding:4px 8px">Labor</th><th style="padding:4px 8px">Veces</th><th style="text-align:right;padding:4px 8px">Cant.</th><th style="padding:4px 8px">Días</th><th style="text-align:right;padding:4px 8px">Pago</th><th style="text-align:right;padding:4px 8px">Cobro</th></tr></thead>'
-        +'<tbody>'+detRows+'</tbody></table></div></td></tr>';
-      return '<tr style="cursor:pointer" onclick="ieToggle(\''+cedId+'\')" title="Clic para ver sus labores"><td><span id="ie-arw-'+cedId+'" style="color:var(--v);font-weight:700">▸</span> <strong>'+r.emp+'</strong></td><td>'+r.ced+'</td><td><span class="bdg ba2">'+rango+'</span></td><td style="font-size:11px">'+(Array.from(r.coords).join(', '))+'</td><td>'+(Array.from(r.dias).map(function(d){return'<span class="bdg bv2">'+d+'</span>';}).join(' '))+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>'+detTable;
-    }).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
-    document.getElementById('ie-tf').innerHTML='<tr><td colspan="6"><strong>TOTAL</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td></tr>';
+    IE_ROWS=Object.values(by);
+    IE_RANGO=R.usaFecha?('S'+R.s1+'–S'+R.s2):(R.s1===R.s2?('S'+R.s1):('S'+R.s1+'–S'+R.s2));
+    ieRenderRows();
   });
+}
+// Estado y orden del informe "Por empleado"
+var IE_ROWS=[], IE_RANGO='', IE_SORT={k:'cobro',dir:-1};
+function ieValor(r,k){
+  switch(k){
+    case 'emp':    return String(r.emp||'').toLowerCase();
+    case 'ced':    return parseInt(String(r.ced).replace(/\D/g,''))||0;
+    case 'coords': return Array.from(r.coords).join(', ').toLowerCase();
+    case 'dias':   return r.dias.size;
+    case 'tar':    return r.tar;
+    case 'pago':   return r.pago;
+    case 'cobro':  return r.cobro;
+    default:       return 0;
+  }
+}
+function ieSort(k){
+  if(IE_SORT.k===k) IE_SORT.dir=-IE_SORT.dir;
+  else { IE_SORT.k=k; IE_SORT.dir=(k==='emp'||k==='coords')?1:-1; } // texto asc, números desc
+  ieRenderRows();
+}
+function ieRenderRows(){
+  var tb=document.getElementById('ie-tb'); if(!tb) return;
+  var rows=IE_ROWS||[];
+  rows.sort(function(a,b){ var va=ieValor(a,IE_SORT.k), vb=ieValor(b,IE_SORT.k); if(va<vb)return -IE_SORT.dir; if(va>vb)return IE_SORT.dir; return 0; });
+  var rango=IE_RANGO||'';
+  var tP=0,tC=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;});
+  tb.innerHTML=rows.length?rows.map(function(r){
+    var cedId=String(r.ced).replace(/[^0-9A-Za-z]/g,'');
+    // Sub-tabla de labores del trabajador, ordenada por las que más ha hecho
+    var labList=Object.values(r.labs).sort(function(a,b){return b.veces-a.veces;});
+    var detRows=labList.map(function(L){
+      return '<tr><td style="padding:4px 8px">'+L.lab+(L.id?' <code style="font-size:9px;color:var(--g3)">'+L.id+'</code>':'')+'</td>'
+        +'<td style="padding:4px 8px;text-align:center"><strong>'+L.veces+'</strong></td>'
+        +'<td style="padding:4px 8px;text-align:right">'+(L.cant?L.cant.toFixed(1):'0')+'</td>'
+        +'<td style="padding:4px 8px;text-align:center">'+L.dias.size+'</td>'
+        +'<td style="padding:4px 8px;text-align:right">'+cop(L.pago)+'</td>'
+        +'<td style="padding:4px 8px;text-align:right">'+cop(L.cobro)+'</td></tr>';
+    }).join('');
+    var detTable='<tr id="ie-det-'+cedId+'" style="display:none"><td colspan="8" style="padding:0;background:#f5f5f4">'
+      +'<div style="padding:10px 14px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">🛠️ Labores de '+r.emp+' — de la que más ha hecho a la que menos</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+      +'<thead><tr style="color:var(--g3);border-bottom:1px solid var(--bd)"><th style="text-align:left;padding:4px 8px">Labor</th><th style="padding:4px 8px">Veces</th><th style="text-align:right;padding:4px 8px">Cant.</th><th style="padding:4px 8px">Días</th><th style="text-align:right;padding:4px 8px">Pago</th><th style="text-align:right;padding:4px 8px">Cobro</th></tr></thead>'
+      +'<tbody>'+detRows+'</tbody></table></div></td></tr>';
+    return '<tr style="cursor:pointer" onclick="ieToggle(\''+cedId+'\')" title="Clic para ver sus labores"><td><span id="ie-arw-'+cedId+'" style="color:var(--v);font-weight:700">▸</span> <strong>'+r.emp+'</strong></td><td>'+r.ced+'</td><td><span class="bdg ba2">'+rango+'</span></td><td style="font-size:11px">'+(Array.from(r.coords).join(', '))+'</td><td>'+(Array.from(r.dias).map(function(d){return'<span class="bdg bv2">'+d+'</span>';}).join(' '))+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td></tr>'+detTable;
+  }).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
+  var tf=document.getElementById('ie-tf'); if(tf) tf.innerHTML='<tr><td colspan="6"><strong>TOTAL</strong></td><td><strong>'+cop(tP)+'</strong></td><td><strong>'+cop(tC)+'</strong></td></tr>';
+  // Indicadores de orden en los encabezados
+  ['emp','ced','coords','dias','tar','pago','cobro'].forEach(function(k){ var e=document.getElementById('ie-si-'+k); if(e) e.textContent=(IE_SORT.k===k)?(IE_SORT.dir<0?' ▼':' ▲'):''; });
 }
 // Expandir/contraer el desglose por labor de un trabajador en el informe "Por empleado"
 function ieToggle(cedId){
