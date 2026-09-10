@@ -7351,6 +7351,15 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       auxLab:auxLabP,auxVig:auxVigP,auxTotal:auxTotal,tot:tot});
   });
 
+  // Recalcular los totales generales SOLO sobre las filas que quedaron (respeta el
+  // filtro por sede). Antes totS/totA/totAl/totT se acumulaban dentro del bucle,
+  // ANTES del filtro por sede, así que SAL.LABORES (totS), auxilios y total sumaban
+  // ambas sedes aunque se filtrara una. Ahora salen de rows, ya filtrado.
+  totS  = rows.reduce(function(s,r){return s+(r.sal||0);},0);
+  totA  = rows.reduce(function(s,r){return s+(r.auxTotal||0);},0);
+  totAl = rows.reduce(function(s,r){return s+((r.alim||0)+(r.auxAlimVig||0));},0);
+  totT  = rows.reduce(function(s,r){return s+(r.tot||0);},0);
+
   // ── MOSTRAR RESULTADOS ──
   document.getElementById('nom-e').textContent=rows.length;
   document.getElementById('nom-s').textContent=cop(totS);
