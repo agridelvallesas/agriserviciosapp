@@ -2920,9 +2920,10 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="page" id="p-inv-hist">
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="sw" style="flex:2;min-width:180px"><span class="sico">🔍</span><input type="text" id="hist-q" placeholder="Filtrar por empleado o producto..." oninput="invHistRender()"/></div>
-          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="hist-d1" onchange="invHistCargar()"/></div>
-          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="hist-d2" onchange="invHistCargar()"/></div>
+          <div class="fld" style="flex:1;min-width:160px;margin:0"><label style="font-size:10px">Empleado / proveedor</label><input type="text" id="hist-q-emp" list="hist-emp-list" placeholder="Nombre..." oninput="invHistRender()"/><datalist id="hist-emp-list"></datalist></div>
+          <div class="fld" style="flex:1;min-width:160px;margin:0"><label style="font-size:10px">Producto / elemento</label><input type="text" id="hist-q-prod" placeholder="Producto..." oninput="invHistRender()"/></div>
+          <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="hist-d1" onchange="invHistCargar()"/></div>
+          <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="hist-d2" onchange="invHistCargar()"/></div>
           <button class="btn bg" onclick="invHistCargar()" style="height:36px">Actualizar</button>
         </div>
         <div class="tw"><table class="ordenable" id="hist-t"><thead><tr><th>Fecha</th><th>Recibe</th><th>Elementos</th><th>Auxiliar</th><th>Firma</th><th>Acción</th></tr></thead><tbody id="hist-tb"></tbody></table></div>
@@ -17300,16 +17301,24 @@ function invHistCargar(){
   var d1=(document.getElementById('hist-d1')||{}).value, d2=(document.getElementById('hist-d2')||{}).value;
   if(d1) body.desde=d1; if(d2) body.hasta=d2;
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
-  .then(function(r){return r.json();}).then(function(d){ INV_HIST=(d&&d.ok&&d.data)?d.data:[]; invHistRender(); })
+  .then(function(r){return r.json();}).then(function(d){ INV_HIST=(d&&d.ok&&d.data)?d.data:[]; invHistPoblarEmp(); invHistRender(); })
   .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+}
+function invHistPoblarEmp(){
+  var dl=document.getElementById('hist-emp-list'); if(!dl) return;
+  var vistos={}, opts=[];
+  INV_HIST.forEach(function(a){ var n=(a.empleado_proveedor||'').trim(); if(n&&!vistos[n]){vistos[n]=1;opts.push('<option value="'+gcEsc(n)+'">');} });
+  dl.innerHTML=opts.sort().join('');
 }
 function invHistRender(){
   var tb=document.getElementById('hist-tb'); if(!tb) return;
-  var q=((document.getElementById('hist-q')||{}).value||'').toLowerCase().trim();
+  var qe=((document.getElementById('hist-q-emp')||{}).value||'').toLowerCase().trim();
+  var qp=((document.getElementById('hist-q-prod')||{}).value||'').toLowerCase().trim();
   var lista=INV_HIST.filter(function(a){
-    if(!q) return true;
+    var okE=!qe || String(a.empleado_proveedor||'').toLowerCase().indexOf(qe)>=0 || String(a.id_factura||'').indexOf(qe)>=0;
     var els=(a.items||[]).map(function(i){return i.producto;}).join(' ').toLowerCase();
-    return String(a.empleado_proveedor||'').toLowerCase().indexOf(q)>=0 || els.indexOf(q)>=0;
+    var okP=!qp || els.indexOf(qp)>=0;
+    return okE && okP;
   });
   tb.innerHTML=lista.length?lista.map(function(a){
     var els=(a.items||[]).map(function(i){return gcEsc(i.producto)+' ×'+i.cantidad;}).join(', ');
