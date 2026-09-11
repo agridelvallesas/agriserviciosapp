@@ -41,6 +41,7 @@ const PORTADAS = new Set([
   'getInventario', 'invGuardarProducto', 'invEliminarProducto',
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
   'invGetActas', 'invEliminarActa',
+  'invEntregasResumen', 'invItemsActas',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -120,6 +121,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invRegistrarSalida')   r = await accionInvRegistrarSalida(body, env);
     else if (accion === 'invGetActas')          r = await accionInvGetActas(body, env);
     else if (accion === 'invEliminarActa')      r = await accionInvEliminarActa(body, env);
+    else if (accion === 'invEntregasResumen')   r = await accionInvEntregasResumen(body, env);
+    else if (accion === 'invItemsActas')        r = await accionInvItemsActas(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1522,4 +1525,34 @@ async function accionInvEliminarActa(body, env) {
   await sbWrite(env, 'DELETE', `inv_movimientos?id_regn=eq.${encodeURIComponent(id)}`);
   await sbWrite(env, 'DELETE', `inv_registros?id_regn=eq.${encodeURIComponent(id)}`);
   return { ok: true };
+}
+
+// Resumen de TODAS las entregas (cabeceras, sin items) para agrupar por empleado
+async function accionInvEntregasResumen(body, env) {
+  const actas = await sbAll(env, 'inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,auxiliar,firma&order=fecha.desc');
+  const data = actas.map((a) => ({
+    id_regn: a.id_regn,
+    empleado_proveedor: String(a.empleado_proveedor || ''),
+    id_factura: String(a.id_factura || ''),
+    fecha: a.fecha,
+    auxiliar: String(a.auxiliar || ''),
+    tiene_firma: !!(a.firma && String(a.firma).length > 20),
+  }));
+  return { ok: true, data };
+}
+
+// Items (elementos) de una lista de actas — cargados a demanda al expandir
+async function accionInvItemsActas(body, env) {
+  const ids = Array.isArray(body.ids) ? body.ids : [];
+  if (!ids.length) return { ok: true, data: [] };
+  const out = [];
+  for (let i = 0; i < ids.length; i += 80) {
+    const chunk = ids.slice(i, i + 80).map((x) => `"${String(x).replace(/"/g, '')}"`).join(',');
+    const part = await sbAll(env, `inv_movimientos?select=id_regn,item,producto,salidas,entradas&id_regn=in.(${chunk})`);
+    part.forEach((it) => out.push({
+      id_regn: it.id_regn, item: String(it.item || ''), producto: String(it.producto || ''),
+      cantidad: Number(it.salidas || 0) || Number(it.entradas || 0),
+    }));
+  }
+  return { ok: true, data: out };
 }
