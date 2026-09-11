@@ -1485,20 +1485,25 @@ async function accionInvRegistrarSalida(body, env) {
 async function accionInvGetActas(body, env) {
   const desde = String(body.desde || '').trim();
   const hasta = String(body.hasta || '').trim();
-  let path = 'inv_registros?select=id_regn,auxiliar,empleado_proveedor,id_factura,fecha,firma,firma_ref&order=fecha.desc&limit=500';
+  let path = 'inv_registros?select=id_regn,auxiliar,empleado_proveedor,id_factura,fecha,firma,firma_ref&order=fecha.desc';
   if (desde) path += `&fecha=gte.${encodeURIComponent(desde)}`;
   if (hasta) path += `&fecha=lte.${encodeURIComponent(hasta + ' 23:59:59')}`;
-  const actas = await sbAll(env, path);
+  // Traer solo las actas más recientes (evita traer 1400+ y URLs enormes)
+  const { rows: actas } = await sbPage(env, path, 0, 300);
   if (!actas.length) return { ok: true, data: [] };
-  const ids = actas.map((a) => `"${String(a.id_regn).replace(/"/g, '')}"`).join(',');
-  const items = await sbAll(env, `inv_movimientos?select=id_regn,item,producto,salidas,entradas,precio_un&id_regn=in.(${ids})`);
+  // Items por lotes de 80 ids (una URL con 300 ids sería rechazada por longitud)
   const porActa = {};
-  items.forEach((it) => {
-    (porActa[it.id_regn] = porActa[it.id_regn] || []).push({
-      item: String(it.item || ''), producto: String(it.producto || ''),
-      cantidad: Number(it.salidas || 0) || Number(it.entradas || 0), precio_un: Number(it.precio_un || 0),
+  for (let i = 0; i < actas.length; i += 80) {
+    const chunk = actas.slice(i, i + 80);
+    const ids = chunk.map((a) => `"${String(a.id_regn).replace(/"/g, '')}"`).join(',');
+    const items = await sbAll(env, `inv_movimientos?select=id_regn,item,producto,salidas,entradas,precio_un&id_regn=in.(${ids})`);
+    items.forEach((it) => {
+      (porActa[it.id_regn] = porActa[it.id_regn] || []).push({
+        item: String(it.item || ''), producto: String(it.producto || ''),
+        cantidad: Number(it.salidas || 0) || Number(it.entradas || 0), precio_un: Number(it.precio_un || 0),
+      });
     });
-  });
+  }
   const data = actas.map((a) => ({
     id_regn: a.id_regn,
     auxiliar: String(a.auxiliar || ''),
