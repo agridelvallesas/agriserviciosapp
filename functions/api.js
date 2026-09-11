@@ -37,6 +37,10 @@ const PORTADAS = new Set([
   'getConceptosAcum', 'guardarConceptoAcum', 'eliminarConceptoAcum',
   // Cruce de saldos entre coordinadores:
   'getCruces', 'guardarCruce', 'eliminarCruce',
+  // Módulo SST — Inventario de almacén:
+  'getInventario', 'invGuardarProducto', 'invEliminarProducto',
+  'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
+  'invGetActas', 'invEliminarActa',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -108,6 +112,14 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getCruces')            r = await accionGetCruces(body, env);
     else if (accion === 'guardarCruce')         r = await accionGuardarCruce(body, env);
     else if (accion === 'eliminarCruce')        r = await accionEliminarCruce(body, env);
+    else if (accion === 'getInventario')        r = await accionGetInventario(body, env);
+    else if (accion === 'invGuardarProducto')   r = await accionInvGuardarProducto(body, env);
+    else if (accion === 'invEliminarProducto')  r = await accionInvEliminarProducto(body, env);
+    else if (accion === 'invGetMovimientos')    r = await accionInvGetMovimientos(body, env);
+    else if (accion === 'invRegistrarEntrada')  r = await accionInvRegistrarEntrada(body, env);
+    else if (accion === 'invRegistrarSalida')   r = await accionInvRegistrarSalida(body, env);
+    else if (accion === 'invGetActas')          r = await accionInvGetActas(body, env);
+    else if (accion === 'invEliminarActa')      r = await accionInvEliminarActa(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -571,8 +583,8 @@ async function accionGetUsuarios(body, env) {
     if (!activo) continue;
     const fRol = String(f.rol || '').trim().toLowerCase();
     if (rol && fRol !== rol) {
-      // El ADMIN (super usuario) aparece también en la lista de Recursos Humanos
-      if (!(rol === 'rrhh' && String(f.usuario).trim().toUpperCase() === 'ADMIN')) continue;
+      // El ADMIN (super usuario) aparece también en Recursos Humanos y SST
+      if (!((rol === 'rrhh' || rol === 'sst') && String(f.usuario).trim().toUpperCase() === 'ADMIN')) continue;
     }
     lista.push({ usuario: String(f.usuario).trim(), rol: fRol, sede: String(f.sede || 'TODAS').trim().toUpperCase() });
   }
@@ -1340,5 +1352,169 @@ async function accionEditarVacacion(body, env) {
     actualizado_por: String(body.usuario || '') + ' · edit',
   };
   await sbWrite(env, 'PATCH', `vacaciones?id=eq.${encodeURIComponent(id)}`, cambios);
+  return { ok: true };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MÓDULO SST — INVENTARIO DE ALMACÉN
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Listado del inventario con stock (lee la vista inventario_v)
+async function accionGetInventario(body, env) {
+  const rows = await sbAll(env, 'inventario_v?select=item,producto,categoria,precio,stock,valor_stock,activo&order=categoria,producto');
+  const cat = String(body.categoria || '').trim().toUpperCase();
+  let data = rows.map((r) => ({
+    item: String(r.item || ''),
+    producto: String(r.producto || ''),
+    categoria: String(r.categoria || ''),
+    precio: Number(r.precio || 0),
+    stock: Number(r.stock || 0),
+    valor_stock: Number(r.valor_stock || 0),
+    activo: r.activo !== false,
+  }));
+  if (cat) data = data.filter((d) => d.categoria === cat);
+  return { ok: true, data };
+}
+
+// Crear / editar producto del catálogo
+async function accionInvGuardarProducto(body, env) {
+  let item = String(body.item || '').trim();
+  const producto = String(body.producto || '').trim();
+  if (!producto) return { ok: false, error: 'Falta el nombre del producto' };
+  const categoria = String(body.categoria || 'EPP').trim().toUpperCase();
+  const precio = parseFloat(body.precio) || 0;
+  if (item) {
+    // editar (o insertar con código dado)
+    const ex = await sb(env, `inventario?select=item&item=eq.${encodeURIComponent(item)}&limit=1`);
+    if (ex.length) await sbWrite(env, 'PATCH', `inventario?item=eq.${encodeURIComponent(item)}`, { producto, categoria, precio });
+    else await sbWrite(env, 'POST', 'inventario', { item, producto, categoria, precio });
+    return { ok: true, item };
+  }
+  // generar código nuevo por categoría: prefijo + consecutivo
+  const pref = categoria.startsWith('IND') ? 'INDU' : categoria.startsWith('HERR') ? 'HE' : 'EPP';
+  const rows = await sbAll(env, `inventario?select=item&item=like.${pref}*`);
+  let max = 0;
+  rows.forEach((r) => { const m = String(r.item).match(/(\d+)$/); if (m) max = Math.max(max, parseInt(m[1])); });
+  item = pref + String(max + 1).padStart(3, '0');
+  await sbWrite(env, 'POST', 'inventario', { item, producto, categoria, precio });
+  return { ok: true, item };
+}
+async function accionInvEliminarProducto(body, env) {
+  const item = String(body.item || '').trim();
+  if (!item) return { ok: false, error: 'Falta item' };
+  const mv = await sb(env, `inv_movimientos?select=id_movimiento&item=eq.${encodeURIComponent(item)}&limit=1`);
+  if (mv.length) return { ok: false, error: 'Ese producto tiene movimientos registrados; no se puede borrar (puedes dejarlo sin stock).' };
+  await sbWrite(env, 'DELETE', `inventario?item=eq.${encodeURIComponent(item)}`);
+  return { ok: true };
+}
+
+// Kardex / movimientos (con filtros item, fecha)
+async function accionInvGetMovimientos(body, env) {
+  const item = String(body.item || '').trim();
+  const desde = String(body.desde || '').trim();
+  const hasta = String(body.hasta || '').trim();
+  let path = 'inv_movimientos?select=id_movimiento,id_regn,item,categoria,fecha,factura_id,producto,entradas,salidas,precio_un,novedad,empleado&order=fecha.desc&limit=1000';
+  if (item) path += `&item=eq.${encodeURIComponent(item)}`;
+  if (desde) path += `&fecha=gte.${encodeURIComponent(desde)}`;
+  if (hasta) path += `&fecha=lte.${encodeURIComponent(hasta + ' 23:59:59')}`;
+  const rows = await sbAll(env, path);
+  return { ok: true, data: rows };
+}
+
+// Registrar ENTRADA (compra/ingreso): uno o varios items, sin acta
+async function accionInvRegistrarEntrada(body, env) {
+  const items = Array.isArray(body.items) ? body.items : [];
+  const fecha = String(body.fecha || '').trim() || isoDate(new Date());
+  if (!items.length) return { ok: false, error: 'Agrega al menos un producto' };
+  const filas = items.filter((it) => String(it.item || '').trim()).map((it) => ({
+    id_movimiento: 'MOV' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
+    id_regn: null,
+    item: String(it.item).trim(),
+    categoria: String(it.categoria || '').trim().toUpperCase(),
+    fecha,
+    factura_id: String(body.factura || '').trim(),
+    producto: String(it.producto || '').trim(),
+    entradas: parseFloat(it.cantidad) || 0,
+    salidas: 0,
+    precio_un: parseFloat(it.precio) || 0,
+    novedad: String(body.novedad || 'ENTRADA').trim(),
+    empleado: '',
+  }));
+  if (!filas.length) return { ok: false, error: 'No hay productos válidos' };
+  await sbWrite(env, 'POST', 'inv_movimientos', filas);
+  return { ok: true, n: filas.length };
+}
+
+// Registrar SALIDA / entrega: crea el acta (con firma) + movimientos de salida
+async function accionInvRegistrarSalida(body, env) {
+  const items = Array.isArray(body.items) ? body.items : [];
+  const fecha = String(body.fecha || '').trim() || isoDate(new Date());
+  if (!items.length) return { ok: false, error: 'Agrega al menos un producto' };
+  const empleado = String(body.empleado_proveedor || '').trim();
+  if (!empleado) return { ok: false, error: 'Falta el empleado / proveedor que recibe' };
+  const idRegn = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await sbWrite(env, 'POST', 'inv_registros', {
+    id_regn: idRegn,
+    auxiliar: String(body.auxiliar || '').trim(),
+    empleado_proveedor: empleado,
+    id_factura: String(body.id_factura || '').trim(),
+    fecha,
+    firma: String(body.firma || ''),
+    sede: 'NORTE',
+  });
+  const filas = items.filter((it) => String(it.item || '').trim()).map((it) => ({
+    id_movimiento: 'MOV' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
+    id_regn: idRegn,
+    item: String(it.item).trim(),
+    categoria: String(it.categoria || '').trim().toUpperCase(),
+    fecha,
+    factura_id: String(body.id_factura || '').trim(),
+    producto: String(it.producto || '').trim(),
+    entradas: 0,
+    salidas: parseFloat(it.cantidad) || 0,
+    precio_un: parseFloat(it.precio) || 0,
+    novedad: String(body.novedad || '').trim(),
+    empleado,
+  }));
+  if (filas.length) await sbWrite(env, 'POST', 'inv_movimientos', filas);
+  return { ok: true, id_regn: idRegn };
+}
+
+// Historial de actas (cabecera + sus items), con filtros
+async function accionInvGetActas(body, env) {
+  const desde = String(body.desde || '').trim();
+  const hasta = String(body.hasta || '').trim();
+  let path = 'inv_registros?select=id_regn,auxiliar,empleado_proveedor,id_factura,fecha,firma,firma_ref&order=fecha.desc&limit=500';
+  if (desde) path += `&fecha=gte.${encodeURIComponent(desde)}`;
+  if (hasta) path += `&fecha=lte.${encodeURIComponent(hasta + ' 23:59:59')}`;
+  const actas = await sbAll(env, path);
+  if (!actas.length) return { ok: true, data: [] };
+  const ids = actas.map((a) => `"${String(a.id_regn).replace(/"/g, '')}"`).join(',');
+  const items = await sbAll(env, `inv_movimientos?select=id_regn,item,producto,salidas,entradas,precio_un&id_regn=in.(${ids})`);
+  const porActa = {};
+  items.forEach((it) => {
+    (porActa[it.id_regn] = porActa[it.id_regn] || []).push({
+      item: String(it.item || ''), producto: String(it.producto || ''),
+      cantidad: Number(it.salidas || 0) || Number(it.entradas || 0), precio_un: Number(it.precio_un || 0),
+    });
+  });
+  const data = actas.map((a) => ({
+    id_regn: a.id_regn,
+    auxiliar: String(a.auxiliar || ''),
+    empleado_proveedor: String(a.empleado_proveedor || ''),
+    id_factura: String(a.id_factura || ''),
+    fecha: a.fecha,
+    firma: String(a.firma || ''),
+    tiene_firma: !!(a.firma && String(a.firma).length > 20),
+    items: porActa[a.id_regn] || [],
+  }));
+  return { ok: true, data };
+}
+async function accionInvEliminarActa(body, env) {
+  const id = String(body.id_regn || '').trim();
+  if (!id) return { ok: false, error: 'Falta id_regn' };
+  await sbWrite(env, 'DELETE', `inv_movimientos?id_regn=eq.${encodeURIComponent(id)}`);
+  await sbWrite(env, 'DELETE', `inv_registros?id_regn=eq.${encodeURIComponent(id)}`);
   return { ok: true };
 }
