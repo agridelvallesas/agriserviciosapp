@@ -2926,7 +2926,19 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="hist-d2" onchange="invHistCargar()"/></div>
           <button class="btn bg" onclick="invHistCargar()" style="height:36px">Actualizar</button>
         </div>
-        <div class="tw"><table class="ordenable" id="hist-t"><thead><tr><th>Fecha</th><th>Recibe</th><th>Elementos</th><th>Auxiliar</th><th>Firma</th><th>Acción</th></tr></thead><tbody id="hist-tb"></tbody></table></div>
+        <div class="tw"><table class="ordenable" id="hist-t"><thead><tr><th>Fecha</th><th>Auxiliar</th><th>Empleado / Proveedor</th><th>#ID / Factura</th><th>Elementos</th><th>Firma</th><th>Acción</th></tr></thead><tbody id="hist-tb"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════════ SST — ENTREGAS POR EMPLEADO ══════════ -->
+    <div class="page" id="p-inv-emp">
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="flex:2;min-width:200px;margin:0"><label style="font-size:10px">Buscar empleado / proveedor</label><input type="text" id="emp-q" list="emp-q-list" placeholder="Nombre o cédula..." oninput="invEmpRender()"/><datalist id="emp-q-list"></datalist></div>
+          <button class="btn bg" onclick="invEmpInit()" style="height:36px">Actualizar</button>
+        </div>
+        <div id="emp-kpis" style="font-size:12px;color:var(--g3);margin:8px 0"></div>
+        <div class="tw"><table id="emp-t"><thead><tr><th style="width:30px"></th><th>Empleado / Proveedor</th><th>Cédula</th><th>Entregas</th><th>Última entrega</th></tr></thead><tbody id="emp-tb"></tbody></table></div>
       </div>
     </div>
 
@@ -4002,6 +4014,7 @@ function buildNav(){
       '<button class="ni" onclick="go(\'inv-ent\')"><span class="ni-ico">📥</span>Registrar entrada</button>'+
       '<button class="ni" onclick="go(\'inv-sal\')"><span class="ni-ico">📤</span>Salida / Entrega</button>'+
       '<button class="ni" onclick="go(\'inv-hist\')"><span class="ni-ico">📋</span>Historial de entregas</button>'+
+      '<button class="ni" onclick="go(\'inv-emp\')"><span class="ni-ico">👤</span>Entregas por empleado</button>'+
       '<button class="ni" onclick="go(\'inv-kardex\')"><span class="ni-ico">🔎</span>Kardex por producto</button>'+
       '<div class="sb-sec">Otras áreas</div>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Exámenes médicos ocupacionales\')"><span class="ni-ico">🩺</span>Exámenes médicos <span class="rh-tag">Pronto</span></button>'+
@@ -4028,7 +4041,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-kardex':'SST — Kardex por producto'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4056,6 +4069,7 @@ function go(pg){
   if(pg==='inv-ent') invEntInit();
   if(pg==='inv-sal') invSalInit();
   if(pg==='inv-hist') invHistInit();
+  if(pg==='inv-emp') invEmpInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='emp') filtEmp();
   if(pg==='tar') filtTar();
@@ -17361,7 +17375,96 @@ function invVerActa(id){
   if(typeof abrirCartaImprimible==='function') abrirCartaImprimible(cuerpo,'Acta - '+(a.empleado_proveedor||''));
 }
 
-// ── Kardex por producto ──
+// ── Entregas por empleado (agrupado por cédula, expandible) ──
+var EMP_RESUMEN=[], EMP_GRUPOS=[], EMP_ITEMS={};
+function invEmpCedNorm(c){ return String(c==null?'':c).replace(/[.\s,\-]/g,'').trim(); }
+function invEmpInit(){
+  var tb=document.getElementById('emp-tb'); if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando entregas...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invEntregasResumen'})})
+  .then(function(r){return r.json();}).then(function(d){ EMP_RESUMEN=(d&&d.ok&&d.data)?d.data:[]; EMP_ITEMS={}; invEmpAgrupar(); invEmpRender(); })
+  .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+}
+function invEmpAgrupar(){
+  var by={};
+  EMP_RESUMEN.forEach(function(a){
+    var ck=invEmpCedNorm(a.id_factura)||('SIN'+(a.empleado_proveedor||'')); // sin cédula: agrupa por nombre
+    if(!by[ck]) by[ck]={ck:ck, cedula:a.id_factura||'', nombre:a.empleado_proveedor||'', entregas:[]};
+    // conserva el nombre más reciente no vacío
+    if(a.empleado_proveedor && !by[ck].nombre) by[ck].nombre=a.empleado_proveedor;
+    by[ck].entregas.push({id_regn:a.id_regn, fecha:a.fecha, auxiliar:a.auxiliar});
+  });
+  EMP_GRUPOS=Object.keys(by).map(function(k){
+    var g=by[k];
+    g.entregas.sort(function(a,b){return String(b.fecha||'').localeCompare(String(a.fecha||''));});
+    g.ultima=g.entregas.length?g.entregas[0].fecha:null;
+    g.n=g.entregas.length;
+    return g;
+  }).sort(function(a,b){return String(b.ultima||'').localeCompare(String(a.ultima||''));});
+  // datalist de nombres/cédulas
+  var dl=document.getElementById('emp-q-list');
+  if(dl) dl.innerHTML=EMP_GRUPOS.map(function(g){return '<option value="'+gcEsc(g.nombre)+'">';}).join('');
+}
+function invEmpRender(){
+  var tb=document.getElementById('emp-tb'); if(!tb) return;
+  var q=((document.getElementById('emp-q')||{}).value||'').toLowerCase().trim();
+  var qced=q.replace(/[.\s,\-]/g,'');
+  var lista=EMP_GRUPOS.filter(function(g){
+    if(!q) return true;
+    return String(g.nombre).toLowerCase().indexOf(q)>=0 || (qced && invEmpCedNorm(g.cedula).indexOf(qced)>=0);
+  });
+  var kp=document.getElementById('emp-kpis');
+  if(kp) kp.textContent=lista.length+' empleado(s) · '+lista.reduce(function(s,g){return s+g.n;},0)+' entregas';
+  tb.innerHTML=lista.length?lista.map(function(g){
+    var f=g.ultima?String(g.ultima).slice(0,10).split('-').reverse().join('/'):'—';
+    var fila='<tr style="cursor:pointer" onclick="invEmpToggle(\''+g.ck+'\')"><td style="text-align:center"><span id="emp-arw-'+g.ck+'" style="color:var(--v);font-weight:700">▸</span></td>'+
+      '<td><strong>'+gcEsc(g.nombre||'(sin nombre)')+'</strong></td><td>'+gcEsc(g.cedula||'—')+'</td>'+
+      '<td style="text-align:center"><span class="bdg ba2">'+g.n+'</span></td><td>'+f+'</td></tr>';
+    var det='<tr id="emp-det-'+g.ck+'" style="display:none"><td colspan="5" style="padding:0;background:#f5f5f4"><div class="emp-det-body" style="padding:10px 14px">—</div></td></tr>';
+    return fila+det;
+  }).join(''):'<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">Sin empleados'+(q?' que coincidan':'')+'</td></tr>';
+}
+function invEmpToggle(ck){
+  var g=EMP_GRUPOS.filter(function(x){return x.ck===ck;})[0]; if(!g) return;
+  var det=document.getElementById('emp-det-'+ck), arw=document.getElementById('emp-arw-'+ck);
+  if(!det) return;
+  if(det.style.display!=='none'){ det.style.display='none'; if(arw) arw.textContent='▸'; return; }
+  det.style.display='table-row'; if(arw) arw.textContent='▾';
+  var body=det.querySelector('.emp-det-body');
+  var faltan=g.entregas.filter(function(e){return !EMP_ITEMS[e.id_regn];}).map(function(e){return e.id_regn;});
+  if(!faltan.length){ invEmpDetRender(g,body); return; }
+  body.innerHTML='⏳ Cargando elementos...';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invItemsActas',ids:faltan})})
+  .then(function(r){return r.json();}).then(function(d){
+    (d&&d.data||[]).forEach(function(it){ (EMP_ITEMS[it.id_regn]=EMP_ITEMS[it.id_regn]||[]).push(it); });
+    faltan.forEach(function(id){ if(!EMP_ITEMS[id]) EMP_ITEMS[id]=[]; }); // marca cargado aunque vacío
+    invEmpDetRender(g,body);
+  }).catch(function(e){ body.innerHTML='<span style="color:var(--r)">Error al cargar elementos</span>'; });
+}
+function invEmpDetRender(g,body){
+  var html='<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">Entregas de '+gcEsc(g.nombre||'')+'</div>';
+  html+=g.entregas.map(function(e){
+    var f=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'—';
+    var items=EMP_ITEMS[e.id_regn]||[];
+    var els=items.length?items.map(function(i){return gcEsc(i.producto)+' ×'+i.cantidad;}).join(', '):'<span style="color:var(--g3)">sin elementos</span>';
+    return '<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--bd)">'+
+      '<div style="min-width:90px;font-weight:600">'+f+'</div>'+
+      '<div style="flex:1;font-size:12px">'+els+'</div>'+
+      '<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️</button></div>';
+  }).join('');
+  body.innerHTML=html;
+}
+// Imprime el acta de una entrega puntual (reusa el historial si está cargado, o pide sus datos)
+function invVerActaId(id){
+  var a=INV_HIST.filter(function(x){return String(x.id_regn)===String(id);})[0];
+  if(a){ invVerActa(id); return; }
+  // reconstruir desde el resumen + items ya cargados
+  var res=EMP_RESUMEN.filter(function(x){return String(x.id_regn)===String(id);})[0];
+  var items=(EMP_ITEMS[id]||[]).map(function(i){return {producto:i.producto,item:i.item,cantidad:i.cantidad};});
+  INV_HIST.push({id_regn:id,empleado_proveedor:res?res.empleado_proveedor:'',id_factura:res?res.id_factura:'',fecha:res?res.fecha:null,auxiliar:res?res.auxiliar:'',firma:'',tiene_firma:false,items:items});
+  invVerActa(id);
+}
+
+
 function invKardexInit(){ invAsegurarDatos(invKardexList); }
 function invKardexList(){
   var dl=document.getElementById('kdx-list'); if(dl) dl.innerHTML=INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item)+' · '+gcEsc(p.producto)+'">';}).join('');
