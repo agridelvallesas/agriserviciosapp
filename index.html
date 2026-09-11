@@ -301,9 +301,9 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="l-dep-ico">🪪</div>
           <div class="l-dep-nom">Recursos Humanos</div>
         </div>
-        <div class="l-dep dis" title="Próximamente disponible">
+        <div class="l-dep" onclick="lSelDep('s')">
           <div class="l-dep-ico">🦺</div>
-          <div class="l-dep-nom">SST · Próximamente</div>
+          <div class="l-dep-nom">SST</div>
         </div>
       </div>
       <div style="text-align:center;margin-top:18px;font-size:10px;color:#9ca3af">Toca el departamento al que perteneces para continuar</div>
@@ -1410,7 +1410,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
           <div class="fld" style="min-width:150px;margin:0"><label>Usuario</label><input type="text" id="us-user" placeholder="Nombre de usuario"/></div>
           <div class="fld" style="min-width:130px;margin:0"><label>Contraseña</label><input type="text" id="us-pass" placeholder="Clave"/></div>
-          <div class="fld" style="min-width:120px;margin:0"><label>Rol</label><select id="us-rol"><option value="coord">coord</option><option value="admin">admin</option><option value="nomina">nomina</option><option value="factura">factura</option><option value="rrhh">rrhh (Rec. Humanos)</option></select></div>
+          <div class="fld" style="min-width:120px;margin:0"><label>Rol</label><select id="us-rol"><option value="coord">coord</option><option value="admin">admin</option><option value="nomina">nomina</option><option value="factura">factura</option><option value="rrhh">rrhh (Rec. Humanos)</option><option value="sst">sst (Seg. y Salud)</option></select></div>
           <div class="fld" style="min-width:110px;margin:0"><label>Sede</label><select id="us-sede"><option value="TODAS">TODAS</option><option value="NORTE">NORTE</option><option value="SUR">SUR</option></select></div>
           <button class="btn bn" onclick="usGuardar()" style="height:36px">➕ Agregar usuario</button>
           <button class="btn bv" onclick="usCargar()" style="height:36px" title="Recargar">🔄</button>
@@ -2858,6 +2858,90 @@ tfoot td{background:var(--gf);font-weight:700}
         </tr></thead><tbody id="tar-tb"></tbody></table></div>
       </div>
     </div>
+
+    <!-- ══════════ SST — INVENTARIO ══════════ -->
+    <div class="page" id="p-inv">
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="sw" style="flex:2;min-width:180px"><span class="sico">🔍</span><input type="text" id="inv-q" placeholder="Buscar producto o código..." oninput="invRender()"/></div>
+          <div class="fld" style="min-width:150px;margin:0"><select id="inv-cat" onchange="invRender()" style="margin:0"><option value="">Todas las categorías</option><option value="EPP">EPP</option><option value="INDUMENTARIA">Indumentaria</option><option value="HERRAMIENTAS Y EQUIPOS">Herramientas y equipos</option></select></div>
+          <div class="fld" style="min-width:130px;margin:0"><select id="inv-stk" onchange="invRender()" style="margin:0"><option value="">Todo el stock</option><option value="pos">Con stock</option><option value="cero">En cero</option><option value="neg">Negativo</option></select></div>
+          <button class="btn bv" onclick="invNuevoProd()" style="height:36px">➕ Nuevo producto</button>
+        </div>
+        <div id="inv-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0"></div>
+        <div class="tw"><table class="ordenable" id="inv-t"><thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Valor stock</th><th>Acción</th></tr></thead><tbody id="inv-tb"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════════ SST — REGISTRAR ENTRADA ══════════ -->
+    <div class="page" id="p-inv-ent">
+      <div class="card">
+        <div class="ct">📥 Registrar entrada (compra / ingreso)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:150px;margin:0"><label>Fecha</label><input type="date" id="ent-fecha"/></div>
+          <div class="fld" style="flex:1;min-width:160px;margin:0"><label>Factura / Documento</label><input type="text" id="ent-factura" placeholder="N° factura (opcional)"/></div>
+          <div class="fld" style="flex:1;min-width:160px;margin:0"><label>Novedad</label><input type="text" id="ent-novedad" placeholder="Ej. Compra proveedor"/></div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--g2)">Productos que entran</div>
+        <div id="ent-items"></div>
+        <button class="btn bg" onclick="invEntAddItem()" style="margin-top:6px;font-size:12px">➕ Agregar producto</button>
+        <div style="text-align:right;margin-top:12px"><button class="btn bv" onclick="invEntGuardar()">💾 Registrar entrada</button></div>
+      </div>
+    </div>
+
+    <!-- ══════════ SST — SALIDA / ENTREGA ══════════ -->
+    <div class="page" id="p-inv-sal">
+      <div class="card">
+        <div class="ct">📤 Salida / Entrega de elementos</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="flex:2;min-width:220px;margin:0"><label>Empleado / Proveedor que recibe</label><input type="text" id="sal-emp" list="sal-emp-list" placeholder="Cédula o nombre..." oninput="invSalEmpChange()"/><datalist id="sal-emp-list"></datalist></div>
+          <div class="fld" style="min-width:150px;margin:0"><label>Cédula / Factura</label><input type="text" id="sal-cedula" placeholder="Documento"/></div>
+          <div class="fld" style="min-width:150px;margin:0"><label>Fecha</label><input type="date" id="sal-fecha"/></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+          <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Auxiliar que entrega</label><input type="text" id="sal-aux" placeholder="Nombre del auxiliar"/></div>
+          <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Novedad</label><input type="text" id="sal-novedad" placeholder="Ej. Dotación, reposición..."/></div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--g2)">Elementos que salen</div>
+        <div id="sal-items"></div>
+        <button class="btn bg" onclick="invSalAddItem()" style="margin-top:6px;font-size:12px">➕ Agregar elemento</button>
+
+        <div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--g2)">Firma de quien recibe</div>
+        <div style="border:1px dashed var(--bd);border-radius:8px;padding:8px;display:inline-block;margin-top:4px">
+          <canvas id="sal-firma" width="360" height="140" style="touch-action:none;background:#fff;border-radius:4px;display:block"></canvas>
+          <div style="text-align:right;margin-top:4px"><button class="btn bg" onclick="firmaLimpiar()" style="font-size:11px;padding:3px 10px">↺ Borrar firma</button></div>
+        </div>
+
+        <div style="text-align:right;margin-top:12px"><button class="btn bv" onclick="invSalGuardar()">💾 Registrar entrega</button></div>
+      </div>
+    </div>
+
+    <!-- ══════════ SST — HISTORIAL DE ENTREGAS ══════════ -->
+    <div class="page" id="p-inv-hist">
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="sw" style="flex:2;min-width:180px"><span class="sico">🔍</span><input type="text" id="hist-q" placeholder="Filtrar por empleado o producto..." oninput="invHistRender()"/></div>
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="hist-d1" onchange="invHistCargar()"/></div>
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="hist-d2" onchange="invHistCargar()"/></div>
+          <button class="btn bg" onclick="invHistCargar()" style="height:36px">Actualizar</button>
+        </div>
+        <div class="tw"><table class="ordenable" id="hist-t"><thead><tr><th>Fecha</th><th>Recibe</th><th>Elementos</th><th>Auxiliar</th><th>Firma</th><th>Acción</th></tr></thead><tbody id="hist-tb"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════════ SST — KARDEX ══════════ -->
+    <div class="page" id="p-inv-kardex">
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="flex:2;min-width:220px;margin:0"><label>Producto</label><input type="text" id="kdx-prod" list="kdx-list" placeholder="Código o nombre..." oninput="invKardexBuscar()"/><datalist id="kdx-list"></datalist></div>
+          <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="kdx-d1"/></div>
+          <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="kdx-d2"/></div>
+          <button class="btn bv" onclick="invKardexVer()" style="height:36px">Ver kardex</button>
+        </div>
+        <div id="kdx-resumen" style="margin:10px 0"></div>
+        <div class="tw"><table id="kdx-t"><thead><tr><th>Fecha</th><th>Novedad</th><th>Entra</th><th>Sale</th><th>Saldo</th><th>Recibe</th></tr></thead><tbody id="kdx-tb"></tbody></table></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -3095,7 +3179,8 @@ var L_DEPS={
   a:{nom:'Administrativo',    ico:'🗂️', col:'var(--a)', bg:'#fef3c7', rolApi:'admin',   rrhh:false},
   n:{nom:'Nómina',            ico:'💵', col:'var(--n)', bg:'#dcfce7', rolApi:'nomina',  rrhh:false},
   f:{nom:'Facturación',       ico:'📊', col:'var(--f)', bg:'#dbeafe', rolApi:'factura', rrhh:false},
-  r:{nom:'Recursos Humanos',  ico:'🪪', col:'#7c3aed', bg:'#ede9fe', rolApi:'rrhh',   rrhh:true} // RRHH tiene su propia lista de usuarios (rol rrhh) + el ADMIN
+  r:{nom:'Recursos Humanos',  ico:'🪪', col:'#7c3aed', bg:'#ede9fe', rolApi:'rrhh',   rrhh:true}, // RRHH tiene su propia lista de usuarios (rol rrhh) + el ADMIN
+  s:{nom:'SST',               ico:'🦺', col:'#ea580c', bg:'#ffedd5', rolApi:'sst',    sst:true}  // SST: usuarios rol sst + el ADMIN
 };
 
 // Llamado cuando el usuario toca un mosaico de departamento
@@ -3277,7 +3362,7 @@ function completarLogin(){
   var u=S.u;
   // Normalizar rol: Sheets devuelve 'coord','admin','nomina','factura'
   // internamente usamos 'c','a','n','f'
-  var rolMap={'coord':'c','admin':'a','nomina':'n','factura':'f','c':'c','a':'a','n':'n','f':'f'};
+  var rolMap={'coord':'c','admin':'a','nomina':'n','factura':'f','rrhh':'r','sst':'s','c':'c','a':'a','n':'n','f':'f','r':'r','s':'s'};
   S.rol = rolMap[S.rol] || S.ltab;
 
   document.getElementById('lscreen').style.display='none';
@@ -3909,6 +3994,17 @@ function buildNav(){
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Reportes ejecutivos\')"><span class="ni-ico">📈</span>Reportes ejecutivos <span class="rh-tag">Pronto</span></button>';
+  } else if(S.depto==='s'){
+    nav.innerHTML=
+      '<div class="sb-sec">SST — Inventario</div>'+
+      '<button class="ni" onclick="go(\'inv\')"><span class="ni-ico">📦</span>Inventario</button>'+
+      '<button class="ni" onclick="go(\'inv-ent\')"><span class="ni-ico">📥</span>Registrar entrada</button>'+
+      '<button class="ni" onclick="go(\'inv-sal\')"><span class="ni-ico">📤</span>Salida / Entrega</button>'+
+      '<button class="ni" onclick="go(\'inv-hist\')"><span class="ni-ico">📋</span>Historial de entregas</button>'+
+      '<button class="ni" onclick="go(\'inv-kardex\')"><span class="ni-ico">🔎</span>Kardex por producto</button>'+
+      '<div class="sb-sec">Otras áreas</div>'+
+      '<button class="ni rh-pronto" onclick="rhProximamente(\'Exámenes médicos ocupacionales\')"><span class="ni-ico">🩺</span>Exámenes médicos <span class="rh-tag">Pronto</span></button>'+
+      '<button class="ni rh-pronto" onclick="rhProximamente(\'Accidentes e incidentes\')"><span class="ni-ico">⚠️</span>Accidentes <span class="rh-tag">Pronto</span></button>';
   } else if(S.rol==='c'){
     nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
@@ -3931,7 +4027,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-kardex':'SST — Kardex por producto'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -3955,6 +4051,11 @@ function go(pg){
   if(pg==='cobertura') carCobertura();
   if(pg==='permisos') permisosInit();
   if(pg==='accesos') accInit();
+  if(pg==='inv') invInit();
+  if(pg==='inv-ent') invEntInit();
+  if(pg==='inv-sal') invSalInit();
+  if(pg==='inv-hist') invHistInit();
+  if(pg==='inv-kardex') invKardexInit();
   if(pg==='emp') filtEmp();
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -11336,6 +11437,34 @@ function clConstruirYRender(s1, s2){
     }
   });
 
+  // 1b) Calcular el PAGO de vigilancia igual que la nómina (horas×tarifa + domingo de
+  //     descanso). No queda guardado por registro, por eso antes el Costo laboral sumaba
+  //     $0 de pago de vigilancia y no cuadraba con el Cuadre/Nómina. Se agrupa por
+  //     coord-admin y cédula (tope de horas por trabajador, como la nómina) y se reparte
+  //     por semana proporcional a las horas para que el desglose por semana también sume.
+  (function(){
+    var Tv=(typeof getCFG==='function')?getCFG():null;
+    Object.keys(CL_DATA).forEach(function(k){
+      var vigSem=CL_DATA[k].vig; var semKeys=Object.keys(vigSem);
+      if(!semKeys.length) return;
+      // juntar todos los registros de vigilancia del coord-admin, por cédula
+      var porCed={};
+      semKeys.forEach(function(s){ (vigSem[s].regs||[]).forEach(function(r){ (porCed[r.ced]=porCed[r.ced]||[]).push(r); }); });
+      // pago total de vigilancia (suma por trabajador, con su tope de horas)
+      var pagoTotVig=0;
+      Object.keys(porCed).forEach(function(ced){ pagoTotVig += vigPagoWorker(porCed[ced], Tv).total; });
+      // repartir por semana proporcional a las horas (la última semana toma el resto)
+      var horasTot=0; semKeys.forEach(function(s){ horasTot+=(vigSem[s].horas||0); });
+      var asignado=0;
+      semKeys.forEach(function(s,i){
+        var p;
+        if(i===semKeys.length-1) p=pagoTotVig-asignado;
+        else { p=horasTot>0?Math.round(pagoTotVig*((vigSem[s].horas||0)/horasTot)):0; asignado+=p; }
+        vigSem[s].pago=p;
+      });
+    });
+  })();
+
   // 2) Cruzar con DETALLADO_CACHE para obtener lo realmente facturado por Riopaila
   if(typeof DETALLADO_CACHE!=='undefined' && Array.isArray(DETALLADO_CACHE)){
     DETALLADO_CACHE.forEach(function(d){
@@ -16993,6 +17122,271 @@ function cnomEliminarConcepto(k){
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  MÓDULO SST — INVENTARIO DE ALMACÉN
+// ═══════════════════════════════════════════════════════════════════════════
+var INV_DATA=[];   // productos con stock (inventario_v)
+var INV_HIST=[];   // actas del historial
+var INV_ITEM_N=0;  // contador filas de items
+
+// ── Inventario (consulta) ──
+function invInit(){
+  var tb=document.getElementById('inv-tb'); if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando inventario...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getInventario'})})
+  .then(function(r){return r.json();}).then(function(d){ INV_DATA=(d&&d.ok&&d.data)?d.data:[]; invRender(); })
+  .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+}
+function invRender(){
+  var tb=document.getElementById('inv-tb'); if(!tb) return;
+  var q=((document.getElementById('inv-q')||{}).value||'').toLowerCase().trim();
+  var cat=(document.getElementById('inv-cat')||{}).value||'';
+  var stk=(document.getElementById('inv-stk')||{}).value||'';
+  var lista=INV_DATA.filter(function(p){
+    if(cat && p.categoria!==cat) return false;
+    if(stk==='pos' && !(p.stock>0)) return false;
+    if(stk==='cero' && p.stock!==0) return false;
+    if(stk==='neg' && !(p.stock<0)) return false;
+    if(q && (String(p.producto).toLowerCase().indexOf(q)<0 && String(p.item).toLowerCase().indexOf(q)<0)) return false;
+    return true;
+  });
+  // KPIs
+  var totVal=lista.reduce(function(s,p){return s+p.valor_stock;},0);
+  var negs=lista.filter(function(p){return p.stock<0;}).length;
+  var kp=document.getElementById('inv-kpis');
+  if(kp) kp.innerHTML=
+    '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Productos</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+lista.length+'</div></div>'+
+    '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Valor del inventario</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+cop(totVal)+'</div></div>'+
+    (negs?'<div style="background:#fee2e2;border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:#991b1b">Con stock negativo</div><div style="font-size:18px;font-weight:800;color:#dc2626">'+negs+'</div></div>':'');
+  tb.innerHTML=lista.length?lista.map(function(p){
+    var col=p.stock<0?'#dc2626':(p.stock===0?'var(--g3)':'var(--v)');
+    return '<tr><td><code style="font-size:11px">'+gcEsc(p.item)+'</code></td><td><strong>'+gcEsc(p.producto)+'</strong></td>'+
+      '<td>'+gcEsc(p.categoria)+'</td><td style="text-align:right">'+cop(p.precio)+'</td>'+
+      '<td style="text-align:center;font-weight:700;color:'+col+'">'+p.stock+'</td>'+
+      '<td style="text-align:right">'+cop(p.valor_stock)+'</td>'+
+      '<td><button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="invEditarProd(\''+gcEsc(p.item)+'\')">✏️</button></td></tr>';
+  }).join(''):'<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">Sin productos que coincidan</td></tr>';
+}
+function invNuevoProd(){ invEditarProd(null); }
+function invEditarProd(item){
+  var p=item?INV_DATA.filter(function(x){return x.item===item;})[0]:null;
+  var nombre=prompt('Nombre del producto:', p?p.producto:''); if(nombre===null) return;
+  nombre=nombre.trim(); if(!nombre){ alert('El nombre es obligatorio'); return; }
+  var cat=prompt('Categoría (EPP / INDUMENTARIA / HERRAMIENTAS Y EQUIPOS):', p?p.categoria:'EPP'); if(cat===null) return;
+  var precio=prompt('Precio unitario:', p?p.precio:'0'); if(precio===null) return;
+  var body={accion:'invGuardarProducto',producto:nombre,categoria:(cat||'EPP').trim().toUpperCase(),precio:parseFloat(precio)||0};
+  if(item) body.item=item;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok) invInit(); else alert('Error: '+((d&&d.error)||'?')); })
+  .catch(function(e){alert('Error de red: '+e.message);});
+}
+function invAsegurarDatos(cb){
+  if(INV_DATA.length){ cb(); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getInventario'})})
+  .then(function(r){return r.json();}).then(function(d){ INV_DATA=(d&&d.ok&&d.data)?d.data:[]; cb(); })
+  .catch(function(e){ cb(); });
+}
+function invProdOpts(sel){
+  return '<option value="">— producto —</option>'+INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item)+'"'+(sel===p.item?' selected':'')+'>'+gcEsc(p.item)+' · '+gcEsc(p.producto)+' (stock '+p.stock+')</option>';}).join('');
+}
+
+// ── Registrar ENTRADA ──
+function invEntInit(){
+  var f=document.getElementById('ent-fecha'); if(f&&!f.value) f.value=new Date().toISOString().slice(0,10);
+  invAsegurarDatos(function(){ document.getElementById('ent-items').innerHTML=''; invEntAddItem(); });
+}
+function invEntAddItem(){
+  var c=document.getElementById('ent-items'); if(!c) return; var i=(++INV_ITEM_N);
+  var d=document.createElement('div'); d.className='ent-item'; d.id='ent-item-'+i;
+  d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px';
+  d.innerHTML='<div class="fld" style="flex:2;min-width:220px;margin:0"><select id="ent-el-'+i+'">'+invProdOpts()+'</select></div>'+
+    '<div class="fld" style="min-width:90px;margin:0"><input type="number" id="ent-c-'+i+'" min="1" step="1" value="1" placeholder="Cant."/></div>'+
+    '<button class="btn br" style="height:34px;padding:0 10px" onclick="document.getElementById(\'ent-item-'+i+'\').remove()">🗑️</button>';
+  c.appendChild(d);
+}
+function invEntGuardar(){
+  var items=[];
+  document.querySelectorAll('#ent-items .ent-item').forEach(function(div){
+    var i=div.id.replace('ent-item-',''); var it=(document.getElementById('ent-el-'+i)||{}).value||'';
+    if(!it) return;
+    var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
+    items.push({item:it,producto:p.producto||'',categoria:p.categoria||'',precio:p.precio||0,cantidad:parseFloat((document.getElementById('ent-c-'+i)||{}).value)||0});
+  });
+  if(!items.length){ alert('Agrega al menos un producto'); return; }
+  var body={accion:'invRegistrarEntrada',fecha:document.getElementById('ent-fecha').value,factura:document.getElementById('ent-factura').value,novedad:document.getElementById('ent-novedad').value,items:items};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ alert('✓ Entrada registrada ('+d.n+' producto(s))'); INV_DATA=[]; invEntInit(); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+
+// ── SALIDA / ENTREGA (con firma) ──
+function invSalInit(){
+  var f=document.getElementById('sal-fecha'); if(f&&!f.value) f.value=new Date().toISOString().slice(0,10);
+  if((typeof RH_DATA==='undefined'||!RH_DATA.length)&&typeof rhCargar==='function'){ rhCargar(); setTimeout(invSalEmpList,700); } else invSalEmpList();
+  invAsegurarDatos(function(){ document.getElementById('sal-items').innerHTML=''; invSalAddItem(); });
+  firmaInit('sal-firma');
+}
+function invSalEmpList(){
+  var dl=document.getElementById('sal-emp-list'); if(!dl||typeof RH_DATA==='undefined') return;
+  dl.innerHTML=RH_DATA.map(function(t){return '<option value="'+(t.CEDULA||'')+' - '+(t.NOMBRES||'')+'">';}).join('');
+}
+function invSalEmpChange(){
+  var v=(document.getElementById('sal-emp').value||'').trim();
+  var ced=v.split(' - ')[0].replace(/\D/g,'');
+  if(ced && document.getElementById('sal-cedula')) document.getElementById('sal-cedula').value=ced;
+}
+function invSalAddItem(){
+  var c=document.getElementById('sal-items'); if(!c) return; var i=(++INV_ITEM_N);
+  var d=document.createElement('div'); d.className='sal-item'; d.id='sal-item-'+i;
+  d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px';
+  d.innerHTML='<div class="fld" style="flex:2;min-width:220px;margin:0"><select id="sal-el-'+i+'">'+invProdOpts()+'</select></div>'+
+    '<div class="fld" style="min-width:90px;margin:0"><input type="number" id="sal-c-'+i+'" min="1" step="1" value="1" placeholder="Cant."/></div>'+
+    '<button class="btn br" style="height:34px;padding:0 10px" onclick="document.getElementById(\'sal-item-'+i+'\').remove()">🗑️</button>';
+  c.appendChild(d);
+}
+function invSalGuardar(){
+  var emp=(document.getElementById('sal-emp').value||'').trim();
+  if(!emp){ alert('Indica el empleado/proveedor que recibe'); return; }
+  var nombre=emp.indexOf(' - ')>=0?emp.split(' - ').slice(1).join(' - '):emp;
+  var items=[]; var aviso=[];
+  document.querySelectorAll('#sal-items .sal-item').forEach(function(div){
+    var i=div.id.replace('sal-item-',''); var it=(document.getElementById('sal-el-'+i)||{}).value||'';
+    if(!it) return;
+    var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
+    var cant=parseFloat((document.getElementById('sal-c-'+i)||{}).value)||0;
+    items.push({item:it,producto:p.producto||'',categoria:p.categoria||'',precio:p.precio||0,cantidad:cant});
+    if((p.stock||0)-cant<0) aviso.push(p.producto+' (queda '+((p.stock||0)-cant)+')');
+  });
+  if(!items.length){ alert('Agrega al menos un elemento'); return; }
+  if(aviso.length && !confirm('⚠️ Estos productos quedarán en negativo:\n\n'+aviso.join('\n')+'\n\n¿Registrar la salida de todas formas?')) return;
+  var body={accion:'invRegistrarSalida',
+    empleado_proveedor:nombre,
+    id_factura:(document.getElementById('sal-cedula').value||'').trim(),
+    fecha:document.getElementById('sal-fecha').value,
+    auxiliar:(document.getElementById('sal-aux').value||'').trim(),
+    novedad:(document.getElementById('sal-novedad').value||'').trim(),
+    firma:firmaDataURL('sal-firma'),
+    items:items};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ alert('✓ Entrega registrada'); document.getElementById('sal-emp').value=''; document.getElementById('sal-cedula').value=''; document.getElementById('sal-novedad').value=''; firmaLimpiar(); INV_DATA=[]; invSalInit(); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+
+// ── Firma digital (canvas) ──
+var FIRMA_CTX=null, FIRMA_CANVAS=null, FIRMA_DRAW=false, FIRMA_USADA=false;
+function firmaInit(id){
+  FIRMA_CANVAS=document.getElementById(id); if(!FIRMA_CANVAS) return;
+  FIRMA_CTX=FIRMA_CANVAS.getContext('2d'); FIRMA_USADA=false;
+  FIRMA_CTX.clearRect(0,0,FIRMA_CANVAS.width,FIRMA_CANVAS.height);
+  FIRMA_CTX.strokeStyle='#111'; FIRMA_CTX.lineWidth=2; FIRMA_CTX.lineCap='round';
+  var pos=function(e){ var r=FIRMA_CANVAS.getBoundingClientRect(); var t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; };
+  var start=function(e){ FIRMA_DRAW=true; FIRMA_USADA=true; var p=pos(e); FIRMA_CTX.beginPath(); FIRMA_CTX.moveTo(p.x,p.y); e.preventDefault(); };
+  var move=function(e){ if(!FIRMA_DRAW)return; var p=pos(e); FIRMA_CTX.lineTo(p.x,p.y); FIRMA_CTX.stroke(); e.preventDefault(); };
+  var end=function(){ FIRMA_DRAW=false; };
+  FIRMA_CANVAS.onmousedown=start; FIRMA_CANVAS.onmousemove=move; FIRMA_CANVAS.onmouseup=end; FIRMA_CANVAS.onmouseleave=end;
+  FIRMA_CANVAS.ontouchstart=start; FIRMA_CANVAS.ontouchmove=move; FIRMA_CANVAS.ontouchend=end;
+}
+function firmaLimpiar(){ if(FIRMA_CTX&&FIRMA_CANVAS){ FIRMA_CTX.clearRect(0,0,FIRMA_CANVAS.width,FIRMA_CANVAS.height); FIRMA_USADA=false; } }
+function firmaDataURL(){ return (FIRMA_USADA&&FIRMA_CANVAS)?FIRMA_CANVAS.toDataURL('image/png'):''; }
+
+// ── Historial de entregas ──
+function invHistInit(){ invHistCargar(); }
+function invHistCargar(){
+  var tb=document.getElementById('hist-tb'); if(tb) tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando...</td></tr>';
+  var body={accion:'invGetActas'};
+  var d1=(document.getElementById('hist-d1')||{}).value, d2=(document.getElementById('hist-d2')||{}).value;
+  if(d1) body.desde=d1; if(d2) body.hasta=d2;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){ INV_HIST=(d&&d.ok&&d.data)?d.data:[]; invHistRender(); })
+  .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+}
+function invHistRender(){
+  var tb=document.getElementById('hist-tb'); if(!tb) return;
+  var q=((document.getElementById('hist-q')||{}).value||'').toLowerCase().trim();
+  var lista=INV_HIST.filter(function(a){
+    if(!q) return true;
+    var els=(a.items||[]).map(function(i){return i.producto;}).join(' ').toLowerCase();
+    return String(a.empleado_proveedor||'').toLowerCase().indexOf(q)>=0 || els.indexOf(q)>=0;
+  });
+  tb.innerHTML=lista.length?lista.map(function(a){
+    var els=(a.items||[]).map(function(i){return gcEsc(i.producto)+' ×'+i.cantidad;}).join(', ');
+    var fecha=a.fecha?String(a.fecha).slice(0,10).split('-').reverse().join('/'):'';
+    return '<tr><td>'+fecha+'</td><td><strong>'+gcEsc(a.empleado_proveedor||'')+'</strong><br><span style="font-size:10px;color:var(--g3)">'+gcEsc(a.id_factura||'')+'</span></td>'+
+      '<td style="font-size:11px">'+els+'</td>'+
+      '<td style="font-size:11px">'+gcEsc(a.auxiliar||'—')+'</td>'+
+      '<td style="text-align:center">'+(a.tiene_firma?'✍️':(a.firma?'📄':'—'))+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="invVerActa(\''+a.id_regn+'\')">🖨️ Acta</button> <button class="btn br" style="padding:3px 8px;font-size:11px" onclick="invEliminarActa(\''+a.id_regn+'\')">🗑️</button></td></tr>';
+  }).join(''):'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">Sin entregas'+(q?' que coincidan':'')+'</td></tr>';
+}
+function invEliminarActa(id){
+  if(!confirm('¿Borrar esta entrega y sus movimientos? Devuelve el stock. No se puede deshacer.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invEliminarActa',id_regn:id})})
+  .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok) invHistCargar(); else alert('Error: '+((d&&d.error)||'?')); })
+  .catch(function(e){alert('Error de red: '+e.message);});
+}
+function invVerActa(id){
+  var a=INV_HIST.filter(function(x){return String(x.id_regn)===String(id);})[0];
+  if(!a){ alert('No se encontró el acta'); return; }
+  var fecha=a.fecha?String(a.fecha).slice(0,10).split('-').reverse().join('/'):'';
+  var filas=(a.items||[]).map(function(i,ix){
+    return '<tr><td style="border:1px solid #999;padding:6px;text-align:center">'+(ix+1)+'</td>'+
+      '<td style="border:1px solid #999;padding:6px">'+gcEsc(i.producto)+'</td>'+
+      '<td style="border:1px solid #999;padding:6px;text-align:center">'+i.cantidad+'</td></tr>';
+  }).join('');
+  var firmaImg=a.firma&&a.firma.length>20?'<img src="'+a.firma+'" style="max-height:90px"/>':'<div style="height:70px"></div>';
+  var cuerpo=
+    '<div class="body">'+
+    '<h2 style="text-align:center;margin:0 0 4px;font-size:15px">ACTA DE ENTREGA DE ELEMENTOS</h2>'+
+    '<p style="text-align:right;margin:6px 0">Fecha: <strong>'+fecha+'</strong></p>'+
+    '<p style="margin:10px 0 4px">Recibí de <strong>AGRISERVICIOS DEL VALLE S.A.S.</strong> los siguientes elementos, en buen estado y acordes con mis labores:</p>'+
+    '<table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:12px">'+
+      '<thead><tr style="background:#eee"><th style="border:1px solid #999;padding:6px;width:36px">#</th><th style="border:1px solid #999;padding:6px;text-align:left">Elemento</th><th style="border:1px solid #999;padding:6px;width:70px">Cant.</th></tr></thead>'+
+      '<tbody>'+filas+'</tbody></table>'+
+    (a.auxiliar?'<p style="margin:6px 0"><strong>Entregado por:</strong> '+gcEsc(a.auxiliar)+'</p>':'')+
+    '<div style="margin-top:40px;display:flex;justify-content:space-between;gap:30px">'+
+      '<div style="flex:1;text-align:center">'+firmaImg+'<div style="border-top:1px solid #333;padding-top:4px">Firma de quien recibe<br><strong>'+gcEsc(a.empleado_proveedor||'')+'</strong><br>C.C. '+gcEsc(a.id_factura||'')+'</div></div>'+
+    '</div></div>';
+  if(typeof abrirCartaImprimible==='function') abrirCartaImprimible(cuerpo,'Acta - '+(a.empleado_proveedor||''));
+}
+
+// ── Kardex por producto ──
+function invKardexInit(){ invAsegurarDatos(invKardexList); }
+function invKardexList(){
+  var dl=document.getElementById('kdx-list'); if(dl) dl.innerHTML=INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item)+' · '+gcEsc(p.producto)+'">';}).join('');
+}
+function invKardexBuscar(){}
+function invKardexVer(){
+  var v=(document.getElementById('kdx-prod').value||'').trim();
+  var item=v.split(' · ')[0].trim();
+  var p=INV_DATA.filter(function(x){return x.item===item;})[0];
+  if(!p){ alert('Elige un producto de la lista'); return; }
+  var body={accion:'invGetMovimientos',item:item};
+  var d1=document.getElementById('kdx-d1').value, d2=document.getElementById('kdx-d2').value;
+  if(d1) body.desde=d1; if(d2) body.hasta=d2;
+  var tb=document.getElementById('kdx-tb'); tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">⏳...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    var movs=(d&&d.ok&&d.data)?d.data:[];
+    // ordenar cronológico ascendente para saldo corriente
+    movs.sort(function(a,b){return String(a.fecha||'').localeCompare(String(b.fecha||''));});
+    var saldo=0, ent=0, sal=0;
+    var rows=movs.map(function(m){
+      var e=Number(m.entradas||0), s=Number(m.salidas||0); saldo+=e-s; ent+=e; sal+=s;
+      var f=m.fecha?String(m.fecha).slice(0,10).split('-').reverse().join('/'):'';
+      return '<tr><td>'+f+'</td><td style="font-size:11px">'+gcEsc(m.novedad||'')+'</td>'+
+        '<td style="text-align:center;color:var(--v)">'+(e||'')+'</td><td style="text-align:center;color:#dc2626">'+(s||'')+'</td>'+
+        '<td style="text-align:center;font-weight:700">'+saldo+'</td><td style="font-size:11px">'+gcEsc(m.empleado||'')+'</td></tr>';
+    }).join('');
+    document.getElementById('kdx-resumen').innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+      '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">'+gcEsc(p.item)+' · '+gcEsc(p.producto)+'</div><div style="font-size:11px;color:var(--g3)">Entradas '+ent+' · Salidas '+sal+'</div></div>'+
+      '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Stock actual</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+p.stock+'</div></div></div>';
+    document.getElementById('kdx-tb').innerHTML=rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">Sin movimientos</td></tr>';
+  }).catch(function(e){ tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+}
+
 </script>
 
   <style>
@@ -17085,7 +17479,7 @@ function usEditar(id){
   accModal('Editar usuario',
     '<div class="fld" style="margin-bottom:10px"><label>Usuario</label><input type="text" id="ae-1" value="'+String(u.usuario).replace(/"/g,'&quot;')+'"/></div>'
     +'<div class="fld" style="margin-bottom:10px"><label>Nueva contraseña <span style="color:var(--g3);font-weight:400">(vacío = no cambiar)</span></label><input type="text" id="ae-2" placeholder="••••••"/></div>'
-    +'<div class="fld" style="margin-bottom:10px"><label>Rol</label><select id="ae-3">'+['coord','admin','nomina','factura','rrhh'].map(function(x){return '<option value="'+x+'"'+(u.rol===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+    +'<div class="fld" style="margin-bottom:10px"><label>Rol</label><select id="ae-3">'+['coord','admin','nomina','factura','rrhh','sst'].map(function(x){return '<option value="'+x+'"'+(u.rol===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
     +'<div class="fld" style="margin-bottom:10px"><label>Sede</label><select id="ae-4">'+['TODAS','NORTE','SUR'].map(function(x){return '<option value="'+x+'"'+(u.sede===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
     +'<div class="fld" style="margin-bottom:6px"><label>Activo</label><select id="ae-5"><option value="true"'+(u.activo?' selected':'')+'>Sí</option><option value="false"'+(!u.activo?' selected':'')+'>No</option></select></div>',
     function(){
