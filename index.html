@@ -17386,12 +17386,12 @@ function invEmpInit(){
   .then(function(r){return r.json();}).then(function(d){ EMP_RESUMEN=(d&&d.ok&&d.data)?d.data:[]; EMP_ITEMS={}; invEmpAgrupar(); invEmpRender(); })
   .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
 }
+function invEmpEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function invEmpAgrupar(){
   var by={};
   EMP_RESUMEN.forEach(function(a){
     var ck=invEmpCedNorm(a.id_factura)||('SIN'+(a.empleado_proveedor||'')); // sin cédula: agrupa por nombre
     if(!by[ck]) by[ck]={ck:ck, cedula:a.id_factura||'', nombre:a.empleado_proveedor||'', entregas:[]};
-    // conserva el nombre más reciente no vacío
     if(a.empleado_proveedor && !by[ck].nombre) by[ck].nombre=a.empleado_proveedor;
     by[ck].entregas.push({id_regn:a.id_regn, fecha:a.fecha, auxiliar:a.auxiliar});
   });
@@ -17402,9 +17402,9 @@ function invEmpAgrupar(){
     g.n=g.entregas.length;
     return g;
   }).sort(function(a,b){return String(b.ultima||'').localeCompare(String(a.ultima||''));});
-  // datalist de nombres/cédulas
+  EMP_GRUPOS.forEach(function(g,i){ g.id='g'+i; }); // id seguro para onclick/ids del DOM
   var dl=document.getElementById('emp-q-list');
-  if(dl) dl.innerHTML=EMP_GRUPOS.map(function(g){return '<option value="'+gcEsc(g.nombre)+'">';}).join('');
+  if(dl) dl.innerHTML=EMP_GRUPOS.map(function(g){return '<option value="'+invEmpEsc(g.nombre)+'">';}).join('');
 }
 function invEmpRender(){
   var tb=document.getElementById('emp-tb'); if(!tb) return;
@@ -17416,18 +17416,22 @@ function invEmpRender(){
   });
   var kp=document.getElementById('emp-kpis');
   if(kp) kp.textContent=lista.length+' empleado(s) · '+lista.reduce(function(s,g){return s+g.n;},0)+' entregas';
-  tb.innerHTML=lista.length?lista.map(function(g){
-    var f=g.ultima?String(g.ultima).slice(0,10).split('-').reverse().join('/'):'—';
-    var fila='<tr style="cursor:pointer" onclick="invEmpToggle(\''+g.ck+'\')"><td style="text-align:center"><span id="emp-arw-'+g.ck+'" style="color:var(--v);font-weight:700">▸</span></td>'+
-      '<td><strong>'+gcEsc(g.nombre||'(sin nombre)')+'</strong></td><td>'+gcEsc(g.cedula||'—')+'</td>'+
-      '<td style="text-align:center"><span class="bdg ba2">'+g.n+'</span></td><td>'+f+'</td></tr>';
-    var det='<tr id="emp-det-'+g.ck+'" style="display:none"><td colspan="5" style="padding:0;background:#f5f5f4"><div class="emp-det-body" style="padding:10px 14px">—</div></td></tr>';
-    return fila+det;
-  }).join(''):'<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">Sin empleados'+(q?' que coincidan':'')+'</td></tr>';
+  try{
+    tb.innerHTML=lista.length?lista.map(function(g){
+      var f=g.ultima?String(g.ultima).slice(0,10).split('-').reverse().join('/'):'—';
+      var fila='<tr style="cursor:pointer" onclick="invEmpToggle(\''+g.id+'\')"><td style="text-align:center"><span id="emp-arw-'+g.id+'" style="color:var(--v);font-weight:700">▸</span></td>'+
+        '<td><strong>'+invEmpEsc(g.nombre||'(sin nombre)')+'</strong></td><td>'+invEmpEsc(g.cedula||'—')+'</td>'+
+        '<td style="text-align:center"><span class="bdg ba2">'+g.n+'</span></td><td>'+f+'</td></tr>';
+      var det='<tr id="emp-det-'+g.id+'" style="display:none"><td colspan="5" style="padding:0;background:#f5f5f4"><div class="emp-det-body" style="padding:10px 14px">—</div></td></tr>';
+      return fila+det;
+    }).join(''):'<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">Sin empleados'+(q?' que coincidan':'')+'</td></tr>';
+  }catch(err){
+    tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--r)">Error al mostrar: '+String((err&&err.message)||err)+'</td></tr>';
+  }
 }
-function invEmpToggle(ck){
-  var g=EMP_GRUPOS.filter(function(x){return x.ck===ck;})[0]; if(!g) return;
-  var det=document.getElementById('emp-det-'+ck), arw=document.getElementById('emp-arw-'+ck);
+function invEmpToggle(id){
+  var g=EMP_GRUPOS.filter(function(x){return x.id===id;})[0]; if(!g) return;
+  var det=document.getElementById('emp-det-'+id), arw=document.getElementById('emp-arw-'+id);
   if(!det) return;
   if(det.style.display!=='none'){ det.style.display='none'; if(arw) arw.textContent='▸'; return; }
   det.style.display='table-row'; if(arw) arw.textContent='▾';
@@ -17438,16 +17442,16 @@ function invEmpToggle(ck){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invItemsActas',ids:faltan})})
   .then(function(r){return r.json();}).then(function(d){
     (d&&d.data||[]).forEach(function(it){ (EMP_ITEMS[it.id_regn]=EMP_ITEMS[it.id_regn]||[]).push(it); });
-    faltan.forEach(function(id){ if(!EMP_ITEMS[id]) EMP_ITEMS[id]=[]; }); // marca cargado aunque vacío
+    faltan.forEach(function(id){ if(!EMP_ITEMS[id]) EMP_ITEMS[id]=[]; });
     invEmpDetRender(g,body);
   }).catch(function(e){ body.innerHTML='<span style="color:var(--r)">Error al cargar elementos</span>'; });
 }
 function invEmpDetRender(g,body){
-  var html='<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">Entregas de '+gcEsc(g.nombre||'')+'</div>';
+  var html='<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">Entregas de '+invEmpEsc(g.nombre||'')+'</div>';
   html+=g.entregas.map(function(e){
     var f=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'—';
     var items=EMP_ITEMS[e.id_regn]||[];
-    var els=items.length?items.map(function(i){return gcEsc(i.producto)+' ×'+i.cantidad;}).join(', '):'<span style="color:var(--g3)">sin elementos</span>';
+    var els=items.length?items.map(function(i){return invEmpEsc(i.producto)+' ×'+i.cantidad;}).join(', '):'<span style="color:var(--g3)">sin elementos</span>';
     return '<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--bd)">'+
       '<div style="min-width:90px;font-weight:600">'+f+'</div>'+
       '<div style="flex:1;font-size:12px">'+els+'</div>'+
