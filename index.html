@@ -2934,11 +2934,11 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="page" id="p-inv-emp">
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="fld" style="flex:2;min-width:200px;margin:0"><label style="font-size:10px">Buscar empleado / proveedor</label><input type="text" id="emp-q" list="emp-q-list" placeholder="Nombre o cédula..." oninput="invEmpRender()"/><datalist id="emp-q-list"></datalist></div>
+          <div class="fld" style="flex:2;min-width:200px;margin:0"><label style="font-size:10px">Buscar empleado / proveedor</label><input type="text" id="iemp-q" list="iemp-q-list" placeholder="Nombre o cédula..." oninput="invEmpRender()"/><datalist id="iemp-q-list"></datalist></div>
           <button class="btn bg" onclick="invEmpInit()" style="height:36px">Actualizar</button>
         </div>
-        <div id="emp-kpis" style="font-size:12px;color:var(--g3);margin:8px 0"></div>
-        <div class="tw"><table id="emp-t"><thead><tr><th style="width:30px"></th><th>Empleado / Proveedor</th><th>Cédula</th><th>Entregas</th><th>Última entrega</th></tr></thead><tbody id="emp-tb"></tbody></table></div>
+        <div id="iemp-kpis" style="font-size:12px;color:var(--g3);margin:8px 0"></div>
+        <div class="tw"><table id="iemp-t"><thead><tr><th style="width:30px"></th><th>Empleado / Proveedor</th><th>Cédula</th><th>Entregas</th><th>Última entrega</th></tr></thead><tbody id="iemp-tb"></tbody></table></div>
       </div>
     </div>
 
@@ -17381,7 +17381,7 @@ function invVerActa(id){
 var EMP_RESUMEN=[], EMP_GRUPOS=[], EMP_ITEMS={};
 function invEmpCedNorm(c){ return String(c==null?'':c).replace(/[.\s,\-]/g,'').trim(); }
 function invEmpInit(){
-  var tb=document.getElementById('emp-tb'); if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando entregas...</td></tr>';
+  var tb=document.getElementById('iemp-tb'); if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando entregas...</td></tr>';
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invEntregasResumen'})})
   .then(function(r){return r.json();}).then(function(d){ EMP_RESUMEN=(d&&d.ok&&d.data)?d.data:[]; EMP_ITEMS={}; invEmpAgrupar(); invEmpRender(); })
   .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
@@ -17403,26 +17403,26 @@ function invEmpAgrupar(){
     return g;
   }).sort(function(a,b){return String(b.ultima||'').localeCompare(String(a.ultima||''));});
   EMP_GRUPOS.forEach(function(g,i){ g.id='g'+i; }); // id seguro para onclick/ids del DOM
-  var dl=document.getElementById('emp-q-list');
+  var dl=document.getElementById('iemp-q-list');
   if(dl) dl.innerHTML=EMP_GRUPOS.map(function(g){return '<option value="'+invEmpEsc(g.nombre)+'">';}).join('');
 }
 function invEmpRender(){
-  var tb=document.getElementById('emp-tb'); if(!tb) return;
-  var q=((document.getElementById('emp-q')||{}).value||'').toLowerCase().trim();
+  var tb=document.getElementById('iemp-tb'); if(!tb) return;
+  var q=((document.getElementById('iemp-q')||{}).value||'').toLowerCase().trim();
   var qced=q.replace(/[.\s,\-]/g,'');
   var lista=EMP_GRUPOS.filter(function(g){
     if(!q) return true;
     return String(g.nombre).toLowerCase().indexOf(q)>=0 || (qced && invEmpCedNorm(g.cedula).indexOf(qced)>=0);
   });
-  var kp=document.getElementById('emp-kpis');
+  var kp=document.getElementById('iemp-kpis');
   if(kp) kp.textContent=lista.length+' empleado(s) · '+lista.reduce(function(s,g){return s+g.n;},0)+' entregas';
   try{
     tb.innerHTML=lista.length?lista.map(function(g){
       var f=g.ultima?String(g.ultima).slice(0,10).split('-').reverse().join('/'):'—';
-      var fila='<tr style="cursor:pointer" onclick="invEmpToggle(\''+g.id+'\')"><td style="text-align:center"><span id="emp-arw-'+g.id+'" style="color:var(--v);font-weight:700">▸</span></td>'+
+      var fila='<tr style="cursor:pointer" onclick="invEmpToggle(\''+g.id+'\')"><td style="text-align:center"><span id="iemp-arw-'+g.id+'" style="color:var(--v);font-weight:700">▸</span></td>'+
         '<td><strong>'+invEmpEsc(g.nombre||'(sin nombre)')+'</strong></td><td>'+invEmpEsc(g.cedula||'—')+'</td>'+
         '<td style="text-align:center"><span class="bdg ba2">'+g.n+'</span></td><td>'+f+'</td></tr>';
-      var det='<tr id="emp-det-'+g.id+'" style="display:none"><td colspan="5" style="padding:0;background:#f5f5f4"><div class="emp-det-body" style="padding:10px 14px">—</div></td></tr>';
+      var det='<tr id="iemp-det-'+g.id+'" style="display:none"><td colspan="5" style="padding:0;background:#f5f5f4"><div class="iemp-det-body" style="padding:10px 14px">—</div></td></tr>';
       return fila+det;
     }).join(''):'<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">Sin empleados'+(q?' que coincidan':'')+'</td></tr>';
   }catch(err){
@@ -17431,11 +17431,11 @@ function invEmpRender(){
 }
 function invEmpToggle(id){
   var g=EMP_GRUPOS.filter(function(x){return x.id===id;})[0]; if(!g) return;
-  var det=document.getElementById('emp-det-'+id), arw=document.getElementById('emp-arw-'+id);
+  var det=document.getElementById('iemp-det-'+id), arw=document.getElementById('iemp-arw-'+id);
   if(!det) return;
   if(det.style.display!=='none'){ det.style.display='none'; if(arw) arw.textContent='▸'; return; }
   det.style.display='table-row'; if(arw) arw.textContent='▾';
-  var body=det.querySelector('.emp-det-body');
+  var body=det.querySelector('.iemp-det-body');
   var faltan=g.entregas.filter(function(e){return !EMP_ITEMS[e.id_regn];}).map(function(e){return e.id_regn;});
   if(!faltan.length){ invEmpDetRender(g,body); return; }
   body.innerHTML='⏳ Cargando elementos...';
