@@ -17310,13 +17310,13 @@ function firmaDataURL(){ return (FIRMA_USADA&&FIRMA_CANVAS)?FIRMA_CANVAS.toDataU
 // ── Historial de entregas ──
 function invHistInit(){ invHistCargar(); }
 function invHistCargar(){
-  var tb=document.getElementById('hist-tb'); if(tb) tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando...</td></tr>';
+  var tb=document.getElementById('hist-tb'); if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando...</td></tr>';
   var body={accion:'invGetActas'};
   var d1=(document.getElementById('hist-d1')||{}).value, d2=(document.getElementById('hist-d2')||{}).value;
   if(d1) body.desde=d1; if(d2) body.hasta=d2;
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
   .then(function(r){return r.json();}).then(function(d){ INV_HIST=(d&&d.ok&&d.data)?d.data:[]; invHistPoblarEmp(); invHistRender(); })
-  .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+  .catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
 }
 function invHistPoblarEmp(){
   var dl=document.getElementById('hist-emp-list'); if(!dl) return;
@@ -17337,12 +17337,14 @@ function invHistRender(){
   tb.innerHTML=lista.length?lista.map(function(a){
     var els=(a.items||[]).map(function(i){return gcEsc(i.producto)+' ×'+i.cantidad;}).join(', ');
     var fecha=a.fecha?String(a.fecha).slice(0,10).split('-').reverse().join('/'):'';
-    return '<tr><td>'+fecha+'</td><td><strong>'+gcEsc(a.empleado_proveedor||'')+'</strong><br><span style="font-size:10px;color:var(--g3)">'+gcEsc(a.id_factura||'')+'</span></td>'+
-      '<td style="font-size:11px">'+els+'</td>'+
+    return '<tr><td>'+fecha+'</td>'+
       '<td style="font-size:11px">'+gcEsc(a.auxiliar||'—')+'</td>'+
+      '<td><strong>'+gcEsc(a.empleado_proveedor||'')+'</strong></td>'+
+      '<td>'+gcEsc(a.id_factura||'')+'</td>'+
+      '<td style="font-size:11px">'+els+'</td>'+
       '<td style="text-align:center">'+(a.tiene_firma?'✍️':(a.firma?'📄':'—'))+'</td>'+
       '<td style="white-space:nowrap"><button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="invVerActa(\''+a.id_regn+'\')">🖨️ Acta</button> <button class="btn br" style="padding:3px 8px;font-size:11px" onclick="invEliminarActa(\''+a.id_regn+'\')">🗑️</button></td></tr>';
-  }).join(''):'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">Sin entregas'+(q?' que coincidan':'')+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">Sin entregas'+((qe||qp)?' que coincidan':'')+'</td></tr>';
 }
 function invEliminarActa(id){
   if(!confirm('¿Borrar esta entrega y sus movimientos? Devuelve el stock. No se puede deshacer.')) return;
@@ -17496,7 +17498,7 @@ function invKardexVer(){
       '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">'+gcEsc(p.item)+' · '+gcEsc(p.producto)+'</div><div style="font-size:11px;color:var(--g3)">Entradas '+ent+' · Salidas '+sal+'</div></div>'+
       '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Stock actual</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+p.stock+'</div></div></div>';
     document.getElementById('kdx-tb').innerHTML=rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--g3)">Sin movimientos</td></tr>';
-  }).catch(function(e){ tb.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
+  }).catch(function(e){ tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--r)">Error de red</td></tr>'; });
 }
 
 </script>
