@@ -17447,15 +17447,23 @@ function invEmpToggle(id){
   }).catch(function(e){ body.innerHTML='<span style="color:var(--r)">Error al cargar elementos</span>'; });
 }
 function invEmpDetRender(g,body){
-  var html='<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:6px">Entregas de '+invEmpEsc(g.nombre||'')+'</div>';
+  var html='<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:8px">Entregas de '+invEmpEsc(g.nombre||'')+'</div>';
   html+=g.entregas.map(function(e){
     var f=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'—';
     var items=EMP_ITEMS[e.id_regn]||[];
-    var els=items.length?items.map(function(i){return invEmpEsc(i.producto)+' ×'+i.cantidad;}).join(', '):'<span style="color:var(--g3)">sin elementos</span>';
-    return '<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--bd)">'+
-      '<div style="min-width:90px;font-weight:600">'+f+'</div>'+
-      '<div style="flex:1;font-size:12px">'+els+'</div>'+
-      '<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️</button></div>';
+    var filas=items.length?items.map(function(i){
+      return '<tr><td style="padding:3px 8px;border-top:1px solid var(--bd)">'+invEmpEsc(i.producto)+'</td>'+
+        '<td style="padding:3px 8px;border-top:1px solid var(--bd);text-align:center;width:70px;font-weight:600">'+i.cantidad+'</td></tr>';
+    }).join(''):'<tr><td colspan="2" style="padding:6px 8px;color:var(--g3)">sin elementos</td></tr>';
+    return '<div style="margin-bottom:10px;background:#fff;border:1px solid var(--bd);border-radius:6px;overflow:hidden">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--vs)">'+
+        '<span style="font-weight:700;color:var(--v)">📅 '+f+'</span>'+
+        '<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="color:var(--g3);font-size:10px"><th style="text-align:left;padding:3px 8px">PRODUCTO</th><th style="text-align:center;padding:3px 8px;width:70px">CANT.</th></tr></thead>'+
+        '<tbody>'+filas+'</tbody></table>'+
+    '</div>';
   }).join('');
   body.innerHTML=html;
 }
