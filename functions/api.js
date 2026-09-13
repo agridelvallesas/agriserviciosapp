@@ -1425,28 +1425,67 @@ async function accionInvGetMovimientos(body, env) {
   return { ok: true, data: rows };
 }
 
-// Registrar ENTRADA (compra/ingreso): uno o varios items, sin acta
+// Registrar ENTRADA (compra/ingreso): crea productos nuevos con código
+// automático por categoría, o suma stock a los existentes.
 async function accionInvRegistrarEntrada(body, env) {
   const items = Array.isArray(body.items) ? body.items : [];
   const fecha = String(body.fecha || '').trim() || isoDate(new Date());
   if (!items.length) return { ok: false, error: 'Agrega al menos un producto' };
-  const filas = items.filter((it) => String(it.item || '').trim()).map((it) => ({
-    id_movimiento: 'MOV' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
-    id_regn: null,
-    item: String(it.item).trim(),
-    categoria: String(it.categoria || '').trim().toUpperCase(),
-    fecha,
-    factura_id: String(body.factura || '').trim(),
-    producto: String(it.producto || '').trim(),
-    entradas: parseFloat(it.cantidad) || 0,
-    salidas: 0,
-    precio_un: parseFloat(it.precio) || 0,
-    novedad: String(body.novedad || 'ENTRADA').trim(),
-    empleado: '',
-  }));
-  if (!filas.length) return { ok: false, error: 'No hay productos válidos' };
-  await sbWrite(env, 'POST', 'inv_movimientos', filas);
-  return { ok: true, n: filas.length };
+
+  // Cargar inventario para: verificar existentes por nombre+categoría y calcular próximos códigos
+  const inv = await sbAll(env, 'inventario?select=item,producto,categoria,precio');
+  const maxPref = { EPP: 0, HE: 0, INDU: 0 };
+  const porNombreCat = {}; // "CAT|NOMBRE" -> item
+  const porItem = {};
+  inv.forEach((p) => {
+    const m = String(p.item).match(/^([A-Z]+)(\d+)$/);
+    if (m && maxPref[m[1]] !== undefined) maxPref[m[1]] = Math.max(maxPref[m[1]], parseInt(m[2]));
+    porNombreCat[String(p.categoria).toUpperCase() + '|' + String(p.producto).toUpperCase().trim()] = p.item;
+    porItem[p.item] = p;
+  });
+  const prefDe = (cat) => (cat.indexOf('IND') === 0 ? 'INDU' : cat.indexOf('HE') === 0 || cat.indexOf('HERR') === 0 ? 'HE' : 'EPP');
+
+  const nuevosProd = [];
+  const movimientos = [];
+  let nid = Date.now();
+  for (const it of items) {
+    let item = String(it.item || '').trim();
+    let producto = String(it.producto || '').trim();
+    let categoria = String(it.categoria || '').trim().toUpperCase();
+    const cantidad = parseFloat(it.cantidad) || 0;
+    const precio = parseFloat(it.precio) || 0;
+    if (!cantidad) continue;
+
+    if (!item) {
+      // sin código: es nuevo o existente-por-nombre
+      if (!producto || !categoria) continue;
+      const key = categoria + '|' + producto.toUpperCase();
+      if (porNombreCat[key]) {
+        item = porNombreCat[key]; // ya existe ese nombre en esa categoría → suma
+      } else {
+        const pref = prefDe(categoria);
+        maxPref[pref] = (maxPref[pref] || 0) + 1;
+        item = pref + String(maxPref[pref]).padStart(3, '0');
+        porNombreCat[key] = item;
+        nuevosProd.push({ item, producto, categoria, precio });
+      }
+    } else {
+      // código dado: completar datos desde el inventario
+      const p = porItem[item];
+      if (p) { producto = producto || p.producto; categoria = categoria || p.categoria; }
+    }
+    movimientos.push({
+      id_movimiento: 'MOV' + (nid++).toString(36).toUpperCase() + Math.random().toString(36).slice(2, 4).toUpperCase(),
+      id_regn: null, item, categoria, fecha,
+      factura_id: String(body.factura || '').trim(), producto,
+      entradas: cantidad, salidas: 0, precio_un: precio || (porItem[item] ? Number(porItem[item].precio || 0) : 0),
+      novedad: String(body.novedad || 'ENTRADA').trim(), empleado: '',
+    });
+  }
+  if (!movimientos.length) return { ok: false, error: 'No hay productos válidos (revisa nombre/categoría y cantidad)' };
+  if (nuevosProd.length) await sbWrite(env, 'POST', 'inventario', nuevosProd);
+  await sbWrite(env, 'POST', 'inv_movimientos', movimientos);
+  return { ok: true, n: movimientos.length, nuevos: nuevosProd.length, codigos: nuevosProd.map((p) => p.item) };
 }
 
 // Registrar SALIDA / entrega: crea el acta (con firma) + movimientos de salida
