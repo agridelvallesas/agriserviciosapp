@@ -43,6 +43,7 @@ const PORTADAS = new Set([
   'invGetActas', 'invEliminarActa',
   'invEntregasResumen', 'invItemsActas',
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
+  'invGetFirma',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -127,6 +128,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getInvConfig')         r = await accionGetInvConfig(body, env);
     else if (accion === 'guardarInvConfig')     r = await accionGuardarInvConfig(body, env);
     else if (accion === 'eliminarInvConfig')    r = await accionEliminarInvConfig(body, env);
+    else if (accion === 'invGetFirma')          r = await accionInvGetFirma(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1507,9 +1509,14 @@ async function accionInvRegistrarSalida(body, env) {
     empleado_proveedor: empleado,
     id_factura: String(body.id_factura || '').trim(),
     fecha,
-    firma: String(body.firma || ''),
+    firma: '',
     sede: 'NORTE',
   });
+  // la firma va en su tabla aparte (no engorda el historial)
+  const firma = String(body.firma || '');
+  if (firma && firma.length > 20) {
+    await sbWrite(env, 'POST', 'inv_firmas', { id_regn: idRegn, firma });
+  }
   const filas = items.filter((it) => String(it.item || '').trim()).map((it) => ({
     id_movimiento: 'MOV' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
     id_regn: idRegn,
@@ -1532,12 +1539,15 @@ async function accionInvRegistrarSalida(body, env) {
 async function accionInvGetActas(body, env) {
   const desde = String(body.desde || '').trim();
   const hasta = String(body.hasta || '').trim();
-  let path = 'inv_registros?select=id_regn,auxiliar,empleado_proveedor,id_factura,fecha,firma,firma_ref&order=fecha.desc';
+  let path = 'inv_registros?select=id_regn,auxiliar,empleado_proveedor,id_factura,fecha,firma_ref&order=fecha.desc';
   if (desde) path += `&fecha=gte.${encodeURIComponent(desde)}`;
   if (hasta) path += `&fecha=lte.${encodeURIComponent(hasta + ' 23:59:59')}`;
   // Traer solo las actas más recientes (evita traer 1400+ y URLs enormes)
   const { rows: actas } = await sbPage(env, path, 0, 300);
   if (!actas.length) return { ok: true, data: [] };
+  // qué actas tienen firma (solo ids, liviano)
+  const firmadas = {};
+  try { (await sbAll(env, 'inv_firmas?select=id_regn')).forEach((f) => { firmadas[f.id_regn] = true; }); } catch (e) { /* tabla puede no existir aún */ }
   // Items por lotes de 80 ids (una URL con 300 ids sería rechazada por longitud)
   const porActa = {};
   for (let i = 0; i < actas.length; i += 80) {
@@ -1557,8 +1567,8 @@ async function accionInvGetActas(body, env) {
     empleado_proveedor: String(a.empleado_proveedor || ''),
     id_factura: String(a.id_factura || ''),
     fecha: a.fecha,
-    firma: String(a.firma || ''),
-    tiene_firma: !!(a.firma && String(a.firma).length > 20),
+    firma: '',
+    tiene_firma: !!firmadas[a.id_regn],
     items: porActa[a.id_regn] || [],
   }));
   return { ok: true, data };
@@ -1573,14 +1583,16 @@ async function accionInvEliminarActa(body, env) {
 
 // Resumen de TODAS las entregas (cabeceras, sin items) para agrupar por empleado
 async function accionInvEntregasResumen(body, env) {
-  const actas = await sbAll(env, 'inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,auxiliar,firma&order=fecha.desc');
+  const actas = await sbAll(env, 'inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,auxiliar&order=fecha.desc');
+  const firmadas = {};
+  try { (await sbAll(env, 'inv_firmas?select=id_regn')).forEach((f) => { firmadas[f.id_regn] = true; }); } catch (e) { /* tabla puede no existir aún */ }
   const data = actas.map((a) => ({
     id_regn: a.id_regn,
     empleado_proveedor: String(a.empleado_proveedor || ''),
     id_factura: String(a.id_factura || ''),
     fecha: a.fecha,
     auxiliar: String(a.auxiliar || ''),
-    tiene_firma: !!(a.firma && String(a.firma).length > 20),
+    tiene_firma: !!firmadas[a.id_regn],
   }));
   return { ok: true, data };
 }
@@ -1625,4 +1637,14 @@ async function accionEliminarInvConfig(body, env) {
   if (!body.id) return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `inv_config?id=eq.${encodeURIComponent(body.id)}`);
   return { ok: true };
+}
+
+// Trae la firma (base64) de una entrega — solo al abrir el acta
+async function accionInvGetFirma(body, env) {
+  const id = String(body.id_regn || '').trim();
+  if (!id) return { ok: false, error: 'Falta id_regn' };
+  const rows = await sb(env, `inv_firmas?select=firma&id_regn=eq.${encodeURIComponent(id)}&limit=1`);
+  if (rows.length) return { ok: true, firma: String(rows[0].firma || '') };
+  const leg = await sb(env, `inv_registros?select=firma&id_regn=eq.${encodeURIComponent(id)}&limit=1`);
+  return { ok: true, firma: (leg.length && leg[0].firma) ? String(leg[0].firma) : '' };
 }
