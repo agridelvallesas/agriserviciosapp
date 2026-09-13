@@ -42,6 +42,7 @@ const PORTADAS = new Set([
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
   'invGetActas', 'invEliminarActa',
   'invEntregasResumen', 'invItemsActas',
+  'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -123,6 +124,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invEliminarActa')      r = await accionInvEliminarActa(body, env);
     else if (accion === 'invEntregasResumen')   r = await accionInvEntregasResumen(body, env);
     else if (accion === 'invItemsActas')        r = await accionInvItemsActas(body, env);
+    else if (accion === 'getInvConfig')         r = await accionGetInvConfig(body, env);
+    else if (accion === 'guardarInvConfig')     r = await accionGuardarInvConfig(body, env);
+    else if (accion === 'eliminarInvConfig')    r = await accionEliminarInvConfig(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1480,6 +1484,7 @@ async function accionInvRegistrarEntrada(body, env) {
       factura_id: String(body.factura || '').trim(), producto,
       entradas: cantidad, salidas: 0, precio_un: precio || (porItem[item] ? Number(porItem[item].precio || 0) : 0),
       novedad: String(body.novedad || 'ENTRADA').trim(), empleado: '',
+      origen: String(body.origen || '').trim(),
     });
   }
   if (!movimientos.length) return { ok: false, error: 'No hay productos válidos (revisa nombre/categoría y cantidad)' };
@@ -1594,4 +1599,30 @@ async function accionInvItemsActas(body, env) {
     }));
   }
   return { ok: true, data: out };
+}
+
+// ── Configuración de inventario: auxiliares y proveedores ──
+async function accionGetInvConfig(body, env) {
+  const rows = await sbAll(env, 'inv_config?select=id,tipo,nombre,activo&order=tipo,nombre');
+  const data = rows.map((r) => ({ id: r.id, tipo: String(r.tipo || ''), nombre: String(r.nombre || ''), activo: r.activo !== false }));
+  return { ok: true, data };
+}
+async function accionGuardarInvConfig(body, env) {
+  const tipo = String(body.tipo || '').trim().toLowerCase();
+  const nombre = String(body.nombre || '').trim();
+  if (tipo !== 'auxiliar' && tipo !== 'proveedor') return { ok: false, error: 'Tipo inválido' };
+  if (!nombre) return { ok: false, error: 'Falta el nombre' };
+  if (body.id) {
+    await sbWrite(env, 'PATCH', `inv_config?id=eq.${encodeURIComponent(body.id)}`, { nombre });
+  } else {
+    const ex = await sb(env, `inv_config?select=id&tipo=eq.${encodeURIComponent(tipo)}&nombre=eq.${encodeURIComponent(nombre)}&limit=1`);
+    if (ex.length) return { ok: true, id: ex[0].id }; // ya existe
+    await sbWrite(env, 'POST', 'inv_config', { tipo, nombre });
+  }
+  return { ok: true };
+}
+async function accionEliminarInvConfig(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `inv_config?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
 }
