@@ -1581,6 +1581,14 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ════════════════════════════════════════
          PLANTILLAS DE CARTAS — Editor modular
          ════════════════════════════════════════ -->
+    <!-- ══════════ RH — CONFIGURACIÓN ══════════ -->
+    <div class="page" id="p-rh-cfg">
+      <div class="card">
+        <div class="ct">🏷️ Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
+        <div id="gc-body"><div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div></div>
+      </div>
+    </div>
+
     <div class="page" id="p-cartas">
       <div class="card">
         <div class="ct">📜 Generar carta <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Elige el trabajador y el tipo de carta</span></div>
@@ -1698,7 +1706,6 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bvs" onclick="acumAbrirConsulta()" style="height:36px">🔍 Consultar trabajador</button>
             <button class="btn bvs" onclick="acumAbrirReporte()" style="height:36px">📈 Reporte por concepto</button>
             <button class="btn bvs" onclick="acumAbrirAnalisis()" style="height:36px">📅 Análisis temporal</button>
-            <button class="btn bvs" onclick="acumGestorConceptos()" style="height:36px" title="Clasificar o corregir el tipo y categoría de los conceptos">🏷️ Conceptos</button>
             <button class="btn ba" onclick="acumAbrirImportador()" style="height:36px">📥 Importar Excel</button>
             <button class="btn bg" onclick="acumExportar()" style="height:36px">📊 Exportar</button>
             <button class="btn br" onclick="acumLimpiarTodo()" style="height:36px;font-size:11px" title="Borrar TODO de la BD (peligroso)">🗑️ Limpiar BD</button>
@@ -4059,6 +4066,8 @@ function buildNav(){
       '<button class="ni" onclick="go(\'plantillas\')"><span class="ni-ico">📜</span>Plantillas de cartas</button>'+
       '<button class="ni" onclick="go(\'acum\')"><span class="ni-ico">📊</span>Acumulados</button>'+
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
+      '<div class="sb-sec">Configuración</div>'+
+      '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico">🏷️</span>Conceptos de acumulados</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Reportes ejecutivos\')"><span class="ni-ico">📈</span>Reportes ejecutivos <span class="rh-tag">Pronto</span></button>';
   } else if(S.depto==='s'){
@@ -4096,7 +4105,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4115,6 +4124,7 @@ function go(pg){
   if(pg==='vacac') vacInit();
   if(pg==='plantillas') pltInit();
   if(pg==='cartas') cartasInit();
+  if(pg==='rh-cfg') rhCfgInit();
   if(pg==='acum') acumInit();
   if(pg==='dups') dupsInit();
   if(pg==='cobertura') carCobertura();
@@ -15611,23 +15621,11 @@ function acumGuardarConcepto(ix){
 var GC_DATA=[]; // [{concepto,tipo,categoria}]
 function gcEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function acumGestorConceptos(){
-  var modal=document.createElement('div');
-  modal.id='gc-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){ if(e.target===modal) acumGCCerrar(); };
-  modal.innerHTML='<div style="background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:92vh;overflow:auto">'+
-    '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
-      '<div><div style="font-size:16px;font-weight:700;color:var(--v)">🏷️ Clasificación de conceptos</div>'+
-      '<div style="font-size:11px;color:var(--g3)">Define el tipo y la categoría de cada concepto para el importador de acumulados</div></div>'+
-      '<button onclick="acumGCCerrar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'+
-    '</div>'+
-    '<div style="padding:18px" id="gc-body">'+
-      '<div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div>'+
-    '</div>'+
-  '</div>';
-  document.body.appendChild(modal);
-  acumGCRecargar();
+  // Compatibilidad: ahora la gestión de conceptos vive en RH → Configuración
+  if(typeof go==='function') go('rh-cfg');
 }
+// Configuración de RH: gestión de conceptos de acumulados (render en página, no modal)
+function rhCfgInit(){ if(typeof acumGCRecargar==='function') acumGCRecargar(); }
 function acumGCCerrar(){ var m=document.getElementById('gc-modal'); if(m) m.remove(); acumCargarConceptos(); }
 function acumGCRecargar(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConceptosAcum'})})
