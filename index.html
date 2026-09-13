@@ -17501,13 +17501,19 @@ function invEliminarActa(id){
 function invVerActa(id){
   var a=INV_HIST.filter(function(x){return String(x.id_regn)===String(id);})[0];
   if(!a){ alert('No se encontró el acta'); return; }
+  if(!a.tiene_firma){ invVerActaRender(a,''); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invGetFirma',id_regn:id})})
+  .then(function(r){return r.json();}).then(function(d){ invVerActaRender(a,(d&&d.firma)||''); })
+  .catch(function(){ invVerActaRender(a,''); });
+}
+function invVerActaRender(a, firma){
   var fecha=a.fecha?String(a.fecha).slice(0,10).split('-').reverse().join('/'):'';
   var filas=(a.items||[]).map(function(i,ix){
     return '<tr><td style="border:1px solid #999;padding:6px;text-align:center">'+(ix+1)+'</td>'+
       '<td style="border:1px solid #999;padding:6px">'+gcEsc(i.producto)+'</td>'+
       '<td style="border:1px solid #999;padding:6px;text-align:center">'+i.cantidad+'</td></tr>';
   }).join('');
-  var firmaImg=a.firma&&a.firma.length>20?'<img src="'+a.firma+'" style="max-height:90px"/>':'<div style="height:70px"></div>';
+  var firmaImg=firma&&firma.length>20?'<img src="'+firma+'" style="max-height:90px"/>':'<div style="height:70px"></div>';
   var cuerpo=
     '<div class="body">'+
     '<h2 style="text-align:center;margin:0 0 4px;font-size:15px">ACTA DE ENTREGA DE ELEMENTOS</h2>'+
