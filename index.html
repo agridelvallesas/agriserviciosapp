@@ -1584,6 +1584,26 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════════ RH — CONFIGURACIÓN ══════════ -->
     <div class="page" id="p-rh-cfg">
       <div class="card">
+        <div class="ct">🏢 Datos de la empresa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Salen en el encabezado y pie de todas las cartas y actas</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="fld" style="margin:0"><label>Nombre / Razón social</label><input type="text" id="emp-nombre"/></div>
+          <div class="fld" style="margin:0"><label>NIT</label><input type="text" id="emp-nit"/></div>
+          <div class="fld" style="margin:0;grid-column:1/-1"><label>Dirección</label><input type="text" id="emp-direccion"/></div>
+          <div class="fld" style="margin:0"><label>Teléfono</label><input type="text" id="emp-telefono"/></div>
+          <div class="fld" style="margin:0"><label>Email</label><input type="text" id="emp-email"/></div>
+          <div class="fld" style="margin:0"><label>Ciudad (exp. cédula por defecto)</label><input type="text" id="emp-ciudad"/></div>
+          <div class="fld" style="margin:0"><label>Representante legal / firmante</label><input type="text" id="emp-representante"/></div>
+        </div>
+        <div style="text-align:right;margin-top:12px"><button class="btn bv" onclick="empCfgGuardar()">💾 Guardar datos</button></div>
+      </div>
+
+      <div class="card">
+        <div class="ct">📜 Plantillas de cartas</div>
+        <p style="color:var(--g3);font-size:13px;margin:6px 0 12px">Crea y edita las plantillas de cartas (laboral, retiro, vacaciones, etc.) que se usan al generar cartas.</p>
+        <button class="btn ba" onclick="go('plantillas')">📝 Abrir editor de plantillas</button>
+      </div>
+
+      <div class="card">
         <div class="ct">🏷️ Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
         <div id="gc-body"><div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div></div>
       </div>
@@ -4063,11 +4083,9 @@ function buildNav(){
       '<div class="sb-sec">Recursos Humanos</div>'+
       '<button class="ni" onclick="go(\'rrhh\')"><span class="ni-ico">👥</span>Trabajadores</button>'+
       '<button class="ni" onclick="go(\'vacac\')"><span class="ni-ico">🌴</span>Vacaciones</button>'+
-      '<button class="ni" onclick="go(\'plantillas\')"><span class="ni-ico">📜</span>Plantillas de cartas</button>'+
       '<button class="ni" onclick="go(\'acum\')"><span class="ni-ico">📊</span>Acumulados</button>'+
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
-      '<div class="sb-sec">Configuración</div>'+
-      '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico">🏷️</span>Conceptos de acumulados</button>'+
+      '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico">⚙️</span>Configuración</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Reportes ejecutivos\')"><span class="ni-ico">📈</span>Reportes ejecutivos <span class="rh-tag">Pronto</span></button>';
   } else if(S.depto==='s'){
@@ -13743,6 +13761,7 @@ function numeroALetras(num){
 }
 
 function cartasInit(force){
+  cargarConfigEmpresa();
   if((typeof RH_DATA==='undefined'||!RH_DATA.length) && typeof rhCargar==='function'){ rhCargar(); setTimeout(cartasTrabList,600); }
   cartasTrabList();
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getPlantillas'})})
@@ -13774,10 +13793,10 @@ function cartasVarsBase(t){
   var hoy=new Date();
   var cedFmt=String((t&&t.CEDULA)||'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
   return {
-    NOMBRES:(t&&t.NOMBRES)||'', CEDULA:cedFmt, CIUDAD_EXP:(t&&t.LUGAR_EXP)||'Zarzal (V)',
+    NOMBRES:(t&&t.NOMBRES)||'', CEDULA:cedFmt, CIUDAD_EXP:(t&&t.LUGAR_EXP)||CONFIG_EMPRESA.ciudad,
     CARGO:(t&&t.CARGO)||'', FECHA_INGRESO:(t&&t.FECHA_INGRESO)||'', FECHA_INGRESO_LARGA:fmt(t&&t.FECHA_INGRESO),
     FECHA_CARTA_LARGA:hoy.getDate()+' de '+meses[hoy.getMonth()]+' de '+hoy.getFullYear(),
-    REPRESENTANTE:'JESÚS ARBEY SÁNCHEZ RENGIFO'
+    REPRESENTANTE:CONFIG_EMPRESA.representante
   };
 }
 function cartasPlantillaChange(){
@@ -13989,7 +14008,7 @@ function vacConstruirVariables(v, trab){
   return {
     NOMBRES: v.NOMBRES||trab.NOMBRES||'',
     CEDULA: cedFmt,
-    CIUDAD_EXP: trab.LUGAR_EXP||'Zarzal (V)',
+    CIUDAD_EXP: trab.LUGAR_EXP||CONFIG_EMPRESA.ciudad,
     PERIODO_CAUSADO: v.PERIODO_CAUSADO||'',
     FECHA_INICIO: v.FECHA_INICIO||'',
     FECHA_FIN: v.FECHA_FIN||'',
@@ -14001,7 +14020,7 @@ function vacConstruirVariables(v, trab){
     FECHA_INGRESO: trab.FECHA_INGRESO||'',
     FECHA_INGRESO_LARGA: fmt(trab.FECHA_INGRESO),
     FECHA_CARTA_LARGA: fechaCarta,
-    REPRESENTANTE: 'JESÚS ARBEY SÁNCHEZ RENGIFO'
+    REPRESENTANTE: CONFIG_EMPRESA.representante
   };
 }
 
@@ -14059,9 +14078,9 @@ function descargarCartaWordActual(){
         var logoSrc=(String(CARTA_LOGO).match(/src="([^"]+)"/)||[])[1];
         var hijosHdr=[];
         if(logoSrc) hijosHdr.push(new D.Paragraph({alignment:D.AlignmentType.CENTER, children:[new D.ImageRun({data:b64ToBytes(logoSrc), transformation:{width:150,height:58}})]}));
-        hijosHdr.push(new D.Paragraph({alignment:D.AlignmentType.CENTER, children:[new D.TextRun({text:'AGRISERVICIOS DEL VALLE S.A.S.', bold:true, size:30, color:'2D5A3D'})]}));
+        hijosHdr.push(new D.Paragraph({alignment:D.AlignmentType.CENTER, children:[new D.TextRun({text:CONFIG_EMPRESA.nombre, bold:true, size:30, color:'2D5A3D'})]}));
         hijosHdr.push(new D.Paragraph({alignment:D.AlignmentType.CENTER, children:[new D.TextRun({text:'NIT. 900.956.880-2', size:20, color:'555555'})], spacing:{after:60}}));
-        var pie=new D.Footer({children:[new D.Paragraph({alignment:D.AlignmentType.CENTER, border:{top:{style:D.BorderStyle.SINGLE,size:4,color:'DDDDDD',space:6}}, children:[new D.TextRun({text:'Calle 13 No. 4-06 B/ Rafael González La Paila - Zarzal (V) · Tel: 3103864470 · multiactiva@hotmail.com', size:16, color:'666666'})]})]});
+        var pie=new D.Footer({children:[new D.Paragraph({alignment:D.AlignmentType.CENTER, border:{top:{style:D.BorderStyle.SINGLE,size:4,color:'DDDDDD',space:6}}, children:[new D.TextRun({text:empPie(), size:16, color:'666666'})]})]});
         var doc=new D.Document({sections:[{
           properties:{page:{size:{width:12240,height:15840},margin:{top:2160,right:1134,bottom:1080,left:1134,header:454,footer:454}}},
           headers:{default:new D.Header({children:hijosHdr})},
@@ -14076,11 +14095,36 @@ function descargarCartaWordActual(){
   });
 }
 
+// Datos de la empresa (configurables en RH → Configuración). Fallback = valores actuales.
+var CONFIG_EMPRESA={
+  nombre:'AGRISERVICIOS DEL VALLE S.A.S.',
+  nit:'900.956.880-2',
+  direccion:'Calle 13 No. 4-06 B/ Rafael González La Paila - Zarzal (V)',
+  telefono:'3103864470',
+  email:'multiactiva@hotmail.com',
+  representante:'JESÚS ARBEY SÁNCHEZ RENGIFO',
+  ciudad:'Zarzal (V)'
+};
+var CONFIG_EMPRESA_LOADED=false;
+function cargarConfigEmpresa(cb){
+  if(CONFIG_EMPRESA_LOADED){ if(cb)cb(); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConfigEmpresa'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok&&d.data){ for(var k in d.data){ if(d.data[k]) CONFIG_EMPRESA[k]=d.data[k]; } CONFIG_EMPRESA_LOADED=true; }
+    if(cb)cb();
+  }).catch(function(e){ if(cb)cb(); });
+}
+function empPie(){
+  var p=[]; if(CONFIG_EMPRESA.direccion)p.push(CONFIG_EMPRESA.direccion);
+  if(CONFIG_EMPRESA.telefono)p.push('Tel: '+CONFIG_EMPRESA.telefono);
+  if(CONFIG_EMPRESA.email)p.push(CONFIG_EMPRESA.email);
+  return p.join(' · ');
+}
 function abrirCartaImprimible(htmlBody, titulo){
   htmlBody=String(htmlBody||'').replace(/\{FIRMA\}/g, FIRMA_IMG);
-  var doc='<div class="hdr">'+CARTA_LOGO+'<h1>AGRISERVICIOS DEL VALLE S.A.S.</h1><div class="nit">NIT. 900.956.880-2</div></div>'+
+  var doc='<div class="hdr">'+CARTA_LOGO+'<h1>'+CONFIG_EMPRESA.nombre+'</h1><div class="nit">NIT. '+CONFIG_EMPRESA.nit+'</div></div>'+
           '<div class="body">'+htmlBody+'</div>'+
-          '<div class="ftr">Calle 13 No. 4-06 B/ Rafael González La Paila - Zarzal (V) · Tel: 3103864470 · multiactiva@hotmail.com</div>';
+          '<div class="ftr">'+empPie()+'</div>';
   CARTA_ACTUAL_HTML=doc; CARTA_ACTUAL_NOMBRE=titulo||'carta'; CARTA_ACTUAL_BODY=htmlBody;
   var w=window.open('','_blank','width=820,height=900');
   if(!w){alert('Permite ventanas emergentes para imprimir la carta');return;}
@@ -14208,7 +14252,7 @@ function pltVistaPrevia(){
   var ejemplo={
     NOMBRES:'JUAN PÉREZ GÓMEZ',
     CEDULA:'1.234.567.890',
-    CIUDAD_EXP:'Zarzal (V)',
+    CIUDAD_EXP:CONFIG_EMPRESA.ciudad,
     PERIODO_CAUSADO:'2024-2025',
     FECHA_INICIO:'2026-06-01',
     FECHA_FIN:'2026-06-15',
@@ -14221,7 +14265,7 @@ function pltVistaPrevia(){
     FECHA_INGRESO_LARGA:'15 de marzo de 2020',
     FECHA_CARTA_LARGA:'29 de mayo de 2026',
     SALARIO:'$1.300.000',PROMEDIO:'$1.450.000',FECHA_RETIRO:'2024-11-13',
-    REPRESENTANTE:'JESÚS ARBEY SÁNCHEZ RENGIFO'
+    REPRESENTANTE:CONFIG_EMPRESA.representante
   };
   derivarVars(ejemplo);
   Object.keys(ejemplo).forEach(function(k){
@@ -15625,7 +15669,31 @@ function acumGestorConceptos(){
   if(typeof go==='function') go('rh-cfg');
 }
 // Configuración de RH: gestión de conceptos de acumulados (render en página, no modal)
-function rhCfgInit(){ if(typeof acumGCRecargar==='function') acumGCRecargar(); }
+function rhCfgInit(){
+  if(typeof acumGCRecargar==='function') acumGCRecargar();
+  CONFIG_EMPRESA_LOADED=false; // recargar siempre para editar lo más reciente
+  cargarConfigEmpresa(empCfgLlenar);
+}
+function empCfgLlenar(){
+  var map={nombre:'emp-nombre',nit:'emp-nit',direccion:'emp-direccion',telefono:'emp-telefono',email:'emp-email',ciudad:'emp-ciudad',representante:'emp-representante'};
+  for(var k in map){ var e=document.getElementById(map[k]); if(e) e.value=CONFIG_EMPRESA[k]||''; }
+}
+function empCfgGuardar(){
+  var datos={
+    nombre:(document.getElementById('emp-nombre').value||'').trim(),
+    nit:(document.getElementById('emp-nit').value||'').trim(),
+    direccion:(document.getElementById('emp-direccion').value||'').trim(),
+    telefono:(document.getElementById('emp-telefono').value||'').trim(),
+    email:(document.getElementById('emp-email').value||'').trim(),
+    ciudad:(document.getElementById('emp-ciudad').value||'').trim(),
+    representante:(document.getElementById('emp-representante').value||'').trim()
+  };
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarConfigEmpresa',datos:datos})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ for(var k in datos){ CONFIG_EMPRESA[k]=datos[k]; } CONFIG_EMPRESA_LOADED=true; alert('✓ Datos de la empresa guardados'); }
+    else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
 function acumGCCerrar(){ var m=document.getElementById('gc-modal'); if(m) m.remove(); acumCargarConceptos(); }
 function acumGCRecargar(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConceptosAcum'})})
@@ -17380,6 +17448,7 @@ function invEntGuardar(){
 
 // ── SALIDA / ENTREGA (con firma) ──
 function invSalInit(){
+  cargarConfigEmpresa();
   var f=document.getElementById('sal-fecha'); if(f&&!f.value) f.value=new Date().toISOString().slice(0,10);
   if((typeof RH_DATA==='undefined'||!RH_DATA.length)&&typeof rhCargar==='function'){ rhCargar(); setTimeout(invSalEmpList,700); } else invSalEmpList();
   invCargarConfig(invLlenarAuxiliar);
@@ -17452,7 +17521,7 @@ function firmaLimpiar(){ if(FIRMA_CTX&&FIRMA_CANVAS){ FIRMA_CTX.clearRect(0,0,FI
 function firmaDataURL(){ return (FIRMA_USADA&&FIRMA_CANVAS)?FIRMA_CANVAS.toDataURL('image/png'):''; }
 
 // ── Historial de entregas ──
-function invHistInit(){ invHistCargar(); }
+function invHistInit(){ cargarConfigEmpresa(); invHistCargar(); }
 function invHistCargar(){
   var tb=document.getElementById('hist-tb'); if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando...</td></tr>';
   var body={accion:'invGetActas'};
@@ -17531,6 +17600,7 @@ function invVerActaRender(a, firma){
 var EMP_RESUMEN=[], EMP_GRUPOS=[], EMP_ITEMS={};
 function invEmpCedNorm(c){ return String(c==null?'':c).replace(/[.\s,\-]/g,'').trim(); }
 function invEmpInit(){
+  cargarConfigEmpresa();
   var tb=document.getElementById('iemp-tb'); if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando entregas...</td></tr>';
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invEntregasResumen'})})
   .then(function(r){return r.json();}).then(function(d){ EMP_RESUMEN=(d&&d.ok&&d.data)?d.data:[]; EMP_ITEMS={}; invEmpAgrupar(); invEmpRender(); })
