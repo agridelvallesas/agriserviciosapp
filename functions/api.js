@@ -40,7 +40,7 @@ const PORTADAS = new Set([
   // Módulo SST — Inventario de almacén:
   'getInventario', 'invGuardarProducto', 'invEliminarProducto',
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
-  'invGetActas', 'invEliminarActa',
+  'invGetActas', 'invEliminarActa', 'invEditarActa',
   'invEntregasResumen', 'invItemsActas',
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
   'invGetFirma',
@@ -124,6 +124,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invRegistrarSalida')   r = await accionInvRegistrarSalida(body, env);
     else if (accion === 'invGetActas')          r = await accionInvGetActas(body, env);
     else if (accion === 'invEliminarActa')      r = await accionInvEliminarActa(body, env);
+    else if (accion === 'invEditarActa')        r = await accionInvEditarActa(body, env);
     else if (accion === 'invEntregasResumen')   r = await accionInvEntregasResumen(body, env);
     else if (accion === 'invItemsActas')        r = await accionInvItemsActas(body, env);
     else if (accion === 'getInvConfig')         r = await accionGetInvConfig(body, env);
@@ -1667,6 +1668,32 @@ async function accionGuardarConfigEmpresa(body, env) {
     const ex = await sb(env, `config_empresa?select=clave&clave=eq.${encodeURIComponent(clave)}&limit=1`);
     if (ex.length) await sbWrite(env, 'PATCH', `config_empresa?clave=eq.${encodeURIComponent(clave)}`, { valor });
     else await sbWrite(env, 'POST', 'config_empresa', { clave, valor });
+  }
+  return { ok: true };
+}
+
+// Editar una entrega completa (cabecera + elementos)
+async function accionInvEditarActa(body, env) {
+  const id = String(body.id_regn || '').trim();
+  if (!id) return { ok: false, error: 'Falta id_regn' };
+  const cab = {};
+  if (body.fecha !== undefined) cab.fecha = String(body.fecha || '').trim() || null;
+  if (body.empleado_proveedor !== undefined) cab.empleado_proveedor = String(body.empleado_proveedor || '').trim();
+  if (body.id_factura !== undefined) cab.id_factura = String(body.id_factura || '').trim();
+  if (body.auxiliar !== undefined) cab.auxiliar = String(body.auxiliar || '').trim();
+  if (Object.keys(cab).length) await sbWrite(env, 'PATCH', `inv_registros?id_regn=eq.${encodeURIComponent(id)}`, cab);
+  if (Array.isArray(body.items)) {
+    await sbWrite(env, 'DELETE', `inv_movimientos?id_regn=eq.${encodeURIComponent(id)}`);
+    const fecha = cab.fecha || String(body.fecha || '').trim() || isoDate(new Date());
+    let nid = Date.now();
+    const filas = body.items.filter((it) => String(it.item || '').trim()).map((it) => ({
+      id_movimiento: 'MOV' + (nid++).toString(36).toUpperCase() + Math.random().toString(36).slice(2, 4).toUpperCase(),
+      id_regn: id, item: String(it.item).trim(), categoria: String(it.categoria || '').trim().toUpperCase(),
+      fecha, factura_id: cab.id_factura || '', producto: String(it.producto || '').trim(),
+      entradas: 0, salidas: parseFloat(it.cantidad) || 0, precio_un: parseFloat(it.precio) || 0,
+      novedad: String(body.novedad || '').trim(), empleado: cab.empleado_proveedor || '',
+    }));
+    if (filas.length) await sbWrite(env, 'POST', 'inv_movimientos', filas);
   }
   return { ok: true };
 }
