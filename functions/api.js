@@ -44,6 +44,7 @@ const PORTADAS = new Set([
   'invEntregasResumen', 'invItemsActas',
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
   'invGetFirma',
+  'getConfigEmpresa', 'guardarConfigEmpresa',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -129,6 +130,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarInvConfig')     r = await accionGuardarInvConfig(body, env);
     else if (accion === 'eliminarInvConfig')    r = await accionEliminarInvConfig(body, env);
     else if (accion === 'invGetFirma')          r = await accionInvGetFirma(body, env);
+    else if (accion === 'getConfigEmpresa')     r = await accionGetConfigEmpresa(body, env);
+    else if (accion === 'guardarConfigEmpresa') r = await accionGuardarConfigEmpresa(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1647,4 +1650,23 @@ async function accionInvGetFirma(body, env) {
   if (rows.length) return { ok: true, firma: String(rows[0].firma || '') };
   const leg = await sb(env, `inv_registros?select=firma&id_regn=eq.${encodeURIComponent(id)}&limit=1`);
   return { ok: true, firma: (leg.length && leg[0].firma) ? String(leg[0].firma) : '' };
+}
+
+// ── Datos de la empresa (config para cartas y actas) ──
+async function accionGetConfigEmpresa(body, env) {
+  const rows = await sbAll(env, 'config_empresa?select=clave,valor');
+  const data = {};
+  rows.forEach((r) => { data[String(r.clave)] = String(r.valor || ''); });
+  return { ok: true, data };
+}
+async function accionGuardarConfigEmpresa(body, env) {
+  const datos = body.datos || {};
+  const claves = Object.keys(datos);
+  for (const clave of claves) {
+    const valor = String(datos[clave] == null ? '' : datos[clave]);
+    const ex = await sb(env, `config_empresa?select=clave&clave=eq.${encodeURIComponent(clave)}&limit=1`);
+    if (ex.length) await sbWrite(env, 'PATCH', `config_empresa?clave=eq.${encodeURIComponent(clave)}`, { valor });
+    else await sbWrite(env, 'POST', 'config_empresa', { clave, valor });
+  }
+  return { ok: true };
 }
