@@ -1582,30 +1582,42 @@ tfoot td{background:var(--gf);font-weight:700}
          PLANTILLAS DE CARTAS — Editor modular
          ════════════════════════════════════════ -->
     <!-- ══════════ RH — CONFIGURACIÓN ══════════ -->
-    <div class="page" id="p-rh-cfg">
-      <div class="card">
-        <div class="ct">🏢 Datos de la empresa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Salen en el encabezado y pie de todas las cartas y actas</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="fld" style="margin:0"><label>Nombre / Razón social</label><input type="text" id="emp-nombre"/></div>
-          <div class="fld" style="margin:0"><label>NIT</label><input type="text" id="emp-nit"/></div>
-          <div class="fld" style="margin:0;grid-column:1/-1"><label>Dirección</label><input type="text" id="emp-direccion"/></div>
-          <div class="fld" style="margin:0"><label>Teléfono</label><input type="text" id="emp-telefono"/></div>
-          <div class="fld" style="margin:0"><label>Email</label><input type="text" id="emp-email"/></div>
-          <div class="fld" style="margin:0"><label>Ciudad (exp. cédula por defecto)</label><input type="text" id="emp-ciudad"/></div>
-          <div class="fld" style="margin:0"><label>Representante legal / firmante</label><input type="text" id="emp-representante"/></div>
+    <div class="page" id="p-rh-cfg" style="max-width:840px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:16px;flex-wrap:wrap">
+        <button id="rhcfg-tab-emp" onclick="rhCfgTab('emp')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">🏢 Datos de la empresa</button>
+        <button id="rhcfg-tab-plt" onclick="rhCfgTab('plt')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">📜 Plantillas de cartas</button>
+        <button id="rhcfg-tab-con" onclick="rhCfgTab('con')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">🏷️ Conceptos de acumulados</button>
+      </div>
+
+      <div id="rhcfg-emp" class="rhcfg-pane">
+        <div class="card">
+          <div class="ct">🏢 Datos de la empresa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Salen en el encabezado y pie de todas las cartas y actas</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="fld" style="margin:0"><label>Nombre / Razón social</label><input type="text" id="emp-nombre"/></div>
+            <div class="fld" style="margin:0"><label>NIT</label><input type="text" id="emp-nit"/></div>
+            <div class="fld" style="margin:0;grid-column:1/-1"><label>Dirección</label><input type="text" id="emp-direccion"/></div>
+            <div class="fld" style="margin:0"><label>Teléfono</label><input type="text" id="emp-telefono"/></div>
+            <div class="fld" style="margin:0"><label>Email</label><input type="text" id="emp-email"/></div>
+            <div class="fld" style="margin:0"><label>Ciudad (exp. cédula por defecto)</label><input type="text" id="emp-ciudad"/></div>
+            <div class="fld" style="margin:0"><label>Representante legal / firmante</label><input type="text" id="emp-representante"/></div>
+          </div>
+          <div style="text-align:right;margin-top:12px"><button class="btn bv" onclick="empCfgGuardar()">💾 Guardar datos</button></div>
         </div>
-        <div style="text-align:right;margin-top:12px"><button class="btn bv" onclick="empCfgGuardar()">💾 Guardar datos</button></div>
       </div>
 
-      <div class="card">
-        <div class="ct">📜 Plantillas de cartas</div>
-        <p style="color:var(--g3);font-size:13px;margin:6px 0 12px">Crea y edita las plantillas de cartas (laboral, retiro, vacaciones, etc.) que se usan al generar cartas.</p>
-        <button class="btn ba" onclick="go('plantillas')">📝 Abrir editor de plantillas</button>
+      <div id="rhcfg-plt" class="rhcfg-pane" style="display:none">
+        <div class="card">
+          <div class="ct">📜 Plantillas de cartas</div>
+          <p style="color:var(--g3);font-size:13px;margin:6px 0 12px">Crea y edita las plantillas de cartas (laboral, retiro, vacaciones, etc.) que se usan al generar cartas.</p>
+          <button class="btn ba" onclick="go('plantillas')">📝 Abrir editor de plantillas</button>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="ct">🏷️ Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
-        <div id="gc-body"><div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div></div>
+      <div id="rhcfg-con" class="rhcfg-pane" style="display:none">
+        <div class="card">
+          <div class="ct">🏷️ Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
+          <div id="gc-body"><div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div></div>
+        </div>
       </div>
     </div>
 
@@ -15673,6 +15685,14 @@ function rhCfgInit(){
   if(typeof acumGCRecargar==='function') acumGCRecargar();
   CONFIG_EMPRESA_LOADED=false; // recargar siempre para editar lo más reciente
   cargarConfigEmpresa(empCfgLlenar);
+  rhCfgTab('emp');
+}
+function rhCfgTab(n){
+  ['emp','plt','con'].forEach(function(x){
+    var pane=document.getElementById('rhcfg-'+x); if(pane) pane.style.display=(x===n)?'block':'none';
+    var tab=document.getElementById('rhcfg-tab-'+x);
+    if(tab){ tab.style.borderBottomColor=(x===n)?'var(--v)':'transparent'; tab.style.color=(x===n)?'var(--v)':'var(--g3)'; tab.style.fontWeight=(x===n)?'800':'600'; }
+  });
 }
 function empCfgLlenar(){
   var map={nombre:'emp-nombre',nit:'emp-nit',direccion:'emp-direccion',telefono:'emp-telefono',email:'emp-email',ciudad:'emp-ciudad',representante:'emp-representante'};
@@ -15705,9 +15725,6 @@ function acumGCRecargar(){
 function acumGCRender(){
   var body=document.getElementById('gc-body'); if(!body) return;
   var tiposStd=['DEVENGO','DEDUCIDO','SUBTOTAL','RESUMEN','OTRO'];
-  var filtro=(document.getElementById('gc-filtro')?document.getElementById('gc-filtro').value:'').toUpperCase().trim();
-  var lista=GC_DATA.filter(function(c){ return !filtro || String(c.concepto).toUpperCase().indexOf(filtro)>=0 || String(c.tipo).toUpperCase().indexOf(filtro)>=0 || String(c.categoria).toUpperCase().indexOf(filtro)>=0; });
-  var colorTipo={DEVENGO:'#16a34a',DEDUCIDO:'#dc2626',SUBTOTAL:'#7c3aed',RESUMEN:'#0284c7',OTRO:'#78716c'};
   body.innerHTML=
     // Formulario agregar/editar
     '<div style="background:var(--gf);border-radius:8px;padding:12px;margin-bottom:14px">'+
@@ -15721,13 +15738,22 @@ function acumGCRender(){
       '</div>'+
       '<div style="font-size:10px;color:var(--g3);margin-top:6px">Tipos estándar: DEVENGO, DEDUCIDO, SUBTOTAL, RESUMEN, OTRO. Si escribes un concepto que ya existe, se actualiza.</div>'+
     '</div>'+
-    // Buscador + contador
+    // Buscador + contador (oninput solo refresca la tabla, no todo el panel)
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
-      '<input type="text" id="gc-filtro" placeholder="🔍 Filtrar..." oninput="acumGCRender()" value="'+(filtro||'')+'" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px"/>'+
-      '<span style="font-size:11px;color:var(--g3)">'+lista.length+' de '+GC_DATA.length+' conceptos</span>'+
+      '<input type="text" id="gc-filtro" placeholder="🔍 Filtrar..." oninput="acumGCTabla()" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px"/>'+
+      '<span style="font-size:11px;color:var(--g3)" id="gc-cont"></span>'+
     '</div>'+
-    // Tabla
-    '<div style="max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">'+
+    // Contenedor de la tabla (se redibuja solo este)
+    '<div id="gc-tabla" style="max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:8px"></div>';
+  acumGCTabla();
+}
+function acumGCTabla(){
+  var cont=document.getElementById('gc-tabla'); if(!cont) return;
+  var filtro=(document.getElementById('gc-filtro')?document.getElementById('gc-filtro').value:'').toUpperCase().trim();
+  var lista=GC_DATA.filter(function(c){ return !filtro || String(c.concepto).toUpperCase().indexOf(filtro)>=0 || String(c.tipo).toUpperCase().indexOf(filtro)>=0 || String(c.categoria).toUpperCase().indexOf(filtro)>=0; });
+  var colorTipo={DEVENGO:'#16a34a',DEDUCIDO:'#dc2626',SUBTOTAL:'#7c3aed',RESUMEN:'#0284c7',OTRO:'#78716c'};
+  var ce=document.getElementById('gc-cont'); if(ce) ce.textContent=lista.length+' de '+GC_DATA.length+' conceptos';
+  cont.innerHTML=
       '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead style="position:sticky;top:0;background:var(--gf);z-index:1"><tr>'+
           '<th style="text-align:left;padding:8px 10px">Concepto</th>'+
@@ -15748,8 +15774,7 @@ function acumGCRender(){
             '</td>'+
           '</tr>';
         }).join('') : '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Sin conceptos'+(filtro?' que coincidan':' guardados aún')+'</td></tr>')+
-        '</tbody></table>'+
-    '</div>';
+        '</tbody></table>';
 }
 function acumGCLimpiarForm(){
   ['gc-concepto','gc-tipo','gc-categoria'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
@@ -17375,13 +17400,33 @@ function invEditarProd(item){
   .catch(function(e){alert('Error de red: '+e.message);});
 }
 function invAsegurarDatos(cb){
-  if(INV_DATA.length){ cb(); return; }
+  if(INV_DATA.length){ invActualizarDatalist(); cb(); return; }
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getInventario'})})
-  .then(function(r){return r.json();}).then(function(d){ INV_DATA=(d&&d.ok&&d.data)?d.data:[]; cb(); })
+  .then(function(r){return r.json();}).then(function(d){ INV_DATA=(d&&d.ok&&d.data)?d.data:[]; invActualizarDatalist(); cb(); })
   .catch(function(e){ cb(); });
 }
 function invProdOpts(sel){
   return '<option value="">— producto —</option>'+INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item)+'"'+(sel===p.item?' selected':'')+'>'+gcEsc(p.item)+' · '+gcEsc(p.producto)+' (stock '+p.stock+')</option>';}).join('');
+}
+// Datalist compartido para escribir y filtrar productos (mejor que <select> en móvil)
+function invProdDatalist(){
+  return INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item+' · '+p.producto+' (stock '+p.stock+')')+'">';}).join('');
+}
+function invActualizarDatalist(){
+  var dl=document.getElementById('inv-prod-dl');
+  if(!dl){ dl=document.createElement('datalist'); dl.id='inv-prod-dl'; document.body.appendChild(dl); }
+  dl.innerHTML=invProdDatalist();
+}
+// Dado el texto escrito en un input, devuelve el código (item) del producto
+function invResolverItem(txt){
+  txt=(txt||'').trim(); if(!txt) return '';
+  var cod=txt.split(' · ')[0].trim();
+  if(INV_DATA.filter(function(x){return x.item===cod;}).length) return cod;
+  var low=txt.toLowerCase();
+  var p=INV_DATA.filter(function(x){return String(x.producto).toLowerCase()===low;})[0];
+  if(p) return p.item;
+  p=INV_DATA.filter(function(x){return String(x.producto).toLowerCase().indexOf(low)>=0 || (String(x.item)+' · '+String(x.producto)).toLowerCase().indexOf(low)>=0;})[0];
+  return p?p.item:'';
 }
 
 // ── Registrar ENTRADA ──
@@ -17395,7 +17440,7 @@ function invEntAddItem(){
   var d=document.createElement('div'); d.className='ent-item'; d.id='ent-item-'+i;
   d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px';
   d.innerHTML='<div class="fld" style="min-width:160px;margin:0"><select id="ent-cat-'+i+'" onchange="invEntCatChange('+i+')"><option value="">— Producto existente —</option><option value="EPP">EPP (nuevo)</option><option value="HERRAMIENTAS Y EQUIPOS">Herramientas y equipos (nuevo)</option><option value="INDUMENTARIA">Indumentaria (nuevo)</option></select></div>'+
-    '<div class="fld" style="flex:2;min-width:200px;margin:0" id="ent-prod-'+i+'"><select id="ent-el-'+i+'">'+invProdOpts()+'</select></div>'+
+    '<div class="fld" style="flex:2;min-width:200px;margin:0" id="ent-prod-'+i+'"><input type="text" id="ent-el-'+i+'" list="inv-prod-dl" placeholder="Escribe o elige el producto..." autocomplete="off"/></div>'+
     '<div class="fld" style="min-width:75px;margin:0"><input type="number" id="ent-c-'+i+'" min="1" step="1" value="1" placeholder="Cant." title="Cantidad"/></div>'+
     '<div class="fld" style="min-width:95px;margin:0"><input type="number" id="ent-p-'+i+'" min="0" step="1" placeholder="Precio" title="Precio unitario (opcional)"/></div>'+
     '<button class="btn br" style="height:34px;padding:0 10px" onclick="document.getElementById(\'ent-item-'+i+'\').remove()">🗑️</button>';
@@ -17408,7 +17453,7 @@ function invEntCatChange(i){
   var cat=(document.getElementById('ent-cat-'+i)||{}).value||'';
   var wrap=document.getElementById('ent-prod-'+i); if(!wrap) return;
   if(!cat){
-    wrap.innerHTML='<select id="ent-el-'+i+'">'+invProdOpts()+'</select>';
+    wrap.innerHTML='<input type="text" id="ent-el-'+i+'" list="inv-prod-dl" placeholder="Escribe o elige el producto..." autocomplete="off"/>';
   } else {
     wrap.innerHTML='<input type="text" id="ent-nom-'+i+'" list="ent-dl-'+i+'" placeholder="Nombre del producto (nuevo o existente)"/><datalist id="ent-dl-'+i+'">'+invProdDatalistCat(cat)+'</datalist>';
   }
@@ -17423,7 +17468,7 @@ function invEntGuardar(){
     if(!cant) return;
     if(!cat){
       // producto existente (por código)
-      var it=(document.getElementById('ent-el-'+i)||{}).value||'';
+      var it=invResolverItem((document.getElementById('ent-el-'+i)||{}).value||'');
       if(!it) return;
       var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
       items.push({item:it,producto:p.producto||'',categoria:p.categoria||'',precio:precio||p.precio||0,cantidad:cant});
@@ -17468,7 +17513,7 @@ function invSalAddItem(){
   var c=document.getElementById('sal-items'); if(!c) return; var i=(++INV_ITEM_N);
   var d=document.createElement('div'); d.className='sal-item'; d.id='sal-item-'+i;
   d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px';
-  d.innerHTML='<div class="fld" style="flex:2;min-width:220px;margin:0"><select id="sal-el-'+i+'">'+invProdOpts()+'</select></div>'+
+  d.innerHTML='<div class="fld" style="flex:2;min-width:220px;margin:0"><input type="text" id="sal-el-'+i+'" list="inv-prod-dl" placeholder="Escribe o elige el elemento..." autocomplete="off"/></div>'+
     '<div class="fld" style="min-width:90px;margin:0"><input type="number" id="sal-c-'+i+'" min="1" step="1" value="1" placeholder="Cant."/></div>'+
     '<button class="btn br" style="height:34px;padding:0 10px" onclick="document.getElementById(\'sal-item-'+i+'\').remove()">🗑️</button>';
   c.appendChild(d);
@@ -17479,7 +17524,7 @@ function invSalGuardar(){
   var nombre=emp.indexOf(' - ')>=0?emp.split(' - ').slice(1).join(' - '):emp;
   var items=[]; var aviso=[];
   document.querySelectorAll('#sal-items .sal-item').forEach(function(div){
-    var i=div.id.replace('sal-item-',''); var it=(document.getElementById('sal-el-'+i)||{}).value||'';
+    var i=div.id.replace('sal-item-',''); var it=invResolverItem((document.getElementById('sal-el-'+i)||{}).value||'');
     if(!it) return;
     var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
     var cant=parseFloat((document.getElementById('sal-c-'+i)||{}).value)||0;
@@ -17678,7 +17723,7 @@ function invEmpDetRender(g,body){
     return '<div style="margin-bottom:10px;background:#fff;border:1px solid var(--bd);border-radius:6px;overflow:hidden">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--vs)">'+
         '<span style="font-weight:700;color:var(--v)">📅 '+f+'</span>'+
-        '<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button>'+
+        '<span style="display:flex;gap:6px"><button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEditar(\''+e.id_regn+'\')">✏️ Editar</button><button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button></span>'+
       '</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--g3);font-size:10px"><th style="text-align:left;padding:3px 8px">PRODUCTO</th><th style="text-align:center;padding:3px 8px;width:70px">CANT.</th></tr></thead>'+
@@ -17698,6 +17743,81 @@ function invVerActaId(id){
   invVerActa(id);
 }
 
+// ── Editar una entrega desde "Entregas por empleado" ──
+var EMP_EDIT_ID=null, EMP_EDIT_N=0;
+function invEmpEditar(idRegn){
+  var g=EMP_GRUPOS.filter(function(gr){return gr.entregas.some(function(e){return String(e.id_regn)===String(idRegn);});})[0];
+  var e=g?g.entregas.filter(function(x){return String(x.id_regn)===String(idRegn);})[0]:null;
+  if(!g||!e){ alert('No se encontró la entrega'); return; }
+  EMP_EDIT_ID=idRegn;
+  // asegurar inventario cargado (para el datalist) y luego abrir modal
+  invAsegurarDatos(function(){
+    var fecha=e.fecha?String(e.fecha).slice(0,10):'';
+    var items=EMP_ITEMS[idRegn]||[];
+    var m=document.createElement('div');
+    m.id='eme-modal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.onclick=function(ev){ if(ev.target===m) invEmpEditCerrar(); };
+    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:92vh;overflow:auto">'+
+      '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
+        '<div style="font-size:16px;font-weight:800;color:var(--v)">✏️ Editar entrega</div>'+
+        '<button onclick="invEmpEditCerrar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'+
+      '</div>'+
+      '<div style="padding:18px">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+          '<div class="fld" style="margin:0"><label style="font-size:10px">Empleado / proveedor</label><input type="text" id="eme-emp" value="'+invEmpEsc(g.nombre||'')+'"/></div>'+
+          '<div class="fld" style="margin:0"><label style="font-size:10px">Cédula</label><input type="text" id="eme-ced" value="'+invEmpEsc(g.cedula||'')+'"/></div>'+
+          '<div class="fld" style="margin:0"><label style="font-size:10px">Fecha</label><input type="date" id="eme-fecha" value="'+fecha+'"/></div>'+
+          '<div class="fld" style="margin:0"><label style="font-size:10px">Auxiliar</label><input type="text" id="eme-aux" value="'+invEmpEsc(e.auxiliar||'')+'"/></div>'+
+        '</div>'+
+        '<div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--g2)">Elementos</div>'+
+        '<div id="eme-items"></div>'+
+        '<button class="btn bg" onclick="invEmpEditAddItem()" style="margin-top:6px;font-size:12px">➕ Agregar elemento</button>'+
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'+
+          '<button class="btn bg" onclick="invEmpEditCerrar()">Cancelar</button>'+
+          '<button class="btn bv" onclick="invEmpEditGuardar()">💾 Guardar cambios</button>'+
+        '</div>'+
+      '</div></div>';
+    document.body.appendChild(m);
+    var cont=document.getElementById('eme-items'); cont.innerHTML=''; EMP_EDIT_N=0;
+    if(items.length) items.forEach(function(it){ invEmpEditAddItem(it.item, it.producto, it.cantidad); });
+    else invEmpEditAddItem();
+  });
+}
+function invEmpEditCerrar(){ var m=document.getElementById('eme-modal'); if(m) m.remove(); EMP_EDIT_ID=null; }
+function invEmpEditAddItem(item,producto,cant){
+  var c=document.getElementById('eme-items'); if(!c) return; var i=(++EMP_EDIT_N);
+  var val=item?(item+' · '+(producto||'')):(producto||'');
+  var d=document.createElement('div'); d.className='eme-item'; d.id='eme-item-'+i;
+  d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px';
+  d.innerHTML='<div class="fld" style="flex:2;min-width:200px;margin:0"><input type="text" id="eme-el-'+i+'" list="inv-prod-dl" value="'+invEmpEsc(val)+'" placeholder="Escribe o elige el elemento..." autocomplete="off"/></div>'+
+    '<div class="fld" style="min-width:75px;margin:0"><input type="number" id="eme-c-'+i+'" min="1" step="1" value="'+(cant||1)+'" placeholder="Cant."/></div>'+
+    '<button class="btn br" style="height:34px;padding:0 10px" onclick="document.getElementById(\'eme-item-'+i+'\').remove()">🗑️</button>';
+  c.appendChild(d);
+}
+function invEmpEditGuardar(){
+  if(!EMP_EDIT_ID) return;
+  var items=[];
+  document.querySelectorAll('#eme-items .eme-item').forEach(function(div){
+    var i=div.id.replace('eme-item-','');
+    var it=invResolverItem((document.getElementById('eme-el-'+i)||{}).value||'');
+    if(!it) return;
+    var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
+    items.push({item:it,producto:p.producto||'',categoria:p.categoria||'',precio:p.precio||0,cantidad:parseFloat((document.getElementById('eme-c-'+i)||{}).value)||0});
+  });
+  if(!items.length){ alert('Deja al menos un elemento'); return; }
+  var body={accion:'invEditarActa', id_regn:EMP_EDIT_ID,
+    empleado_proveedor:(document.getElementById('eme-emp').value||'').trim(),
+    id_factura:(document.getElementById('eme-ced').value||'').trim(),
+    fecha:(document.getElementById('eme-fecha').value||'').trim(),
+    auxiliar:(document.getElementById('eme-aux').value||'').trim(),
+    items:items};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ alert('✓ Entrega actualizada'); invEmpEditCerrar(); EMP_ITEMS={}; INV_DATA=[]; invEmpInit(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo actualizar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
 
 function invKardexInit(){ invAsegurarDatos(invKardexList); }
 function invKardexList(){
