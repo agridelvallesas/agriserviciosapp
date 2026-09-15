@@ -39,6 +39,7 @@ const PORTADAS = new Set([
   'getCruces', 'guardarCruce', 'eliminarCruce',
   // Módulo SST — Inventario de almacén:
   'getInventario', 'invGuardarProducto', 'invEliminarProducto',
+  'invAjustarStock', 'invActivarProducto',
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
   'invGetActas', 'invEliminarActa', 'invEditarActa',
   'invEntregasResumen', 'invItemsActas',
@@ -119,6 +120,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getInventario')        r = await accionGetInventario(body, env);
     else if (accion === 'invGuardarProducto')   r = await accionInvGuardarProducto(body, env);
     else if (accion === 'invEliminarProducto')  r = await accionInvEliminarProducto(body, env);
+    else if (accion === 'invAjustarStock')      r = await accionInvAjustarStock(body, env);
+    else if (accion === 'invActivarProducto')   r = await accionInvActivarProducto(body, env);
     else if (accion === 'invGetMovimientos')    r = await accionInvGetMovimientos(body, env);
     else if (accion === 'invRegistrarEntrada')  r = await accionInvRegistrarEntrada(body, env);
     else if (accion === 'invRegistrarSalida')   r = await accionInvRegistrarSalida(body, env);
@@ -1695,5 +1698,35 @@ async function accionInvEditarActa(body, env) {
     }));
     if (filas.length) await sbWrite(env, 'POST', 'inv_movimientos', filas);
   }
+  return { ok: true };
+}
+
+// Ajuste de stock: crea un movimiento por la diferencia hasta el stock físico contado
+async function accionInvAjustarStock(body, env) {
+  const item = String(body.item || '').trim();
+  const fisico = parseFloat(body.stock_fisico);
+  if (!item) return { ok: false, error: 'Falta item' };
+  if (isNaN(fisico)) return { ok: false, error: 'Stock físico inválido' };
+  const mov = await sbAll(env, `inv_movimientos?select=entradas,salidas&item=eq.${encodeURIComponent(item)}`);
+  let actual = 0; mov.forEach((m) => { actual += Number(m.entradas || 0) - Number(m.salidas || 0); });
+  const diff = fisico - actual;
+  if (Math.abs(diff) < 0.0001) return { ok: true, sinCambio: true, actual };
+  const p = (await sb(env, `inventario?select=producto,categoria,precio&item=eq.${encodeURIComponent(item)}&limit=1`))[0] || {};
+  await sbWrite(env, 'POST', 'inv_movimientos', {
+    id_movimiento: 'AJU' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 4).toUpperCase(),
+    id_regn: null, item, categoria: String(p.categoria || ''), fecha: isoDate(new Date()),
+    factura_id: '', producto: String(p.producto || ''),
+    entradas: diff > 0 ? diff : 0, salidas: diff < 0 ? -diff : 0, precio_un: Number(p.precio || 0),
+    novedad: 'AJUSTE DE INVENTARIO' + (body.motivo ? (' — ' + String(body.motivo).trim()) : ''),
+    empleado: String(body.usuario || '').trim(),
+  });
+  return { ok: true, actual, fisico, diff };
+}
+
+// Activar / desactivar un producto (para referencias viejas: conserva su historial)
+async function accionInvActivarProducto(body, env) {
+  const item = String(body.item || '').trim();
+  if (!item) return { ok: false, error: 'Falta item' };
+  await sbWrite(env, 'PATCH', `inventario?item=eq.${encodeURIComponent(item)}`, { activo: body.activo !== false });
   return { ok: true };
 }
