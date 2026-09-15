@@ -2905,6 +2905,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="sw" style="flex:2;min-width:180px"><span class="sico">🔍</span><input type="text" id="inv-q" placeholder="Buscar producto o código..." oninput="invRender()"/></div>
           <div class="fld" style="min-width:150px;margin:0"><select id="inv-cat" onchange="invRender()" style="margin:0"><option value="">Todas las categorías</option><option value="EPP">EPP</option><option value="INDUMENTARIA">Indumentaria</option><option value="HERRAMIENTAS Y EQUIPOS">Herramientas y equipos</option></select></div>
           <div class="fld" style="min-width:130px;margin:0"><select id="inv-stk" onchange="invRender()" style="margin:0"><option value="">Todo el stock</option><option value="pos">Con stock</option><option value="cero">En cero</option><option value="neg">Negativo</option></select></div>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--g2);cursor:pointer"><input type="checkbox" id="inv-inact" onchange="invRender()"/> Ver inactivos</label>
           <button class="btn bv" onclick="invNuevoProd()" style="height:36px">➕ Nuevo producto</button>
         </div>
         <div id="inv-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0"></div>
@@ -17361,7 +17362,9 @@ function invRender(){
   var q=((document.getElementById('inv-q')||{}).value||'').toLowerCase().trim();
   var cat=(document.getElementById('inv-cat')||{}).value||'';
   var stk=(document.getElementById('inv-stk')||{}).value||'';
+  var verInact=!!(document.getElementById('inv-inact')&&document.getElementById('inv-inact').checked);
   var lista=INV_DATA.filter(function(p){
+    if(!verInact && p.activo===false) return false;
     if(cat && p.categoria!==cat) return false;
     if(stk==='pos' && !(p.stock>0)) return false;
     if(stk==='cero' && p.stock!==0) return false;
@@ -17369,22 +17372,49 @@ function invRender(){
     if(q && (String(p.producto).toLowerCase().indexOf(q)<0 && String(p.item).toLowerCase().indexOf(q)<0)) return false;
     return true;
   });
-  // KPIs
-  var totVal=lista.reduce(function(s,p){return s+p.valor_stock;},0);
-  var negs=lista.filter(function(p){return p.stock<0;}).length;
+  var totVal=lista.reduce(function(s,p){return s+(p.activo===false?0:p.valor_stock);},0);
+  var negs=lista.filter(function(p){return p.stock<0&&p.activo!==false;}).length;
   var kp=document.getElementById('inv-kpis');
   if(kp) kp.innerHTML=
     '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Productos</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+lista.length+'</div></div>'+
     '<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">Valor del inventario</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+cop(totVal)+'</div></div>'+
     (negs?'<div style="background:#fee2e2;border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:#991b1b">Con stock negativo</div><div style="font-size:18px;font-weight:800;color:#dc2626">'+negs+'</div></div>':'');
   tb.innerHTML=lista.length?lista.map(function(p){
+    var inact=p.activo===false;
     var col=p.stock<0?'#dc2626':(p.stock===0?'var(--g3)':'var(--v)');
-    return '<tr><td><code style="font-size:11px">'+gcEsc(p.item)+'</code></td><td><strong>'+gcEsc(p.producto)+'</strong></td>'+
+    var it=gcEsc(p.item);
+    var acc=inact
+      ? '<button class="btn bv" style="padding:3px 8px;font-size:11px" onclick="invToggleActivo(\''+it+'\',true)" title="Reactivar">✓ Activar</button>'
+      : '<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="invEditarProd(\''+it+'\')" title="Editar nombre/precio">✏️</button> '+
+        '<button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="invAjustar(\''+it+'\')" title="Ajustar stock al conteo físico">⚖️</button> '+
+        '<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="invToggleActivo(\''+it+'\',false)" title="Desactivar (referencia vieja)">🚫</button>';
+    return '<tr'+(inact?' style="opacity:.5"':'')+'><td><code style="font-size:11px">'+it+'</code></td><td><strong>'+gcEsc(p.producto)+'</strong>'+(inact?' <span style="font-size:9px;background:#e5e5e5;color:#666;padding:1px 5px;border-radius:8px">inactivo</span>':'')+'</td>'+
       '<td>'+gcEsc(p.categoria)+'</td><td style="text-align:right">'+cop(p.precio)+'</td>'+
       '<td style="text-align:center;font-weight:700;color:'+col+'">'+p.stock+'</td>'+
       '<td style="text-align:right">'+cop(p.valor_stock)+'</td>'+
-      '<td><button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="invEditarProd(\''+gcEsc(p.item)+'\')">✏️</button></td></tr>';
+      '<td style="white-space:nowrap">'+acc+'</td></tr>';
   }).join(''):'<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--g3)">Sin productos que coincidan</td></tr>';
+}
+function invAjustar(item){
+  var p=INV_DATA.filter(function(x){return x.item===item;})[0]; if(!p){ return; }
+  var txt=prompt('Ajuste de stock — '+p.producto+'\n\nStock actual en el sistema: '+p.stock+'\n\nEscribe el stock FÍSICO real (lo que contaste):', p.stock);
+  if(txt===null) return;
+  var fisico=parseFloat(txt); if(isNaN(fisico)){ alert('Número inválido'); return; }
+  if(fisico===p.stock){ alert('El stock ya coincide, no hay ajuste que hacer.'); return; }
+  var motivo=prompt('Motivo del ajuste (opcional):','Conteo físico')||'';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invAjustarStock',item:item,stock_fisico:fisico,motivo:motivo,usuario:(typeof S!=='undefined'&&S.u)?S.u:''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ alert('✓ Stock ajustado a '+fisico+' (diferencia '+(d.diff>0?'+':'')+d.diff+')'); INV_DATA=[]; invInit(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo ajustar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+function invToggleActivo(item,activar){
+  var p=INV_DATA.filter(function(x){return x.item===item;})[0];
+  var nom=p?p.producto:item;
+  if(!activar && !confirm('¿Desactivar "'+nom+'"?\n\nDejará de aparecer al registrar entradas y salidas, pero se conserva todo su historial. Puedes reactivarlo cuando quieras (marca "Ver inactivos").')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invActivarProducto',item:item,activo:!!activar})})
+  .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok){ INV_DATA=[]; invInit(); } else alert('Error: '+((d&&d.error)||'?')); })
+  .catch(function(e){alert('Error de red: '+e.message);});
 }
 function invNuevoProd(){ invEditarProd(null); }
 function invEditarProd(item){
@@ -17406,11 +17436,11 @@ function invAsegurarDatos(cb){
   .catch(function(e){ cb(); });
 }
 function invProdOpts(sel){
-  return '<option value="">— producto —</option>'+INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item)+'"'+(sel===p.item?' selected':'')+'>'+gcEsc(p.item)+' · '+gcEsc(p.producto)+' (stock '+p.stock+')</option>';}).join('');
+  return '<option value="">— producto —</option>'+INV_DATA.filter(function(p){return p.activo!==false;}).map(function(p){return '<option value="'+gcEsc(p.item)+'"'+(sel===p.item?' selected':'')+'>'+gcEsc(p.item)+' · '+gcEsc(p.producto)+' (stock '+p.stock+')</option>';}).join('');
 }
 // Datalist compartido para escribir y filtrar productos (mejor que <select> en móvil)
 function invProdDatalist(){
-  return INV_DATA.map(function(p){return '<option value="'+gcEsc(p.item+' · '+p.producto+' (stock '+p.stock+')')+'">';}).join('');
+  return INV_DATA.filter(function(p){return p.activo!==false;}).map(function(p){return '<option value="'+gcEsc(p.item+' · '+p.producto+' (stock '+p.stock+')')+'">';}).join('');
 }
 function invActualizarDatalist(){
   var dl=document.getElementById('inv-prod-dl');
