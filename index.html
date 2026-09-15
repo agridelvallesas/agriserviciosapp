@@ -8198,26 +8198,40 @@ function renderFacturas(){
 //  - 'no_detallable': marcada manualmente como no detallable (gris)
 //  - 'esperando'    : NO tiene detallado pero la factura es PENDIENTE de Riopaila
 //                     (todavía no hay info para detallarla)
+// Calcula el detallado y el valor del GRUPO de facturas al que pertenece f.
+// El detallado se ingresa por grupo de actas (idFac puede apuntar a varias facturas),
+// así que hay que comparar contra el valor total del grupo, no el de f sola.
+function facDetalladoGrupo(f){
+  var dets=[];
+  if(typeof DETALLADO_CACHE!=='undefined' && Array.isArray(DETALLADO_CACHE)){
+    DETALLADO_CACHE.forEach(function(d){ if(facCoincideDetallado(f,d)) dets.push(d); });
+  }
+  var sumaDet=0; dets.forEach(function(d){ sumaDet+=(d.val||0); });
+  // reunir todos los ids de factura mencionados por esos detallados (el grupo)
+  var idsGrupo={}; idsGrupo[String(f.id)]=true;
+  dets.forEach(function(d){
+    String(d.idFac||'').split(/[,\.]/).map(function(p){return p.trim();}).filter(Boolean).forEach(function(id){ idsGrupo[id]=true; });
+  });
+  var valorGrupo=0, nFac=0;
+  if(typeof FACTURAS_CACHE!=='undefined'){
+    FACTURAS_CACHE.forEach(function(ff){ if(idsGrupo[String(ff.id)]){ valorGrupo+=(ff.val||0); nFac++; } });
+  }
+  if(valorGrupo===0){ valorGrupo=f.val||0; nFac=1; }
+  return {sumaDet:sumaDet, valorGrupo:valorGrupo, nFac:nFac, pend:valorGrupo-sumaDet};
+}
 function facEstadoDetallado(f){
   if(!f) return 'falta';
   if(f.noDetallable) return 'no_detallable';
   // Anuladas no necesitan detallado
   if(f.estado==='ANULADA' || (f.val||0)===0) return 'no_detallable';
-  // Buscar detallado de esa factura
-  var sumaDet=0;
-  if(typeof DETALLADO_CACHE!=='undefined' && Array.isArray(DETALLADO_CACHE)){
-    DETALLADO_CACHE.forEach(function(d){
-      if(facCoincideDetallado(f, d)) sumaDet+=(d.val||0);
-    });
-  }
-  if(sumaDet===0){
+  var g=facDetalladoGrupo(f);
+  if(g.sumaDet===0){
     // No tiene NADA de detallado
     if(f.estado==='PENDIENTE') return 'esperando'; // pendiente de Riopaila
     return 'falta';
   }
-  // Tiene algo de detallado; verificar si cuadra
-  var diff=Math.abs((f.val||0) - sumaDet);
-  if(diff<10) return 'ok'; // tolerancia $10 por redondeos
+  // Comparar contra el valor del GRUPO (misma tolerancia ±$100 que "Detallados guardados")
+  if(Math.abs(g.pend)<=100) return 'ok';
   return 'parcial';
 }
 
@@ -8348,15 +8362,13 @@ function filtrarFacturasDet(){
   checks.innerHTML=facs.map(function(f){
     var stDet=facEstadoDetallado(f);
     var detBdg=facBadgeDetallado(stDet);
-    // Si ya está detallada, mostrar cuánto se ha detallado
-    var sumaDet=0;
-    if(typeof DETALLADO_CACHE!=='undefined' && Array.isArray(DETALLADO_CACHE)){
-      DETALLADO_CACHE.forEach(function(d){if(facCoincideDetallado(f,d)) sumaDet+=(d.val||0);});
-    }
-    var pct=(f.val||0)>0?Math.round((sumaDet/f.val)*100):0;
+    // Si ya está detallada, mostrar cuánto se ha detallado (contra el valor del GRUPO)
+    var g=facDetalladoGrupo(f);
+    var sumaDet=g.sumaDet;
+    var pct=(g.valorGrupo||0)>0?Math.round((sumaDet/g.valorGrupo)*100):0;
     var infoDet='';
-    if(stDet==='ok') infoDet='<div style="font-size:10px;color:#15803d;margin-top:2px;font-weight:600">✅ Ya detallada al 100%</div>';
-    else if(stDet==='parcial') infoDet='<div style="font-size:10px;color:#92400e;margin-top:2px;font-weight:600">⚠️ Detallado parcial: $'+cop(sumaDet)+' de $'+cop(f.val)+' ('+pct+'%)</div>';
+    if(stDet==='ok') infoDet='<div style="font-size:10px;color:#15803d;margin-top:2px;font-weight:600">✅ Ya detallada al 100%'+(g.nFac>1?' (grupo de '+g.nFac+' facturas)':'')+'</div>';
+    else if(stDet==='parcial') infoDet='<div style="font-size:10px;color:#92400e;margin-top:2px;font-weight:600">⚠️ Detallado parcial: $'+cop(sumaDet)+' de $'+cop(g.valorGrupo)+' ('+pct+'%)'+(g.nFac>1?' · grupo de '+g.nFac+' facturas':'')+'</div>';
     else if(stDet==='no_detallable') infoDet='<div style="font-size:10px;color:#6b7280;margin-top:2px;font-weight:600">⏸️ Marcada como NO detallable</div>';
     else if(stDet==='falta') infoDet='<div style="font-size:10px;color:#dc2626;margin-top:2px;font-weight:600">🔴 Sin detallar — agregar líneas abajo</div>';
 
