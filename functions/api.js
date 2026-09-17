@@ -530,8 +530,9 @@ async function accionCoberturaSemanas(body, env) {
     base[nombre.toUpperCase()] = { coord: nombre, adm, sems: {} };
   }
 
-  // 2) Días subidos desde detalle_dia (semana >= desde)
-  const filasDD = await sbAll(env, `detalle_dia?select=coordinador_id,semana,dia&semana=gte.${desde}`);
+  // 2) Días subidos (combinaciones únicas coord+semana+día vía vista cobertura_dias,
+  //    para no traer decenas de miles de filas y pasar el límite de subrequests)
+  const filasDD = await sbAll(env, `cobertura_dias?select=coordinador_id,semana,dia&semana=gte.${desde}`);
   for (const r of filasDD) {
     const info = idInfo.get(r.coordinador_id);
     if (!info) continue;
