@@ -655,8 +655,8 @@ function fechaONull(v) { v = String(v || '').trim(); return v || null; }
 async function accionGuardarFactura(body, env) {
   const f = body.factura;
   if (!f || !f.nfac) return { ok: false, error: 'Datos de factura incompletos' };
+  const id = f.id || crypto.randomUUID().slice(0, 8);
   const fila = {
-    id: f.id || crypto.randomUUID().slice(0, 8),
     fecha_fac: fechaONull(f.ffac),
     fecha_ven: fechaONull(f.fven),
     num_factura: f.nfac || '',
@@ -669,12 +669,21 @@ async function accionGuardarFactura(body, env) {
     responsable: f.resp || '',
     nota: f.nota || '',
     estado: f.estado || 'PENDIENTE',
-    no_detallable: false,
-    fecha_registro: isoDate(new Date()),
-    fecha_pago: null,
   };
-  await sbWrite(env, 'POST', 'facturas', fila);
-  return { ok: true };
+  // ¿Ya existe esa factura? → actualizar (no pisa no_detallable / fecha_registro / fecha_pago).
+  // Si no existe → insertar como nueva.
+  const ex = f.id ? await sb(env, `facturas?select=id&id=eq.${encodeURIComponent(id)}&limit=1`) : [];
+  if (ex.length) {
+    await sbWrite(env, 'PATCH', `facturas?id=eq.${encodeURIComponent(id)}`, fila);
+  } else {
+    fila.id = id;
+    fila.no_detallable = false;
+    fila.fecha_registro = isoDate(new Date());
+    fila.fecha_pago = null;
+    // upsert por id: si el id ya existía (edición o condición de carrera) actualiza en vez de fallar
+    await sbUpsert(env, 'facturas', fila, 'id');
+  }
+  return { ok: true, id };
 }
 
 async function accionGetFacturas(body, env) {
