@@ -8336,6 +8336,10 @@ function elimFactura(id){
 var DET_FILAS=[];
 var DET_FACS_SEL=[]; // facturas seleccionadas para este detallado
 
+// Refresca las facturas del Detallado tras guardar/editar/eliminar (alias seguro)
+function poblarSelectFacturas(){
+  try{ if(typeof filtrarFacturasDet==='function' && document.getElementById('det-resp')) filtrarFacturasDet(); }catch(e){}
+}
 function filtrarFacturasDet(){
   var resp=document.getElementById('det-resp').value;
   var semFil=(document.getElementById('det-sem-fil').value||'').trim();
