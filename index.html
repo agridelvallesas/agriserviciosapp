@@ -2011,6 +2011,11 @@ tfoot td{background:var(--gf);font-weight:700}
               <div class="fld"><label>Domingo descanso vigilancia</label><input type="number" id="cfg-dd" value="58364" oninput="cfgAutoLocal()"/></div>
               <div class="fld"><label>Horas para domingo descanso</label><input type="number" id="cfg-ddh" value="44" oninput="cfgAutoLocal()"/></div>
               <div class="fld"><label>¿Pagar domingo descanso?</label><label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cfg-ddOn" checked onchange="cfgAutoLocal()" style="width:auto;margin:0"/> Sí, pagarlo</label></div>
+              <div class="fld" style="border-top:1px solid var(--bd);margin-top:12px;padding-top:12px"><label style="color:#c2410c;font-weight:700">REGLA DE FIN DE SEMANA (VIGILANCIA)</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cfg-vigUmbralOn" onchange="cfgAutoLocal()" style="width:auto;margin:0"/> Pagar festivas como ordinarias si la semana no llega al mínimo de horas</label>
+                <label style="font-size:11px;margin-top:8px">Mínimo de horas de vigilancia en la semana</label><input type="number" id="cfg-vigUmbralHoras" value="48" oninput="cfgAutoLocal()"/>
+                <div style="font-size:10px;color:var(--g3);margin-top:4px">Si un vigilante hace menos de estas horas en la semana, sus horas festivas/dominicales de esa semana se pagan a tarifa ordinaria.</div>
+              </div>
               <div class="fld"><label>Tarifa cobro Riopaila (por hora)</label><input type="number" id="cfg-vigCobro" value="18134" oninput="cfgAutoLocal()"/></div>
             </div>
           </div>
@@ -6177,19 +6182,23 @@ function vigPagoWorker(regs, T){
     if(hn2>0) segmentos.push({h:hn2,fest:festSig,tipo:'N',dia:'sig_'+r.dia,sem:r.sem,ts:base+24*3600000});
   });
   segmentos.sort(function(a,b){return a.ts-b.ts;});
-  var LIMITE=T.lim||110, horasOrd=0, salVig=0, extraVig=0, domVigByDia={};
+  var ced=(regs[0]&&regs[0].ced)||'';
+  var LIMITE=T.lim||110, horasOrd=0, salVig=0, extraVig=0, domVigByDia={}, domRealByDia={};
   segmentos.forEach(function(seg){
     var ordEste=Math.min(seg.h, LIMITE-horasOrd); if(ordEste<0)ordEste=0;
     var extEste=seg.h-ordEste; horasOrd+=ordEste;
-    var tarOrd=seg.tipo==='D'?(seg.fest?T.t5:T.t1):(seg.fest?T.t7:T.t3);
-    var tarExt=seg.tipo==='D'?(seg.fest?T.t6:T.t2):(seg.fest?T.t8:T.t4);
+    var festReal=seg.fest;
+    var festPago=festReal && !vigBajarFestiva(ced, seg.sem);
+    var tarOrd=seg.tipo==='D'?(festPago?T.t5:T.t1):(festPago?T.t7:T.t3);
+    var tarExt=seg.tipo==='D'?(festPago?T.t6:T.t2):(festPago?T.t8:T.t4);
     extraVig+=Math.round(extEste*tarExt);
     var pagoOrd=Math.round(ordEste*tarOrd);
-    if(seg.fest){ var dk=seg.sem+'_'+seg.dia; domVigByDia[dk]=(domVigByDia[dk]||0)+pagoOrd; }
+    if(festReal){ domRealByDia[seg.sem+'_'+seg.dia]=true; }
+    if(festPago){ var dk=seg.sem+'_'+seg.dia; domVigByDia[dk]=(domVigByDia[dk]||0)+pagoOrd; }
     else salVig+=pagoOrd;
   });
   var domVig=0; Object.keys(domVigByDia).forEach(function(k){domVig+=domVigByDia[k];});
-  var trabajoDom=Object.keys(domVigByDia).some(function(k){return k.indexOf('_sig_')<0;});
+  var trabajoDom=Object.keys(domRealByDia).some(function(k){return k.indexOf('_sig_')<0;});
   if(T.ddOn!==false && !trabajoDom && hVigTotal>0){ domVig+=Math.floor(hVigTotal/(T.ddh||44))*(T.dd||58364); }
   return {sal:salVig, dom:domVig, extra:extraVig, total:salVig+domVig+extraVig};
 }
@@ -6278,8 +6287,8 @@ function calcIL(){
     }
     if(dcard) dcard.style.display=caRows.length?'block':'none';
   };
-  if(typeof cargarSemanasMultiples==='function' && sems.length){ cargarSemanasMultiples(sems.slice(), doRender); }
-  else { doRender(); }
+  if(typeof cargarSemanasMultiples==='function' && sems.length){ cargarSemanasMultiples(sems.slice(), function(){ cargarVigHorasSem(doRender); }); }
+  else { cargarVigHorasSem(doRender); }
 }
 
 
@@ -6592,8 +6601,31 @@ function carConsRender(sem, filtro, cnSede, UMBRAL_DIA){
 // CONFIGURACIÓN NÓMINA
 // ══════════════════════════════════════════
 var NOM_CFG={t1:7959,t2:9948,t3:10744,t4:13927,t5:14325,t6:16315,t7:17111,t8:20294,
-  at:249095,aa:249095,dom:105055,lim:110,hat:7.33,dd:58364,ddh:44,ddOn:true,vigCobro:18134};
+  at:249095,aa:249095,dom:105055,lim:110,hat:7.33,dd:58364,ddh:44,ddOn:true,vigCobro:18134,
+  vigUmbralOn:false,vigUmbralHoras:48};
 var NOM_ROWS_CACHE=[]; // filas de la última nómina calculada (para exportar y cuadrar)
+// ── Regla del umbral (vigilancia fin de semana) ──
+var VIG_HORAS_SEM={}; // {cedulaNorm_semNum: horas} horas de vigilancia de la semana COMPLETA
+function normSemNum(s){ var n=parseInt(String(s==null?'':s).replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; }
+function cargarVigHorasSem(cb){
+  if(typeof APPS_URL==='undefined'){ if(cb)cb(); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getVigHorasSemana'})})
+  .then(function(r){return r.json();}).then(function(d){
+    VIG_HORAS_SEM={};
+    if(d&&d.ok&&d.data){ d.data.forEach(function(x){ VIG_HORAS_SEM[String(x.cedula).replace(/\D/g,'')+'_'+normSemNum(x.semana)]=Number(x.horas||0); }); }
+    if(cb)cb();
+  }).catch(function(){ if(cb)cb(); });
+}
+// ¿Las horas festivas de esta semana se pagan como ordinarias? (umbral del jefe)
+function vigBajarFestiva(ced, sem){
+  var T=getCFG();
+  if(T.vigUmbralOn!==true) return false;
+  var umbral=T.vigUmbralHoras||48;
+  var key=String(ced==null?'':ced).replace(/\D/g,'')+'_'+normSemNum(sem);
+  var h=(VIG_HORAS_SEM[key]!==undefined)?VIG_HORAS_SEM[key]:null;
+  if(h===null) return false; // sin dato de la semana completa → no bajar (conservador)
+  return h<umbral;
+}
 // Cargar configuración guardada al iniciar (localStorage como cache; Supabase como fuente)
 (function(){
   try{var saved=localStorage.getItem('nom_cfg');if(saved){NOM_CFG=Object.assign(NOM_CFG,JSON.parse(saved));}}catch(e){}
@@ -6623,6 +6655,8 @@ function cfgCargar(){
       if(el && el.type!=='checkbox') el.value=NOM_CFG[k];
     });
     var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) ddOnEl.checked=NOM_CFG.ddOn!==false;
+    var umbEl=document.getElementById('cfg-vigUmbralOn'); if(umbEl) umbEl.checked=NOM_CFG.vigUmbralOn===true;
+    var umbhEl=document.getElementById('cfg-vigUmbralHoras'); if(umbhEl) umbhEl.value=NOM_CFG.vigUmbralHoras||48;
     cfgSyncVig();
   });
   // Pintar de una con lo que ya hay en NOM_CFG (localStorage), sin esperar la red
@@ -6631,6 +6665,8 @@ function cfgCargar(){
     if(el && el.type!=='checkbox') el.value=NOM_CFG[k];
   });
   var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) ddOnEl.checked=NOM_CFG.ddOn!==false;
+  var umbEl=document.getElementById('cfg-vigUmbralOn'); if(umbEl) umbEl.checked=NOM_CFG.vigUmbralOn===true;
+  var umbhEl=document.getElementById('cfg-vigUmbralHoras'); if(umbhEl) umbhEl.value=NOM_CFG.vigUmbralHoras||48;
   cfgSyncVig();
 }
 
@@ -6639,6 +6675,8 @@ function cfgAutoLocal(){
   var keys=['t1','t2','t3','t4','t5','t6','t7','t8','at','aa','dom','lim','hat','dd','ddh'];
   keys.forEach(function(k){ var el=document.getElementById('cfg-'+k); if(el) NOM_CFG[k]=parseFloat(el.value)||NOM_CFG[k]; });
   var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) NOM_CFG.ddOn=ddOnEl.checked;
+  var umbEl=document.getElementById('cfg-vigUmbralOn'); if(umbEl) NOM_CFG.vigUmbralOn=umbEl.checked;
+  var umbhEl=document.getElementById('cfg-vigUmbralHoras'); if(umbhEl) NOM_CFG.vigUmbralHoras=parseFloat(umbhEl.value)||48;
   var vcEl=document.getElementById('cfg-vigCobro'); if(vcEl){ NOM_CFG.vigCobro=parseFloat(vcEl.value)||NOM_CFG.vigCobro; VIG_COBRO_TARIFA=NOM_CFG.vigCobro; }
   try{localStorage.setItem('nom_cfg',JSON.stringify(NOM_CFG));}catch(e){}
   cfgSyncVig();
@@ -6651,6 +6689,8 @@ function cfgGuardar(){
     if(el) NOM_CFG[k]=parseFloat(el.value)||NOM_CFG[k];
   });
   var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) NOM_CFG.ddOn=ddOnEl.checked;
+  var umbEl=document.getElementById('cfg-vigUmbralOn'); if(umbEl) NOM_CFG.vigUmbralOn=umbEl.checked;
+  var umbhEl=document.getElementById('cfg-vigUmbralHoras'); if(umbhEl) NOM_CFG.vigUmbralHoras=parseFloat(umbhEl.value)||48;
   var vcEl=document.getElementById('cfg-vigCobro');
   if(vcEl){ NOM_CFG.vigCobro=parseFloat(vcEl.value)||NOM_CFG.vigCobro; VIG_COBRO_TARIFA=NOM_CFG.vigCobro; }
   try{localStorage.setItem('nom_cfg',JSON.stringify(NOM_CFG));}catch(e){}
@@ -7000,8 +7040,11 @@ function calcNom(){
   var total=pendientes.length;
   function cargarSiguiente(){
     if(!pendientes.length){
-      if(btn){btn.textContent='Calcular nómina';btn.disabled=false;}
-      calcNomRender(qna, semIds, filtCo, filtSede);
+      if(btn){btn.textContent='⏳ Horas de vigilancia...';}
+      cargarVigHorasSem(function(){
+        if(btn){btn.textContent='Calcular nómina';btn.disabled=false;}
+        calcNomRender(qna, semIds, filtCo, filtSede);
+      });
       return;
     }
     var sem=pendientes.shift();
@@ -7552,21 +7595,28 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
 
       // ── Paso 2: clasificar ordinarias vs extras usando el límite acumulado ──
       var horasOrd=0;
+      var domRealByDia={}; // días donde trabajó festivo/dominical REAL (para domingo de descanso)
       segmentos.forEach(function(seg){
         var ordEste=Math.min(seg.h, LIMITE-horasOrd);
         if(ordEste<0) ordEste=0;
         var extEste=seg.h-ordEste;
         horasOrd+=ordEste;
 
-        var tarOrd=seg.tipo==='D'?(seg.fest?T.t5:T.t1):(seg.fest?T.t7:T.t3);
-        var tarExt=seg.tipo==='D'?(seg.fest?T.t6:T.t2):(seg.fest?T.t8:T.t4);
+        var festReal=seg.fest;                                   // la fecha real es domingo/festivo
+        var festPago=festReal && !vigBajarFestiva(emp.ced, seg.sem); // ¿se paga como festivo? (regla del umbral)
+
+        var tarOrd=seg.tipo==='D'?(festPago?T.t5:T.t1):(festPago?T.t7:T.t3);
+        var tarExt=seg.tipo==='D'?(festPago?T.t6:T.t2):(festPago?T.t8:T.t4);
 
         var pagoOrd=Math.round(ordEste*tarOrd);
         var pagoExt=Math.round(extEste*tarExt);
         auxAlimVigN+=pagoExt;
 
-        // Clasificar en dominical/festivo o salario normal
-        if(seg.fest){
+        // Marcar día festivo REAL trabajado (aunque se pague ordinario) → afecta domingo de descanso
+        if(festReal){ domRealByDia[seg.sem+'_'+seg.dia]=true; }
+
+        // Clasificar en dominical/festivo o salario normal SEGÚN cómo se paga
+        if(festPago){
           var dk=seg.sem+'_'+seg.dia;
           if(!domVigByDia[dk]) domVigByDia[dk]=0;
           domVigByDia[dk]+=pagoOrd;
@@ -7580,11 +7630,9 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       Object.values(domVigByDia).forEach(function(v){
         domVigN+=v; // solo sumar, sin ajuste al mínimo
       });
-      // Domingo descanso: por cada 44h trabajadas sin domingo → $58.364
-      // Solo cuentan como "dominical trabajado" los días reales, NO el sobrante de
-      // madrugada (12am-6am) que cae en el día siguiente. La clave es "sem_dia" y para
-      // la madrugada queda "sem_sig_dia", por eso se busca '_sig_' y no un prefijo.
-      var trabajoDomVig=Object.keys(domVigByDia).some(function(k){return k.indexOf('_sig_')<0;});
+      // Domingo descanso: por cada 44h trabajadas sin domingo → $58.364.
+      // "Trabajó domingo" se mira por festivo REAL (domRealByDia), no por cómo se pagó.
+      var trabajoDomVig=Object.keys(domRealByDia).some(function(k){return k.indexOf('_sig_')<0;});
       if(NOM_CFG.ddOn!==false && !trabajoDomVig&&hVigTotal>0){
         var descDescanso=Math.floor(hVigTotal/(NOM_CFG.ddh||44))*(NOM_CFG.dd||58364);
         domVigN+=descDescanso;
