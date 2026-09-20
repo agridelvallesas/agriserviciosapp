@@ -1984,38 +1984,41 @@ tfoot td{background:var(--gf);font-weight:700}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
             <div style="background:var(--gf);border-radius:var(--rads);padding:12px">
               <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:10px;text-transform:uppercase">Horas ordinarias (0-96h)</div>
-              <div class="fld"><label>Diurna ordinaria</label><input type="number" id="cfg-t1" value="6470" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Nocturna</label><input type="number" id="cfg-t3" value="8734" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Festiva diurna</label><input type="number" id="cfg-t5" value="11646" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Festiva nocturna</label><input type="number" id="cfg-t7" value="13587" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>Diurna ordinaria</label><input type="number" id="cfg-t1" value="6470" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Nocturna</label><input type="number" id="cfg-t3" value="8734" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Festiva diurna</label><input type="number" id="cfg-t5" value="11646" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Festiva nocturna</label><input type="number" id="cfg-t7" value="13587" oninput="cfgAutoLocal()"/></div>
             </div>
             <div style="background:var(--gf);border-radius:var(--rads);padding:12px">
               <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:10px;text-transform:uppercase">Horas extras (97h+)</div>
-              <div class="fld"><label>Extra diurna</label><input type="number" id="cfg-t2" value="8087" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Extra nocturna</label><input type="number" id="cfg-t4" value="11322" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Extra festiva diurna</label><input type="number" id="cfg-t6" value="12940" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Extra festiva nocturna</label><input type="number" id="cfg-t8" value="16175" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>Extra diurna</label><input type="number" id="cfg-t2" value="8087" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Extra nocturna</label><input type="number" id="cfg-t4" value="11322" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Extra festiva diurna</label><input type="number" id="cfg-t6" value="12940" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Extra festiva nocturna</label><input type="number" id="cfg-t8" value="16175" oninput="cfgAutoLocal()"/></div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
             <div style="background:var(--gf);border-radius:var(--rads);padding:12px">
               <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:10px;text-transform:uppercase">Valores quincenales</div>
-              <div class="fld"><label>Auxilio transporte (mensual)</label><input type="number" id="cfg-at" value="249095" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Auxilio alimentación (mensual)</label><input type="number" id="cfg-aa" value="249095" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Dominical mínimo garantizado</label><input type="number" id="cfg-dom" value="105055" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>Auxilio transporte (mensual)</label><input type="number" id="cfg-at" value="249095" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Auxilio alimentación (mensual)</label><input type="number" id="cfg-aa" value="249095" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Dominical mínimo garantizado</label><input type="number" id="cfg-dom" value="105055" oninput="cfgAutoLocal()"/></div>
             </div>
             <div style="background:var(--gf);border-radius:var(--rads);padding:12px">
               <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:10px;text-transform:uppercase">Vigilancia - otros</div>
-              <div class="fld"><label>Límite horas ordinarias/quincena</label><input type="number" id="cfg-lim" value="96" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Horas/día aux. transporte</label><input type="number" id="cfg-hat" value="7.33" step="0.01" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Domingo descanso vigilancia</label><input type="number" id="cfg-dd" value="58364" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>Horas para domingo descanso</label><input type="number" id="cfg-ddh" value="44" oninput="cfgGuardar()"/></div>
-              <div class="fld"><label>¿Pagar domingo descanso?</label><label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cfg-ddOn" checked onchange="cfgGuardar()" style="width:auto;margin:0"/> Sí, pagarlo</label></div>
-              <div class="fld"><label>Tarifa cobro Riopaila (por hora)</label><input type="number" id="cfg-vigCobro" value="18134" oninput="cfgGuardar()"/></div>
+              <div class="fld"><label>Límite horas ordinarias/quincena</label><input type="number" id="cfg-lim" value="96" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Horas/día aux. transporte</label><input type="number" id="cfg-hat" value="7.33" step="0.01" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Domingo descanso vigilancia</label><input type="number" id="cfg-dd" value="58364" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>Horas para domingo descanso</label><input type="number" id="cfg-ddh" value="44" oninput="cfgAutoLocal()"/></div>
+              <div class="fld"><label>¿Pagar domingo descanso?</label><label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cfg-ddOn" checked onchange="cfgAutoLocal()" style="width:auto;margin:0"/> Sí, pagarlo</label></div>
+              <div class="fld"><label>Tarifa cobro Riopaila (por hora)</label><input type="number" id="cfg-vigCobro" value="18134" oninput="cfgAutoLocal()"/></div>
             </div>
           </div>
-          <div id="cfg-msg" style="font-size:12px;color:var(--v);display:none">✅ Configuración guardada automáticamente</div>
-          <div style="font-size:11px;color:var(--g3);margin-top:8px">Los cambios se aplican inmediatamente al calcular nómina o liquidar vigilancia.</div>
+          <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn bv" onclick="cfgGuardar()" style="padding:11px 18px;font-size:14px;font-weight:700">💾 Guardar configuración</button>
+            <div id="cfg-msg" style="font-size:13px;color:var(--v);display:none;font-weight:600">✅ Configuración guardada</div>
+          </div>
+          <div style="font-size:11px;color:var(--g3);margin-top:8px">Los cambios se aplican de inmediato al calcular; dale <strong>Guardar</strong> para que queden en la nube y no se pierdan al salir.</div>
         </div>
       </div>
 
@@ -4119,7 +4122,7 @@ function buildNav(){
     nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
   } else if(S.rol==='n'){
-    nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button><button class="ni" onclick="document.getElementById(\'nom-cfg\').style.display=document.getElementById(\'nom-cfg\').style.display===\'none\'?\'block\':\'none\'"><span class="ni-ico">⚙️</span>Configuración</button>';
+    nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button>';
   } else {
     nav.innerHTML='<div class="sb-sec">Facturación</div><button class="ni" onclick="go(\'fac\')"><span class="ni-ico">💰</span>Saldos y facturas</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button>';
   }
@@ -6628,6 +6631,16 @@ function cfgCargar(){
     if(el && el.type!=='checkbox') el.value=NOM_CFG[k];
   });
   var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) ddOnEl.checked=NOM_CFG.ddOn!==false;
+  cfgSyncVig();
+}
+
+// Guardado local inmediato (en cada tecla), sin tocar la nube — para que el cálculo use lo nuevo
+function cfgAutoLocal(){
+  var keys=['t1','t2','t3','t4','t5','t6','t7','t8','at','aa','dom','lim','hat','dd','ddh'];
+  keys.forEach(function(k){ var el=document.getElementById('cfg-'+k); if(el) NOM_CFG[k]=parseFloat(el.value)||NOM_CFG[k]; });
+  var ddOnEl=document.getElementById('cfg-ddOn'); if(ddOnEl) NOM_CFG.ddOn=ddOnEl.checked;
+  var vcEl=document.getElementById('cfg-vigCobro'); if(vcEl){ NOM_CFG.vigCobro=parseFloat(vcEl.value)||NOM_CFG.vigCobro; VIG_COBRO_TARIFA=NOM_CFG.vigCobro; }
+  try{localStorage.setItem('nom_cfg',JSON.stringify(NOM_CFG));}catch(e){}
   cfgSyncVig();
 }
 
