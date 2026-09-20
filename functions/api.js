@@ -46,6 +46,7 @@ const PORTADAS = new Set([
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
   'invGetFirma',
   'getConfigEmpresa', 'guardarConfigEmpresa',
+  'getNomConfig', 'guardarNomConfig',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -136,6 +137,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invGetFirma')          r = await accionInvGetFirma(body, env);
     else if (accion === 'getConfigEmpresa')     r = await accionGetConfigEmpresa(body, env);
     else if (accion === 'guardarConfigEmpresa') r = await accionGuardarConfigEmpresa(body, env);
+    else if (accion === 'getNomConfig')         r = await accionGetNomConfig(body, env);
+    else if (accion === 'guardarNomConfig')     r = await accionGuardarNomConfig(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1738,5 +1741,20 @@ async function accionInvActivarProducto(body, env) {
   const item = String(body.item || '').trim();
   if (!item) return { ok: false, error: 'Falta item' };
   await sbWrite(env, 'PATCH', `inventario?item=eq.${encodeURIComponent(item)}`, { activo: body.activo !== false });
+  return { ok: true };
+}
+
+// ── Configuración de nómina (tarifas de vigilancia y opciones) ──
+async function accionGetNomConfig(body, env) {
+  const rows = await sb(env, "nomina_config?select=valor&clave=eq.cfg&limit=1");
+  let config = {};
+  if (rows.length) { try { config = JSON.parse(rows[0].valor || '{}'); } catch (e) { config = {}; } }
+  return { ok: true, config };
+}
+async function accionGuardarNomConfig(body, env) {
+  const valor = JSON.stringify(body.config || {});
+  const ex = await sb(env, "nomina_config?select=clave&clave=eq.cfg&limit=1");
+  if (ex.length) await sbWrite(env, 'PATCH', "nomina_config?clave=eq.cfg", { valor });
+  else await sbWrite(env, 'POST', 'nomina_config', { clave: 'cfg', valor });
   return { ok: true };
 }
