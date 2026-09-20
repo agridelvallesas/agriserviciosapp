@@ -47,6 +47,7 @@ const PORTADAS = new Set([
   'invGetFirma',
   'getConfigEmpresa', 'guardarConfigEmpresa',
   'getNomConfig', 'guardarNomConfig',
+  'getVigHorasSemana',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -139,6 +140,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarConfigEmpresa') r = await accionGuardarConfigEmpresa(body, env);
     else if (accion === 'getNomConfig')         r = await accionGetNomConfig(body, env);
     else if (accion === 'guardarNomConfig')     r = await accionGuardarNomConfig(body, env);
+    else if (accion === 'getVigHorasSemana')    r = await accionGetVigHorasSemana(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1757,4 +1759,11 @@ async function accionGuardarNomConfig(body, env) {
   if (ex.length) await sbWrite(env, 'PATCH', "nomina_config?clave=eq.cfg", { valor });
   else await sbWrite(env, 'POST', 'nomina_config', { clave: 'cfg', valor });
   return { ok: true };
+}
+
+// Horas de vigilancia por trabajador y semana (para la regla del umbral)
+async function accionGetVigHorasSemana(body, env) {
+  const rows = await sbAll(env, 'vig_horas_semana?select=cedula,semana,horas');
+  const data = rows.map((r) => ({ cedula: String(r.cedula || ''), semana: String(r.semana || ''), horas: Number(r.horas || 0) }));
+  return { ok: true, data };
 }
