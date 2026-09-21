@@ -3366,7 +3366,8 @@ function lFiltrarSede(sede){
   lRenderUsuarios(sede);
 }
 
-function lCargarUsuarios(t){
+function lCargarUsuarios(t, intento){
+  intento=intento||0;
   var sel=document.getElementById('luser');
   sel.innerHTML='<option value="">⏳ Cargando usuarios...</option>';
   sel.disabled=true;
@@ -3380,33 +3381,37 @@ function lCargarUsuarios(t){
     body:JSON.stringify({accion:'getUsuarios',rol:rolApi}),
     redirect:'follow'
   })
-  .then(function(r){return r.json();})
-  .then(function(data){
+  .then(function(r){return r.text();})
+  .then(function(txt){
     sel.disabled=false;
-    if(data.ok&&data.usuarios&&data.usuarios.length){
+    var data=null; try{ data=JSON.parse(txt); }catch(e){ data=null; }
+    if(data&&data.ok&&data.usuarios&&data.usuarios.length){
       L_USUARIOS=data.usuarios;
       var haySedes=L_USUARIOS.some(function(u){return u.sede==='NORTE'||u.sede==='SUR';});
-      if(haySedes&&bar){
-        bar.style.display='block';
-        lFiltrarSede('NORTE');
-      } else {
-        lRenderUsuarios('');
-      }
+      if(haySedes&&bar){ bar.style.display='block'; lFiltrarSede('NORTE'); }
+      else { lRenderUsuarios(''); }
+    } else if(!data && intento<2){
+      // Respuesta vacía (servidor lento): reintentar una vez
+      sel.innerHTML='<option value="">⏳ Reintentando...</option>'; sel.disabled=true;
+      setTimeout(function(){ lCargarUsuarios(t, intento+1); }, 1200);
     } else {
-      sel.innerHTML='<option value="">— Seleccionar —</option>';
-      var poolKey=t==='r'?'a':t;
-      var pool=USUARIOS[poolKey];
-      if(pool) Object.keys(pool).forEach(function(u){
-        var o=document.createElement('option');o.value=u;o.textContent=u;sel.appendChild(o);
-      });
+      lUsuariosFallback(t, sel, bar);
     }
   })
   .catch(function(err){
     console.error('Error cargando usuarios:', err);
-    sel.innerHTML='<option value="">— Seleccionar —</option>';
     sel.disabled=false;
-    if(bar) bar.style.display='none';
+    if(intento<2){ sel.innerHTML='<option value="">⏳ Reintentando...</option>'; sel.disabled=true; setTimeout(function(){ lCargarUsuarios(t, intento+1); }, 1200); }
+    else lUsuariosFallback(t, sel, bar);
   });
+}
+function lUsuariosFallback(t, sel, bar){
+  sel.innerHTML='<option value="">⚠️ No se pudo cargar — reintenta</option>';
+  sel.disabled=false;
+  if(bar) bar.style.display='none';
+  var poolKey=(t==='r'||t==='s')?'a':t;
+  var pool=USUARIOS[poolKey];
+  if(pool) Object.keys(pool).forEach(function(u){ var o=document.createElement('option');o.value=u;o.textContent=u;sel.appendChild(o); });
 }
 // Función legacy mantenida por compatibilidad (algunas partes del código pueden llamarla)
 function swLT(t){
