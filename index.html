@@ -731,6 +731,19 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- MIS REGISTROS -->
+    <!-- ══════════ COORDINADOR — COBRO VS FACTURACIÓN ══════════ -->
+    <div class="page" id="p-cvf" style="max-width:900px;margin-left:auto;margin-right:auto">
+      <div class="card">
+        <div class="ct">💵 Cobro vs Facturación <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Tu consolidado semanal: lo que reportaste vs lo facturado por Riopaila</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <div class="fld" style="margin:0;min-width:110px"><label style="font-size:10px">Semana desde</label><input type="number" id="cvf-s1" value="1" min="1" max="53" onchange="cvfRender()"/></div>
+          <div class="fld" style="margin:0;min-width:110px"><label style="font-size:10px">Semana hasta</label><input type="number" id="cvf-s2" value="53" min="1" max="53" onchange="cvfRender()"/></div>
+          <button class="btn bg" onclick="cvfInit()" style="height:36px">🔄 Actualizar</button>
+        </div>
+        <div id="cvf-cards"><div style="text-align:center;padding:30px;color:var(--g3)">⏳ Cargando...</div></div>
+      </div>
+    </div>
+
     <div class="page" id="p-mis-reg" style="max-width:680px;margin-left:auto;margin-right:auto">
 
       <!-- ╔══════════════════════════════════════════╗ -->
@@ -4122,7 +4135,7 @@ function buildNav(){
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Exámenes médicos ocupacionales\')"><span class="ni-ico">🩺</span>Exámenes médicos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Accidentes e incidentes\')"><span class="ni-ico">⚠️</span>Accidentes <span class="rh-tag">Pronto</span></button>';
   } else if(S.rol==='c'){
-    nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
+    nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'cvf\')"><span class="ni-ico">💵</span>Cobro vs Facturación</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
     nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
@@ -4143,12 +4156,13 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
   if(pg==='da') carDA();
   if(pg==='mis-reg') carMR();
+  if(pg==='cvf') cvfInit();
   if(pg==='emp') filtEmp();
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -11370,7 +11384,35 @@ function consBuildCard(key, d, s1, s2){
 
 function consToggleCard(key){
   CONS_EXPANDED[key]=!CONS_EXPANDED[key];
+  var cvf=document.getElementById('p-cvf');
+  if(cvf && cvf.style.display!=='none' && typeof cvfRender==='function'){ cvfRender(); return; }
   consRender();
+}
+// ── Cobro vs Facturación del propio coordinador (módulo coordinador) ──
+var CVF_DATA=null;
+function cvfInit(){
+  var cont=document.getElementById('cvf-cards'); if(cont) cont.innerHTML='<div style="text-align:center;padding:30px;color:var(--g3)">⏳ Cargando tu consolidado...</div>';
+  var coord=(typeof S!=='undefined'&&S.u)?S.u:'';
+  if(!coord){ if(cont) cont.innerHTML='<div style="padding:20px;text-align:center;color:var(--r)">No se pudo identificar el coordinador</div>'; return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConsolidadoCoord',coord:coord})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d||!d.ok){ if(cont) cont.innerHTML='<div style="padding:20px;text-align:center;color:var(--r)">Error: '+((d&&d.error)||'?')+'</div>'; return; }
+    CVF_DATA=d.data;
+    var key=(CVF_DATA.coord||'')+'|'+(CVF_DATA.adm||'');
+    CONS_EXPANDED[key]=true; // arranca expandida (es su única tarjeta)
+    cvfRender();
+  }).catch(function(e){ if(cont) cont.innerHTML='<div style="padding:20px;text-align:center;color:var(--r)">Error de red</div>'; });
+}
+function cvfRender(){
+  var cont=document.getElementById('cvf-cards'); if(!cont) return;
+  if(!CVF_DATA){ cont.innerHTML='<div style="text-align:center;padding:30px;color:var(--g3)">Sin datos</div>'; return; }
+  var s1=parseInt((document.getElementById('cvf-s1')||{}).value)||1;
+  var s2=parseInt((document.getElementById('cvf-s2')||{}).value)||53;
+  if(s1>s2){var t=s1;s1=s2;s2=t;}
+  var tieneDatos=Object.keys(CVF_DATA.semanas||{}).length>0 || (CVF_DATA.sem0||0)!==0;
+  if(!tieneDatos){ cont.innerHTML='<div style="text-align:center;padding:30px;color:var(--g3)">Aún no tienes reportes ni facturación registrados.</div>'; return; }
+  var key=(CVF_DATA.coord||'')+'|'+(CVF_DATA.adm||'');
+  cont.innerHTML=consBuildCard(key, CVF_DATA, s1, s2);
 }
 
 function consExpandirTodos(){
