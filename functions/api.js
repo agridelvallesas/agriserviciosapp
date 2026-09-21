@@ -48,6 +48,7 @@ const PORTADAS = new Set([
   'getConfigEmpresa', 'guardarConfigEmpresa',
   'getNomConfig', 'guardarNomConfig',
   'getVigHorasSemana',
+  'getConsolidadoCoord',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -141,6 +142,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getNomConfig')         r = await accionGetNomConfig(body, env);
     else if (accion === 'guardarNomConfig')     r = await accionGuardarNomConfig(body, env);
     else if (accion === 'getVigHorasSemana')    r = await accionGetVigHorasSemana(body, env);
+    else if (accion === 'getConsolidadoCoord')  r = await accionGetConsolidadoCoord(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1766,4 +1768,28 @@ async function accionGetVigHorasSemana(body, env) {
   const rows = await sbAll(env, 'vig_horas_semana?select=cedula,semana,horas');
   const data = rows.map((r) => ({ cedula: String(r.cedula || ''), semana: String(r.semana || ''), horas: Number(r.horas || 0) }));
   return { ok: true, data };
+}
+
+// Consolidado (Cobro vs Facturación) de UN solo coordinador — para su propio módulo.
+// Trae solo sus datos (no expone los de otros coordinadores).
+async function accionGetConsolidadoCoord(body, env) {
+  const coord = String(body.coord || '').trim();
+  if (!coord) return { ok: false, error: 'Falta coordinador' };
+  const normSem = (s) => { const n = parseInt(String(s == null ? '' : s).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? 0 : n; };
+  const semanas = {};
+  let sem0 = 0, adm = '', sede = '';
+  const co = await sb(env, `coordinadores?select=id,nombre,administrador,sede&nombre=eq.${encodeURIComponent(coord)}&limit=1`);
+  if (co.length) {
+    const coordId = co[0].id; adm = co[0].administrador || ''; sede = co[0].sede || '';
+    // Reportes por semana (lo que reportó a Riopaila = cobro labores + cobro vigilancia)
+    const reps = await sbAll(env, `detalle_dia?select=semana,cobro_riopaila,cobro_vigilancia&coordinador_id=eq.${coordId}`);
+    reps.forEach((r) => { const s = normSem(r.semana); if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].rep += Number(r.cobro_riopaila || 0) + Number(r.cobro_vigilancia || 0); });
+    // Facturación por semana (detallado de Riopaila)
+    const dets = await sbAll(env, `detallado_factura?select=semana,valor_cobro&coordinador_id=eq.${coordId}`);
+    dets.forEach((d) => { const s = normSem(d.semana); if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].fac += Number(d.valor_cobro || 0); });
+  }
+  // Cobros históricos: semana 0 = saldo inicial; otras semanas suman a reportes
+  const hist = await sbAll(env, `cobros_historicos?select=valor_cobro,semana&coordinador=eq.${encodeURIComponent(coord)}`);
+  hist.forEach((h) => { const s = normSem(h.semana); if (s === 0) sem0 += Number(h.valor_cobro || 0); else { if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].rep += Number(h.valor_cobro || 0); } });
+  return { ok: true, data: { coord: coord, adm: adm, sede: sede, sem0: sem0, semanas: semanas } };
 }
