@@ -2601,9 +2601,19 @@ tfoot td{background:var(--gf);font-weight:700}
             <div class="fld" style="min-width:90px"><label>Sem. hasta</label>
               <input type="number" id="fi-sem2" min="1" max="52" placeholder="52" oninput="calcInfFac()"/>
             </div>
+            <div class="fld" style="min-width:140px"><label>Fecha desde</label>
+              <input type="date" id="fi-fec1" onchange="calcInfFac()"/>
+            </div>
+            <div class="fld" style="min-width:140px"><label>Fecha hasta</label>
+              <input type="date" id="fi-fec2" onchange="calcInfFac()"/>
+            </div>
+            <div class="fld" style="min-width:110px"><label>Prefijo</label>
+              <select id="fi-prefijo" onchange="calcInfFac()"><option value="">Todos</option></select>
+            </div>
             <button class="btn bf" onclick="calcInfFac()" style="height:34px;margin-top:16px">📊 Ver informe</button>
             <button class="btn bg" onclick="expCSV('fi-t','informe_facturas')" style="height:34px;margin-top:16px">📥 Excel</button>
           </div>
+          <div style="font-size:11px;color:var(--g3);margin-top:6px">Si pones fechas, mandan sobre las semanas. El prefijo (FE, XC…) filtra por el inicio del número de factura.</div>
         </div>
 
         <!-- Stats principales -->
@@ -9324,18 +9334,54 @@ function carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum){
 }
 
 // ── INFORME FACTURAS ──
+// Normaliza una fecha (ISO o dd/mm/yyyy) a yyyy-mm-dd para comparar en el informe
+function facFechaISO(v){
+  v=String(v||'').trim(); if(!v) return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+  var m=v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  return '';
+}
+// Llena el selector de prefijos con los que existen en las facturas (FE, XC, ...)
+function facInfPoblarPrefijos(){
+  var sel=document.getElementById('fi-prefijo'); if(!sel) return;
+  var prefs={};
+  (FACTURAS_CACHE||[]).forEach(function(f){ var p=(String(f.nfac||'').match(/^[A-Za-z]+/)||[''])[0].toUpperCase(); if(p) prefs[p]=1; });
+  var lista=Object.keys(prefs).sort();
+  if(sel.options.length-1!==lista.length){
+    var actual=sel.value;
+    sel.innerHTML='<option value="">Todos</option>'+lista.map(function(p){return '<option value="'+p+'">'+p+'</option>';}).join('');
+    sel.value=actual;
+  }
+}
 function calcInfFac(){
   var filtC=document.getElementById('fi-contrato')&&document.getElementById('fi-contrato').value||'';
   var filtR=document.getElementById('fi-resp')&&document.getElementById('fi-resp').value||'';
   var s1=parseInt(document.getElementById('fi-sem1')&&document.getElementById('fi-sem1').value)||0;
   var s2=parseInt(document.getElementById('fi-sem2')&&document.getElementById('fi-sem2').value)||99;
+  var fec1=(document.getElementById('fi-fec1')||{}).value||'';
+  var fec2=(document.getElementById('fi-fec2')||{}).value||'';
+  var filtPref=(document.getElementById('fi-prefijo')||{}).value||'';
+  var usaFecha=!!(fec1||fec2);
+  facInfPoblarPrefijos();
   var data=FACTURAS_CACHE.filter(function(f){
     if(f.estado==='ANULADA') return false;
     if(filtC&&f.contrato!==filtC) return false;
     if(filtR&&f.resp!==filtR) return false;
-    if(s1||s2<99){
+    if(filtPref){
+      var pref=(String(f.nfac||'').match(/^[A-Za-z]+/)||[''])[0].toUpperCase();
+      if(pref!==filtPref) return false;
+    }
+    if(usaFecha){
+      // Las fechas mandan sobre las semanas
+      var ff=facFechaISO(f.ffac);
+      if(!ff) return false;                       // sin fecha y hay filtro de fecha → excluir
+      if(fec1 && ff<fec1) return false;
+      if(fec2 && ff>fec2) return false;
+    } else if(s1||s2<99){
       var sems=String(f.sems||'').replace(/[-–]/g,',').split(',').map(function(s){return parseInt(s.trim());}).filter(Boolean);
-      if(sems.length&&!sems.some(function(s){return s>=s1&&s<=s2;})) return false;
+      if(!sems.length) return false;              // sin semana y hay filtro de semana → excluir
+      if(!sems.some(function(s){return s>=s1&&s<=s2;})) return false;
     }
     return true;
   }).sort(function(a,b){return(a.sems||'').localeCompare(b.sems||'');});
