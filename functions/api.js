@@ -422,7 +422,7 @@ async function accionGetRegistros(body, env) {
     obsTarea: String(f.obs_tarea || '').trim(),
     fila: offset + i + 2,
   }));
-  const hayMas = offset + rows.length < total;
+  const hayMas = rows.length > 0 && (offset + rows.length < total);
   return { ok: true, registros, total, hayMas, siguienteFila: desde + rows.length };
 }
 
@@ -866,7 +866,7 @@ async function accionGetAcumulados(body, env) {
     FECHA_CARGA: f.fecha_carga ? String(f.fecha_carga).slice(0, 16).replace('T', ' ') : '',
     CARGADO_POR: String(f.cargado_por || '').trim(),
   }));
-  const hayMas = offset + rows.length < total;
+  const hayMas = rows.length > 0 && (offset + rows.length < total);
   return { ok: true, acumulados, total, hayMas, siguienteFila: desde + rows.length };
 }
 
