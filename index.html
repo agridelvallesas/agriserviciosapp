@@ -3091,6 +3091,8 @@ tfoot td{background:var(--gf);font-weight:700}
       <div class="fld full"><label>Labor <span style="font-size:10px;color:var(--g3)">(N=Norte, S=Sur)</span></label><select id="me-lab" onchange="calcME()"></select></div>
       <div class="fld" id="me-cant-wrap"><label>Cantidad</label><input type="number" id="me-cant" step="0.01" min="0" oninput="calcME()"/></div>
       <div class="fld"><label>Pago calculado</label><input type="text" id="me-pago" readonly/></div>
+      <div class="fld"><label>Cobro calculado</label><input type="text" id="me-cobro" readonly/></div>
+      <div class="fld full" id="me-tar-info" style="font-size:11px;color:var(--g3);margin-top:-4px"></div>
       <div class="fld full"><label>Observación</label><input type="text" id="me-obs" placeholder="Observación del registro..."/></div>
       <!-- PANEL VIGILANCIA MAQUINARIA NORTE — solo aparece si la labor es vigilancia y sede norte -->
       <div class="fld full" id="me-vig-panel" style="display:none">
@@ -9555,34 +9557,49 @@ function abrirME(id){
   document.getElementById('me-lab').value=r.labId;
   document.getElementById('me-cant').value=r.cant;
   document.getElementById('me-pago').value=cop(r.pago);
+  var ceEl=document.getElementById('me-cobro'); if(ceEl) ceEl.value=cop((r.cobro||0)+(r.cobroVig||0));
   var obsEl=document.getElementById('me-obs');if(obsEl)obsEl.value=r.obs||'';
+  // Sede del registro (la del coordinador que lo reportó): define tarifa y manejo de vigilancia
+  ME_SEDE=meSedeDeRegistro(r);
   // Cargar valores de vigilancia si aplica
   var vd=document.getElementById('me-vigD');if(vd)vd.value=r.vigHd||0;
   var vn=document.getElementById('me-vigN');if(vn)vn.value=r.vigHn||0;
   meCalcVig();
   meTogVigPanel();
+  calcME(); // recalcula con la tarifa VIGENTE (por si cambió desde que se reportó)
   document.getElementById('med').classList.add('on');
 }
 
 function closeME(){document.getElementById('med').classList.remove('on');}
 
+var ME_SEDE='';   // sede del registro que se está editando (NORTE / SUR)
+
+// Sede del registro = la del coordinador que lo reportó
+function meSedeDeRegistro(r){
+  var c=(typeof COORDS!=='undefined'?COORDS:[]).find(function(x){return String(x.coord||'').trim().toUpperCase()===String(r.coord||'').trim().toUpperCase();});
+  return String((c&&c.sede)||S.sede||'').toUpperCase();
+}
+// Tarifa VIGENTE por código + sede (una misma labor tiene tarifa distinta en Norte y Sur)
+function meTarifa(labId, sede){
+  sede=String(sede||'').toUpperCase();
+  var t=TAR.find(function(x){return x.id===labId && String(x.sede||'').toUpperCase()===sede;});
+  if(!t) t=TAR.find(function(x){return x.id===labId && !x.sede;});
+  if(!t) t=TAR.find(function(x){return x.id===labId;});
+  return t||{p:0,c:0,u:'',d:''};
+}
+function meEsVigLab(labId){
+  var t=meTarifa(labId, ME_SEDE);
+  return String(t.d||'').toUpperCase().indexOf('VIGILANCIA MAQUINARIA')>=0 || labId==='LV1061183';
+}
 function meTogVigPanel(){
-  // Mostrar panel vigilancia si labor es vigilancia maquinaria Y sede NORTE
-  var lab=document.getElementById('me-lab');
-  if(!lab) return;
-  var o=lab.options[lab.selectedIndex];
+  var lab=document.getElementById('me-lab'); if(!lab) return;
   var panel=document.getElementById('me-vig-panel');
   var cantWrap=document.getElementById('me-cant-wrap');
   if(!panel) return;
-  var labText=(o&&o.text||'').toUpperCase();
-  var labId=(o&&o.value||'');
-  // Buscar tarifa para verificar sede
-  var tar=TAR.find(function(t){return t.id===labId;});
-  var esVig=labText.includes('VIGILANCIA MAQUINARIA');
-  var esNorte=tar&&tar.sede==='NORTE';
-  if(esVig&&esNorte){
+  // El panel de horas aplica a vigilancia en AMBAS sedes (cambia solo la forma de pago)
+  if(meEsVigLab(lab.value)){
     panel.style.display='block';
-    if(cantWrap) cantWrap.style.display='none'; // oculta cantidad regular
+    if(cantWrap) cantWrap.style.display='none';
   } else {
     panel.style.display='none';
     if(cantWrap) cantWrap.style.display='block';
@@ -9594,14 +9611,55 @@ function meCalcVig(){
   var hn=parseFloat(document.getElementById('me-vigN')&&document.getElementById('me-vigN').value)||0;
   var t=document.getElementById('me-vigT');
   if(t) t.value=(hd+hn)+'h';
+  calcME();
+}
+
+// Calcula pago y cobro SIEMPRE con la tarifa vigente de la sede del registro
+function meCalcular(){
+  var lab=document.getElementById('me-lab');
+  var labId=lab?lab.value:'';
+  var tar=meTarifa(labId, ME_SEDE);
+  var esVig=meEsVigLab(labId);
+  var esNorte=(ME_SEDE==='NORTE');
+  var cant, pago, cobro, cobroVig, vigHd=0, vigHn=0, esVigFinal=false;
+  if(esVig){
+    vigHd=parseFloat(document.getElementById('me-vigD')&&document.getElementById('me-vigD').value)||0;
+    vigHn=parseFloat(document.getElementById('me-vigN')&&document.getElementById('me-vigN').value)||0;
+    cant=vigHd+vigHn;
+    if(esNorte){
+      // NORTE: el pago se liquida en nómina; el cobro va en cobroVig (NO en cobro, para no duplicar)
+      pago=0; cobro=0;
+      cobroVig=Math.round(cant*((tar.c||0)||VIG_COBRO_TARIFA));
+      esVigFinal=true;
+    } else {
+      // SUR: se paga y se cobra por hora como una labor normal
+      pago=Math.round(cant*(tar.p||0));
+      cobro=Math.round(cant*(tar.c||0));
+      cobroVig=0; esVigFinal=false;
+    }
+  } else {
+    cant=parseFloat(document.getElementById('me-cant').value)||0;
+    pago=Math.round(cant*(tar.p||0));
+    cobro=Math.round(cant*(tar.c||0));
+    cobroVig=0;
+  }
+  return {tar:tar, esVig:esVig, esNorte:esNorte, cant:cant, pago:pago, cobro:cobro,
+          cobroVig:cobroVig, esVigFinal:esVigFinal, vigHd:vigHd, vigHn:vigHn, u:tar.u||''};
 }
 
 function calcME(){
-  var lab=document.getElementById('me-lab');
-  var o=lab.options[lab.selectedIndex];
-  var cant=parseFloat(document.getElementById('me-cant').value)||0;
-  document.getElementById('me-pago').value=cop((parseFloat(o.dataset.p)||0)*cant);
   meTogVigPanel();
+  var c=meCalcular();
+  var pEl=document.getElementById('me-pago');
+  if(pEl) pEl.value=(c.esVig&&c.esNorte)?'Se liquida en nómina':cop(c.pago);
+  var cEl=document.getElementById('me-cobro');
+  if(cEl) cEl.value=cop(c.cobro+c.cobroVig);
+  var info=document.getElementById('me-tar-info');
+  if(info){
+    var tarCobro=(c.esVig&&c.esNorte)?((c.tar.c||0)||VIG_COBRO_TARIFA):(c.tar.c||0);
+    info.innerHTML='Tarifa vigente'+(ME_SEDE?(' · <strong>'+ME_SEDE+'</strong>'):'')+': pago '+cop(c.tar.p||0)+' · cobro '+cop(tarCobro)+' por '+(c.u||'unidad')
+      +(c.esVig&&c.esNorte?' <span style="color:#92400e">(vigilancia Norte: el pago al trabajador se calcula en la liquidación de nómina)</span>':'');
+  }
 }
 
 function saveME(){
@@ -9619,35 +9677,18 @@ function saveME(){
 
   var lab=document.getElementById('me-lab');
   var o=lab.options[lab.selectedIndex];
-  var labText=(o&&o.text||'').toUpperCase();
-  var labId=(o&&o.value||'');
-  var tar=TAR.find(function(t){return t.id===labId;});
-  var esVig=labText.includes('VIGILANCIA MAQUINARIA');
-  var esNorte=tar&&tar.sede==='NORTE';
-  var esVigNorte=esVig&&esNorte;
-
-  var cant, pago, cobro, vigHd=0, vigHn=0, esVigFinal=false;
-  if(esVigNorte){
-    vigHd=parseFloat(document.getElementById('me-vigD')&&document.getElementById('me-vigD').value)||0;
-    vigHn=parseFloat(document.getElementById('me-vigN')&&document.getElementById('me-vigN').value)||0;
-    cant=vigHd+vigHn;
-    pago=0; // vigilancia se liquida en nómina
-    cobro=Math.round(cant*(parseFloat(o.dataset.c)||VIG_COBRO_TARIFA));
-    esVigFinal=true;
-  } else {
-    cant=parseFloat(document.getElementById('me-cant').value)||0;
-    pago=Math.round((parseFloat(o.dataset.p)||0)*cant);
-    cobro=Math.round((parseFloat(o.dataset.c)||0)*cant);
-  }
+  // Si se abrió sin pasar por abrirME, deducir la sede del registro
+  if(!ME_SEDE) ME_SEDE=meSedeDeRegistro(srcCache[idx]);
+  var c=meCalcular();
 
   var nuevo={
     dia:  document.getElementById('me-dia').value,
     sem:  document.getElementById('me-sem').value,
-    labId:o.value, lab:o.text.split(' · ')[0],
-    u:    o.dataset.u, cant:cant,
-    pago: pago, cobro:cobro,
-    esVig: esVigFinal, vigHd:vigHd, vigHn:vigHn,
-    cobroVig: esVigFinal?cobro:0
+    labId:o.value, lab:(c.tar.d||o.text.split(' · ')[0]),
+    u:    c.u||o.dataset.u, cant:c.cant,
+    pago: c.pago, cobro:c.cobro,
+    esVig: c.esVigFinal, vigHd:c.vigHd, vigHn:c.vigHn,
+    cobroVig: c.cobroVig
   };
 
   if(!srcCache[idx].id){
