@@ -11498,7 +11498,8 @@ function consBuildCard(key, d, s1, s2){
 function consToggleCard(key){
   CONS_EXPANDED[key]=!CONS_EXPANDED[key];
   var cvf=document.getElementById('p-cvf');
-  if(cvf && cvf.style.display!=='none' && typeof cvfRender==='function'){ cvfRender(); return; }
+  // Solo si la pantalla ACTIVA es Cobro vs Facturación del coordinador (las páginas se muestran con la clase .on)
+  if(cvf && cvf.classList.contains('on') && typeof cvfRender==='function'){ cvfRender(); return; }
   consRender();
 }
 // ── Cobro vs Facturación del propio coordinador (módulo coordinador) ──
