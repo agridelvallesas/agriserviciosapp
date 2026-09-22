@@ -2924,7 +2924,7 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
         <div class="tw"><table><thead><tr>
           <th>Código</th><th>Descripción</th><th>Unidad</th>
-          <th>Pago colaborador</th><th>Cobro Riopaila</th><th>Eficiencia mínima</th><th>Sede</th>
+          <th>Pago colaborador</th><th>Cobro Riopaila</th><th>Eficiencia mínima</th><th>Sede</th><th class="no-print">Acc.</th>
         </tr></thead><tbody id="tar-tb"></tbody></table></div>
       </div>
     </div>
@@ -9777,6 +9777,51 @@ function filtEmp(){
   };
   tb.innerHTML=d.map(function(e){return'<tr><td>'+e.c+'</td><td><strong>'+e.n+'</strong></td><td>'+sdBadge(e.sede)+'</td></tr>';}).join('')||'<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--g3)">Sin resultados</td></tr>';
 }
+// ── Edición de tarifas (solo ADMIN) ──
+// Cambiar una tarifa NO altera lo ya reportado: cada registro guardó su pago/cobro al momento.
+function tarPuedeEditar(){ return typeof esSuperAdmin==='function' && esSuperAdmin(); }
+function tarEditar(codigo, sede){
+  if(!tarPuedeEditar()){ alert('Solo el administrador puede modificar tarifas.'); return; }
+  var t=TAR.filter(function(x){return x.id===codigo && String(x.sede||'')===String(sede||'');})[0];
+  if(!t){ alert('No se encontró la tarifa'); return; }
+  var m=document.createElement('div');
+  m.id='tar-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.onclick=function(e){ if(e.target===m) tarCerrar(); };
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:460px;width:100%">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:15px;font-weight:800;color:var(--v)">✏️ Editar tarifa</div>'
+      +'<div style="font-size:11px;color:var(--g3)">'+gcEsc(t.d)+' · <code>'+gcEsc(t.id)+'</code>'+(t.sede?(' · '+gcEsc(t.sede)):'')+'</div></div>'
+      +'<button onclick="tarCerrar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+    +'</div>'
+    +'<div style="padding:18px">'
+      +'<div class="fld" style="margin-bottom:10px"><label>Pago colaborador ('+gcEsc(t.u||'unidad')+')</label><input type="number" id="tar-pago" step="0.01" value="'+(t.p||0)+'"/></div>'
+      +'<div class="fld" style="margin-bottom:10px"><label>Cobro Riopaila ('+gcEsc(t.u||'unidad')+')</label><input type="number" id="tar-cobro" step="0.01" value="'+(t.c||0)+'"/></div>'
+      +'<div style="font-size:11px;color:var(--g3);background:var(--gf);border-radius:6px;padding:8px">Aplica a los reportes de aquí en adelante. Los registros ya guardados conservan el valor con el que se calcularon.</div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+        +'<button class="btn bg" onclick="tarCerrar()">Cancelar</button>'
+        +'<button class="btn bv" onclick="tarGuardar(\''+t.id+'\',\''+(t.sede||'')+'\')">💾 Guardar tarifa</button>'
+      +'</div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+function tarCerrar(){ var m=document.getElementById('tar-modal'); if(m) m.remove(); }
+function tarGuardar(codigo, sede){
+  var pago=parseFloat((document.getElementById('tar-pago')||{}).value);
+  var cobro=parseFloat((document.getElementById('tar-cobro')||{}).value);
+  if(isNaN(pago)||isNaN(cobro)){ alert('Escribe valores válidos'); return; }
+  if(pago<0||cobro<0){ alert('Los valores no pueden ser negativos'); return; }
+  var t=TAR.filter(function(x){return x.id===codigo && String(x.sede||'')===String(sede||'');})[0]||{};
+  if(!confirm('¿Guardar la nueva tarifa de "'+(t.d||codigo)+'"'+(sede?(' — '+sede):'')+'?\n\nPago colaborador: '+cop(t.p||0)+' → '+cop(pago)+'\nCobro Riopaila: '+cop(t.c||0)+' → '+cop(cobro))) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarTarifa',codigo:codigo,sede:sede,pago:pago,cobro:cobro})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){
+      t.p=pago; t.c=cobro;            // actualizar en memoria para que los reportes usen la nueva ya
+      tarCerrar(); filtTar();
+      alert('✅ Tarifa actualizada.\n\nLos demás usuarios la verán al volver a iniciar sesión.');
+    } else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
 function filtTar(){
   var q=(document.getElementById('tq')&&document.getElementById('tq').value||'').toLowerCase();
   var sede=document.getElementById('tq-sede')&&document.getElementById('tq-sede').value||'';
@@ -9802,8 +9847,9 @@ function filtTar(){
       +'<td>'+cop(t.c)+'</td>'
       +'<td>'+((t.p&&t.p>0)?'<span style="font-size:11px;color:var(--g2)">'+Math.ceil(UMBRAL/t.p)+'</span>':'—')+'</td>'
       +'<td>'+sdBadge(t.sede)+'</td>'
+      +'<td class="no-print">'+(tarPuedeEditar()?'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="tarEditar(\''+t.id+'\',\''+(t.sede||'')+'\')" title="Editar tarifa">✏️</button>':'<span style="color:var(--g3)">—</span>')+'</td>'
       +'</tr>';
-  }).join('')||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--g3)">Sin resultados</td></tr>';
+  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin resultados</td></tr>';
 }
 
 // ══════════════════════════════════════════
