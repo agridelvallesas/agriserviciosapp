@@ -4019,6 +4019,8 @@ function logout(){
   // También limpiar caches globales si existen
   if(typeof TD_REGS_CACHE!=='undefined'&&TD_REGS_CACHE) TD_REGS_CACHE.length=0;
   if(typeof ALL_REGS_LOADED!=='undefined') ALL_REGS_LOADED=false;
+  // Módulo coordinador: reiniciar precarga rápida (índice y semanas del dashboard)
+  COORD_LISTO=false; DUP_IDX={}; DUP_IDX_SEMS={}; DC_SEMS_CARGADAS={};
   if(typeof DETALLADO_CACHE!=='undefined'&&DETALLADO_CACHE) DETALLADO_CACHE.length=0;
   if(typeof FACTURAS_CACHE!=='undefined'&&FACTURAS_CACHE) FACTURAS_CACHE.length=0;
   if(typeof COBROS_HIST_CACHE!=='undefined'&&COBROS_HIST_CACHE) COBROS_HIST_CACHE.length=0;
@@ -4258,7 +4260,11 @@ function initReg(){
   // ── PRECARGAR TODOS LOS REGISTROS EN BACKGROUND ──
   // Esto evita los 5-7 seg de espera al agregar al lote: cuando el coordinador
   // toque "Agregar al lote", ya tendremos todo en cache y NO consultaremos al servidor.
-  if(typeof cargarTodosRegsRapido==='function' && typeof ALL_REGS_LOADED!=='undefined' && !ALL_REGS_LOADED){
+  if(S.rol==='c'){
+    // Índice liviano de duplicados (instantáneo si ya se cargó en el dashboard)
+    if(COORD_LISTO) cargarIndiceDup(coordSemanasAbiertas(), function(){});
+    else cargarPermisosSubida(function(){ cargarIndiceDup(coordSemanasAbiertas(), function(){}); });
+  } else if(typeof cargarTodosRegsRapido==='function' && typeof ALL_REGS_LOADED!=='undefined' && !ALL_REGS_LOADED){
     setTimeout(function(){
       cargarTodosRegsRapido(function(){
         // Cache completa lista. A partir de aquí "Agregar al lote" es instantáneo.
@@ -4450,22 +4456,57 @@ async function enviarLote(){
   }
   var _semOk=await confirmarSemanasLote();
   if(!_semOk) return;
-  document.getElementById('btn-enviar').textContent='Enviando...';
-  document.getElementById('btn-enviar').disabled=true;
+  var btnEnv=document.getElementById('btn-enviar');
+  function restaurarBtn(){ btnEnv.textContent='💾 Enviar todo el lote'; btnEnv.disabled=false; }
+  btnEnv.textContent='Verificando duplicados...';
+  btnEnv.disabled=true;
+
+  // ── Verificación FINAL contra la base (una sola consulta para todo el lote) ──
+  // Detecta lo que otro coordinador haya subido mientras este llenaba el lote.
   try{
-    await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:LOTE})});
-  }catch(e){}
+    var aVerif=[]; var idxMap=[];
+    LOTE.forEach(function(r,i){ if(r.tipo==='labor'&&r.labId&&!r._dupOk){ aVerif.push({ced:r.ced,sem:r.sem,dia:r.dia,labId:r.labId}); idxMap.push(i); } });
+    if(aVerif.length){
+      var rv=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'verificarDuplicadosLote',items:aVerif})});
+      var dv=await rv.json();
+      if(dv&&dv.ok&&dv.duplicados&&dv.duplicados.length){
+        var lineas=dv.duplicados.slice(0,12).map(function(d){
+          var r=LOTE[idxMap[d.idx]]||{};
+          return '• '+(r.emp||d.ced)+' — Sem '+d.sem+' día '+d.dia+' — '+(r.lab||d.labId)+(d.coord?' (ya registrada por '+d.coord+')':'');
+        });
+        if(dv.duplicados.length>12) lineas.push('… y '+(dv.duplicados.length-12)+' más');
+        var seguir=confirm('⚠️ Estas tareas YA EXISTEN en el sistema:\n\n'+lineas.join('\n')+'\n\n¿Enviar el lote de todas formas?\n(Cancelar para revisarlas antes)');
+        if(!seguir){ restaurarBtn(); msgR('↩ Envío cancelado para revisar posibles duplicados','r'); return; }
+      }
+    }
+  }catch(e){ console.warn('Verificación final de duplicados no disponible:', e); }
+
+  // ── Envío: SOLO se vacía el lote si el servidor confirma que guardó ──
+  btnEnv.textContent='Enviando...';
+  var guardadoOk=false, errEnvio='';
+  try{
+    var resp=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:LOTE})});
+    var txt=await resp.text(); var dres=null; try{ dres=JSON.parse(txt); }catch(e){}
+    if(resp.ok && dres && dres.ok) guardadoOk=true;
+    else errEnvio=(dres&&dres.error)?dres.error:('respuesta del servidor '+resp.status);
+  }catch(e){ errEnvio=e.message||'sin conexión'; }
+  if(!guardadoOk){
+    restaurarBtn();
+    msgR('⚠️ NO se guardó el lote ('+errEnvio+'). Tus '+LOTE.length+' registro(s) siguen en el lote: vuelve a intentar en un momento.','r');
+    alert('⚠️ El lote NO se pudo guardar ('+errEnvio+').\n\nNo se perdió nada: los registros siguen en el lote. Intenta enviarlo de nuevo en un momento.');
+    return;
+  }
   LOTE.forEach(function(r){REGS.push(r);});
+  dupIdxAgregar(LOTE);
   var n=LOTE.length;
   LOTE=[];
   renderLote();
-  document.getElementById('btn-enviar').textContent='💾 Enviar todo el lote a Sheets';
-  document.getElementById('btn-enviar').disabled=false;
+  restaurarBtn();
   acClear('emp');
   limpiarForm();
   carDC();
   // Mostrar éxito y navegar a mis registros
-  alert('✅ '+n+' registro(s) enviados correctamente a Sheets.');
+  alert('✅ '+n+' registro(s) guardados correctamente.');
   go('mis-reg');
 }
 
@@ -4835,13 +4876,19 @@ function prepReintentar(){
   if(t){t.textContent='Preparando el módulo…';t.style.color='#1e40af';}
   if(s){s.textContent='Reintentando la carga…';}
   if(b){b.style.display='none';b.innerHTML='';}
-  if(typeof cargarTodosRegsRapido==='function'){ cargarTodosRegsRapido(function(){ prepOverlayDone(); }, true); }
+  if(S&&S.rol==='c'){
+    coordPrecarga(getSemActualNum(), function(ok){
+      if(ok){ try{ poblarSelsSems(); }catch(e){} try{ carDC(); }catch(e){} }
+      prepOverlayDone();
+    });
+  }
+  else if(typeof cargarTodosRegsRapido==='function'){ cargarTodosRegsRapido(function(){ prepOverlayDone(); }, true); }
   else prepForzarCerrar();
 }
 function prepOverlayDone(){
   var ov=document.getElementById('prep-overlay'); if(!ov) return;
   if(ov._to) clearTimeout(ov._to);
-  var ok=(typeof ALL_REGS_LOADED!=='undefined')?ALL_REGS_LOADED:true;
+  var ok=(S&&S.rol==='c')?COORD_LISTO:((typeof ALL_REGS_LOADED!=='undefined')?ALL_REGS_LOADED:true);
   var icon=document.getElementById('prep-icon'), t=document.getElementById('prep-title'), s=document.getElementById('prep-sub'), b=document.getElementById('prep-btns');
   if(ok){
     if(icon){icon.style.cssText='width:54px;height:54px;margin:0 auto 16px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800';icon.textContent='✓';}
@@ -4871,8 +4918,30 @@ function carDC(){
   var semSel=parseInt(sel&&sel.value)||semActual;
   var semStr=String(semSel).padStart(2,'0');
 
-  // ── Asegurar que tenemos TODOS los registros (no solo el lote inicial) ──
-  // Si no están cargados, hacer carga completa silenciosa con cargarTodosRegsRapido
+  // ── Coordinador: precarga RÁPIDA (índice liviano de duplicados + solo sus registros de la semana) ──
+  if(S.rol==='c'){
+    var dcLoaders=['dc-p','dc-ct','dc-cl','dc-cv','dc-pct','dc-br-count','dc-alert-count'];
+    if(!COORD_LISTO){
+      prepOverlayShow();
+      dcLoaders.forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent='⏳'; });
+      coordPrecarga(semSel, function(){
+        try{ poblarSelsSems(); }catch(e){}
+        carDCRender(semSel, semStr);
+        prepOverlayDone();
+      });
+      return;
+    }
+    if(!DC_SEMS_CARGADAS[semSel]){
+      // Cambió de semana en el dashboard: traer solo esa semana del coordinador
+      dcLoaders.forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent='⏳'; });
+      cargarSemanaCoord(semSel, function(){ carDCRender(semSel, semStr); });
+      return;
+    }
+    carDCRender(semSel, semStr);
+    return;
+  }
+
+  // ── Otros roles: asegurar que tenemos TODOS los registros ──
   if(typeof cargarTodosRegsRapido==='function' && typeof ALL_REGS_LOADED!=='undefined' && !ALL_REGS_LOADED){
     prepOverlayShow();
     // Mostrar loading temporal en los KPIs
@@ -4920,7 +4989,8 @@ function carDCRender(semSel, semStr){
   }
 
   // Filtrar registros del coordinador en la semana seleccionada
-  var mis=getAllRegs().filter(function(r){return r.coord===S.u && r.sem===semStr;});
+  var _yo=String(S.u||'').trim().toUpperCase(), _sN=parseInt(semStr)||0;
+  var mis=getAllRegs().filter(function(r){return String(r.coord||'').trim().toUpperCase()===_yo && (parseInt(r.sem)||0)===_sN;});
 
   // KPIs: pago y cobro (separando labores y vigilancia)
   var dcPagoLab=mis.filter(function(r){return !r.esVig;}).reduce(function(s,r){return s+(r.pago||0);},0);
@@ -16506,6 +16576,71 @@ function chkDupLaborLote(ced, sem, dia, labId){
   });
 }
 
+// ══════════════════════════════════════════════════════════════════
+// ÍNDICE LIVIANO DE DUPLICADOS (módulo coordinador)
+// En vez de descargar TODOS los registros (~20 s), se trae solo
+// cédula+semana+día+labor+coordinador de las semanas abiertas para subir.
+// ══════════════════════════════════════════════════════════════════
+var DUP_IDX={};           // "ced|sem|dia|labId" -> coordinador que lo registró
+var DUP_IDX_SEMS={};      // semanas cubiertas por el índice {38:true}
+var COORD_LISTO=false;    // precarga del módulo coordinador completa
+var DC_SEMS_CARGADAS={};  // semanas del propio coordinador ya cargadas (dashboard)
+
+function dupKey(ced,sem,dia,labId){
+  return String(ced==null?'':ced).replace(/[,.\s]/g,'').trim()+'|'+(parseInt(sem)||0)+'|'+String(dia||'').trim()+'|'+String(labId||'').trim();
+}
+// Semanas en las que el coordinador puede subir: anterior, actual, siguiente + las que tengan permiso vigente
+function coordSemanasAbiertas(){
+  var sa=getSemActualNum();
+  var sems={}; [sa-1,sa,sa+1].forEach(function(s){ if(s>0&&s<60) sems[s]=true; });
+  var c=String(S.u||'').trim().toUpperCase(), ahora=Date.now();
+  (PERMISOS_SUBIDA||[]).forEach(function(p){
+    if(String(p.COORDINADOR||'').trim().toUpperCase()!==c) return;
+    var v=new Date(String(p.VENCE||'').replace(' ','T')+':00');
+    if(isNaN(v.getTime())||v.getTime()>ahora){ var s=parseInt(p.SEMANA)||0; if(s>0) sems[s]=true; }
+  });
+  return Object.keys(sems).map(Number);
+}
+function cargarIndiceDup(semanas, cb){
+  var faltan=(semanas||[]).filter(function(s){return !DUP_IDX_SEMS[s];});
+  if(!faltan.length){ if(cb)cb(true); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getIndiceDup',semanas:faltan})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(!d||!d.ok){ if(cb)cb(false); return; }
+    (d.items||[]).forEach(function(it){ DUP_IDX[dupKey(it[0],it[1],it[2],it[3])]=it[4]||''; });
+    (d.semanas||faltan).forEach(function(s){ DUP_IDX_SEMS[parseInt(s)]=true; });
+    if(cb)cb(true);
+  }).catch(function(){ if(cb)cb(false); });
+}
+function dupIdxAgregar(regs){
+  (regs||[]).forEach(function(r){ if(r.tipo==='labor'&&r.labId) DUP_IDX[dupKey(r.ced,r.sem,r.dia,r.labId)]=r.coord||S.u||''; });
+}
+// Registros del PROPIO coordinador para una semana (lo que necesita el dashboard)
+function cargarSemanaCoord(sem, cb){
+  var s=parseInt(sem)||0;
+  if(!s||DC_SEMS_CARGADAS[s]){ if(cb)cb(true); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:String(s),coord:S.u})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d&&d.ok){
+      var ids=new Set(REGS.map(function(r){return r.id;}));
+      (d.registros||[]).forEach(function(r){ if(!ids.has(r.id)){REGS.push(r);ids.add(r.id);} });
+      DC_SEMS_CARGADAS[s]=true;
+      if(cb)cb(true);
+    } else if(cb) cb(false);
+  }).catch(function(){ if(cb)cb(false); });
+}
+// Precarga rápida del módulo coordinador: permisos → (índice de duplicados + semana del dashboard en paralelo)
+function coordPrecarga(semDash, cb){
+  cargarPermisosSubida(function(){
+    var pend=2, ok=true;
+    function fin(res){ if(!res) ok=false; if(--pend===0){ COORD_LISTO=ok; if(cb)cb(ok); } }
+    cargarIndiceDup(coordSemanasAbiertas(), fin);
+    cargarSemanaCoord(semDash, fin);
+  });
+}
+
 // Muestra modal con detalle del registro existente y devuelve una Promise<boolean>
 // true = el usuario decide subirlo igual, false = cancelar
 function mostrarModalDup(regExistente, regNuevo, esEnLote){
@@ -16608,26 +16743,43 @@ function mostrarModalDup(regExistente, regNuevo, esEnLote){
 // Wrapper: revisa duplicado y abre el modal si encuentra uno
 // Devuelve Promise<boolean>: true=puede continuar, false=usuario canceló
 async function checkAndConfirmDup(ced, sem, dia, labId, regNuevo){
+  // Marca en el registro nuevo si el usuario ACEPTÓ subir un duplicado (para no preguntarle otra vez al enviar)
+  function marcar(ok){ if(ok&&regNuevo) regNuevo._dupOk=true; return ok; }
+
   // 1) Revisar LOTE local (los registros que ya están en el lote pendiente de enviar)
   var existeLote=chkDupLaborLote(ced, sem, dia, labId);
   if(existeLote){
-    return await mostrarModalDup(existeLote, regNuevo, true);
+    return marcar(await mostrarModalDup(existeLote, regNuevo, true));
   }
 
-  // 2) Revisar TODAS las caches locales (REGS + TD_REGS_CACHE + MR_CACHE vía getAllRegs)
+  // 2) Revisar las caches locales (REGS + TD_REGS_CACHE + MR_CACHE vía getAllRegs)
   var existeReg=chkDupLabor(ced, sem, dia, labId);
   if(existeReg){
-    return await mostrarModalDup(existeReg, regNuevo, false);
+    return marcar(await mostrarModalDup(existeReg, regNuevo, false));
   }
 
-  // 3) Si ya tenemos TODOS los registros cargados en memoria (ALL_REGS_LOADED=true),
-  // NO consultar al servidor: la cache local es la fuente de verdad y es instantánea.
-  // Esto evita los 2-3 segundos de espera por cada tarea agregada.
+  // 3) Índice liviano (módulo coordinador): si la semana está cubierta, es la fuente de verdad (instantáneo)
+  var semN=parseInt(sem)||0;
+  if(DUP_IDX_SEMS[semN]){
+    var k=dupKey(ced,sem,dia,labId);
+    if(!Object.prototype.hasOwnProperty.call(DUP_IDX,k)) return true; // no hay duplicado
+    // Coincidencia: traer el detalle SOLO de ese registro para mostrar el aviso completo
+    try{
+      var rd=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'verificarDuplicado', ced:ced, sem:sem, dia:dia, labId:labId})});
+      var dd=await rd.json();
+      if(dd.ok && dd.existe && dd.registro) return marcar(await mostrarModalDup(dd.registro, regNuevo, false));
+      if(dd.ok && !dd.existe) return true; // ya no existe (lo borraron): no es duplicado
+    }catch(e){}
+    var quien=DUP_IDX[k]?(' (registrada por '+DUP_IDX[k]+')'):'';
+    return marcar(confirm('⚠️ Posible duplicado: esta cédula ya tiene esa labor ese mismo día en la semana '+semN+quien+'.\n\n¿Agregarla de todas formas?'));
+  }
+
+  // 4) Si ya tenemos TODOS los registros cargados en memoria (módulos admin), la cache es la fuente de verdad
   if(typeof ALL_REGS_LOADED!=='undefined' && ALL_REGS_LOADED){
-    return true; // no hay duplicado en cache completa
+    return true;
   }
 
-  // 4) ⚠️ FALLBACK: si NO tenemos toda la cache, consultar al backend
+  // 5) FALLBACK (semana fuera del índice, p. ej. registro del admin en semanas viejas): consultar al backend
   try{
     var resp=await fetch(APPS_URL,{
       method:'POST',
@@ -16636,15 +16788,14 @@ async function checkAndConfirmDup(ced, sem, dia, labId, regNuevo){
     });
     var data=await resp.json();
     if(data.ok && data.existe && data.registro){
-      // Guardarlo en REGS para próximas consultas rápidas
       if(Array.isArray(REGS) && !REGS.find(function(x){return x.id===data.registro.id;})){
         REGS.push(data.registro);
       }
-      return await mostrarModalDup(data.registro, regNuevo, false);
+      return marcar(await mostrarModalDup(data.registro, regNuevo, false));
     }
   }catch(err){
     console.warn('No se pudo verificar duplicado en servidor:', err);
-    // Si falla la red, permitir continuar (no bloquear el guardado)
+    // Si falla la red, permitir continuar (la verificación final al enviar lo vuelve a revisar)
   }
 
   return true; // no hay duplicado, puede continuar
