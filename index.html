@@ -6410,12 +6410,6 @@ function cnEmpClear(){
   carCons();
 }
 
-function cnEmpClear(){
-  CN_EMP_SEL='';
-  var inp=document.getElementById('cn-emp-q');if(inp)inp.value='';
-  var chip=document.getElementById('cn-emp-chip');if(chip)chip.style.display='none';
-  carCons();
-}
 
 function initCnEmp(){
   acEmpInit('cn-emp-q','cn-emp-drop',function(ced,nom){
