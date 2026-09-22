@@ -49,7 +49,7 @@ const PORTADAS = new Set([
   'getNomConfig', 'guardarNomConfig',
   'getVigHorasSemana',
   'getConsolidadoCoord',
-  'getDupIndex', 'verificarDuplicadosLote',
+  'getIndiceDup', 'verificarDuplicadosLote',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -145,8 +145,6 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getVigHorasSemana')    r = await accionGetVigHorasSemana(body, env);
     else if (accion === 'getConsolidadoCoord')  r = await accionGetConsolidadoCoord(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
-    else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
-    else if (accion === 'getDupIndex')          r = await accionGetDupIndex(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
@@ -1804,61 +1802,6 @@ async function accionGetConsolidadoCoord(body, env) {
   const hist = await sbAll(env, `cobros_historicos?select=valor_cobro,semana&coordinador=eq.${encodeURIComponent(coord)}`);
   hist.forEach((h) => { const s = normSem(h.semana); if (s === 0) sem0 += Number(h.valor_cobro || 0); else { if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].rep += Number(h.valor_cobro || 0); } });
   return { ok: true, data: { coord: coord, adm: adm, sede: sede, sem0: sem0, semanas: semanas } };
-}
-
-
-// ── Índice liviano de duplicados (módulo coordinador) ──
-// Solo 4 datos por tarea (cédula, semana, día, labor) + coordinador, y solo de las
-// semanas pedidas (las abiertas para subir). Reemplaza descargar todos los registros.
-async function mapaCoordIdNombre(env) {
-  const rows = await sbAll(env, 'coordinadores?select=id,nombre');
-  const m = new Map();
-  rows.forEach((c) => m.set(c.id, String(c.nombre || '').trim()));
-  return m;
-}
-async function accionGetDupIndex(body, env) {
-  const sems = (Array.isArray(body.semanas) ? body.semanas : [])
-    .map((x) => parseInt(x, 10)).filter((x) => x > 0 && x < 60);
-  if (!sems.length) return { ok: true, data: [], semanas: [] };
-  const [rows, coords] = await Promise.all([
-    sbAll(env, `detalle_dia?select=cedula,semana,dia,id_labor,coordinador_id&tipo=eq.labor&semana=in.(${sems.join(',')})`),
-    mapaCoordIdNombre(env),
-  ]);
-  const data = rows.map((r) => [
-    String(r.cedula == null ? '' : r.cedula).replace(/\D/g, ''),
-    parseInt(r.semana, 10) || 0,
-    String(r.dia || '').trim(),
-    String(r.id_labor || '').trim(),
-    coords.get(r.coordinador_id) || '',
-  ]);
-  return { ok: true, data, semanas: sems };
-}
-
-// Verificación del LOTE completo antes de guardar (una sola consulta).
-// Devuelve las tareas del lote que ya existen en la base.
-async function accionVerificarDuplicadosLote(body, env) {
-  const items = (Array.isArray(body.items) ? body.items : []).map((it) => ({
-    ced: String(it.ced || '').replace(/\D/g, ''),
-    sem: parseInt(it.sem, 10) || 0,
-    dia: String(it.dia || '').trim(),
-    labId: String(it.labId || '').trim(),
-  })).filter((it) => it.ced && it.sem && it.dia && it.labId);
-  if (!items.length) return { ok: true, conflictos: [] };
-  const key = (c, s, d, l) => c + '|' + s + '|' + d + '|' + l;
-  const buscados = new Set(items.map((it) => key(it.ced, it.sem, it.dia, it.labId)));
-  const sems = [...new Set(items.map((it) => it.sem))];
-  const ceds = [...new Set(items.map((it) => it.ced))];
-  const coords = await mapaCoordIdNombre(env);
-  const conflictos = [];
-  for (let i = 0; i < ceds.length; i += 80) {
-    const chunk = ceds.slice(i, i + 80);
-    const rows = await sbAll(env, `detalle_dia?select=id,cedula,semana,dia,id_labor,coordinador_id&tipo=eq.labor&semana=in.(${sems.join(',')})&cedula=in.(${chunk.join(',')})`);
-    rows.forEach((r) => {
-      const k = key(String(r.cedula).replace(/\D/g, ''), parseInt(r.semana, 10) || 0, String(r.dia || '').trim(), String(r.id_labor || '').trim());
-      if (buscados.has(k)) conflictos.push({ key: k, id: String(r.id || ''), coord: coords.get(r.coordinador_id) || '' });
-    });
-  }
-  return { ok: true, conflictos };
 }
 
 
