@@ -10278,6 +10278,7 @@ function guardarNota(){
   .then(function(data){
     if(!data.ok) throw new Error(data.error||'Error');
     REGS.push(nota);
+    NOTAS_COORD.unshift(nota);
     NOTAS_CACHE.unshift({coord:S.u,sem:sem,txt:txt,fecha:new Date().toLocaleDateString('es-CO')});
     document.getElementById('nota-txt').value='';
     showNMsg('✅ Nota guardada correctamente','v');
@@ -10296,41 +10297,36 @@ function showNMsg(txt,tipo){
   if(tipo==='v') setTimeout(function(){el.style.display='none';},3000);
 }
 
+var NOTAS_COORD=[];
 function carNotas(){
-  // Cargar notas desde REGS (tipo='nota') del coordinador actual
-  var notas=REGS.filter(function(r){return r.tipo==='nota'&&r.coord===S.u;});
-  if(!notas.length){
-    // Intentar cargar desde Sheets
-    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:'',tipo:'nota',coord:S.u})})
-    .then(function(r){return r.json();})
-    .then(function(data){
-      if(data.ok&&data.registros){
-        data.registros.forEach(function(r){
-          if(!REGS.find(function(x){return x.id===r.id;})) REGS.push(r);
-        });
-      }
-      renderNotas();
-    }).catch(function(){renderNotas();});
-  } else {
+  var lista=document.getElementById('notas-lista');
+  if(lista) lista.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando tus notas...</div>';
+  // El backend filtra por el coordinador (mapea su nombre a id), así que trae solo sus notas
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:'',tipo:'nota',coord:S.u})})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    NOTAS_COORD=(data&&data.ok&&data.registros)?data.registros.filter(function(r){return r.tipo==='nota';}):[];
     renderNotas();
-  }
+  }).catch(function(){ renderNotas(); });
 }
 
 function renderNotas(){
   var lista=document.getElementById('notas-lista');
   if(!lista) return;
-  var notas=REGS.filter(function(r){return r.tipo==='nota'&&r.coord===S.u;})
-    .sort(function(a,b){return b.sem.localeCompare(a.sem);});
+  var notas=(NOTAS_COORD||[]).slice().sort(function(a,b){
+    return (parseInt(String(b.sem).replace(/\D/g,''))||0)-(parseInt(String(a.sem).replace(/\D/g,''))||0);
+  });
   if(!notas.length){
-    lista.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">No hay notas guardadas aún.</div>';
+    lista.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">No has guardado notas aún.</div>';
     return;
   }
   lista.innerHTML=notas.map(function(n){
       var texto=(n.obsTarea||n.obs||'').trim();
+      var fecha=n.fecha||(n.fReg?String(n.fReg).slice(0,10).split('-').reverse().join('/'):'');
       return '<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">'
         +'<div onclick="naToggle(this)" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;background:var(--vs)">'
-        +'<strong style="color:var(--g2)">'+n.coord+'</strong>'
-        +'<span style="font-size:11px;color:var(--g3);white-space:nowrap">Sem '+n.sem+' &nbsp;<span class="na-chev">▾</span></span>'
+        +'<strong style="color:var(--g2)">📝 Semana '+n.sem+'</strong>'
+        +'<span style="font-size:11px;color:var(--g3);white-space:nowrap">'+(fecha?fecha+' &nbsp;':'')+'<span class="na-chev">▾</span></span>'
         +'</div>'
         +'<div class="na-body" style="display:none;padding:11px 14px;font-size:13px;white-space:pre-wrap;border-top:1px solid #e5e7eb">'+(texto||'<em style="color:var(--g3)">(sin texto)</em>')+'</div>'
         +'</div>';
