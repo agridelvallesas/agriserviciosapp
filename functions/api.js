@@ -492,7 +492,23 @@ async function accionEditarReg(body, env) {
     fecha_registro: new Date().toISOString(),
   };
   await sbWrite(env, 'PATCH', `detalle_dia?id=eq.${encodeURIComponent(id)}`, cambios);
-  return { ok: true };
+  // Releer lo que quedó realmente guardado (para confirmar en pantalla y detectar si no se aplicó)
+  let guardado = null;
+  try {
+    const ver = await sb(env, `detalle_dia?select=id,cantidad,pago_trabajador,cobro_riopaila,cobro_vigilancia,id_labor,semana,dia&id=eq.${encodeURIComponent(id)}&limit=1`);
+    if (ver.length) {
+      const g = ver[0];
+      guardado = {
+        cant: parseFloat(g.cantidad) || 0,
+        pago: parseFloat(g.pago_trabajador) || 0,
+        cobro: parseFloat(g.cobro_riopaila) || 0,
+        cobroVig: parseFloat(g.cobro_vigilancia) || 0,
+        labId: String(g.id_labor || ''), sem: String(g.semana == null ? '' : g.semana), dia: String(g.dia || ''),
+      };
+    }
+  } catch (e) { /* si falla la relectura, el PATCH igual se hizo */ }
+  if (!guardado) return { ok: false, error: 'El registro no se encontró después de guardar (id ' + id + ')' };
+  return { ok: true, guardado };
 }
 
 // ELIMINAR REGISTRO — borra por id
