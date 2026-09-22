@@ -3217,6 +3217,17 @@ function getRangoSem(sem){
 // ══════════════════════════════════════════════════════════════
 var PLAZO_DIAS = 3;            // días calendario después del domingo
 var VIG_COBRO_TARIFA = 18134; // tarifa de COBRO a Riopaila por hora de vigilancia norte (fallback si el registro no trae cobroVig)
+// Tarifa de cobro vigente para vigilancia Norte: manda la TABLA DE TARIFAS; si no está, la de Configuración
+function vigCobroTarifaVigente(){
+  var t=(typeof TAR!=='undefined'?TAR:[]).find(function(x){return x.id==='LV1061183' && String(x.sede||'').toUpperCase()==='NORTE';});
+  return (t&&t.c)||VIG_COBRO_TARIFA;
+}
+// Cobro a Riopaila de un registro de vigilancia: SIEMPRE el valor guardado; solo si falta, se estima
+function cobroVigDeRegistro(r){
+  if(r && (r.cobroVig||0)>0) return Math.round(r.cobroVig);
+  var h=((r&&r.vigHd)||0)+((r&&r.vigHn)||0);
+  return Math.round(h*vigCobroTarifaVigente());
+}
 var PERMISOS_SUBIDA = [];      // permisos vigentes traídos del backend
 
 // Fecha/hora límite para reportar una semana
@@ -6003,7 +6014,7 @@ function carTodos(desde){
     result.forEach(function(r){
       if(r.esVig){
         // Vigilancia norte: el pago se liquida en nómina, pero el COBRO a Riopaila es horas × tarifa
-        totCobroVig += Math.round(((r.vigHd||0)+(r.vigHn||0))*VIG_COBRO_TARIFA);
+        totCobroVig += cobroVigDeRegistro(r);
         return;
       }
       totPago     += (r.pago  || 0);
@@ -6050,7 +6061,7 @@ function carTodos(desde){
         +'<td>'+(r.tipo==='labor'?r.lab.substring(0,22):getNov(r.nov))+'</td>'
         +'<td>'+(r.esVig?'<span style="color:var(--f);font-weight:600">'+r.vigHd+'h D / '+r.vigHn+'h N</span>':(r.cant||'—'))+'</td>'
         +'<td>'+(r.esVig?'<span style="font-size:10px;color:var(--f)">Ver nómina</span>':cop(r.pago))+'</td>'
-        +'<td>'+(r.esVig?'<span style="color:var(--f)" title="Cobro a Riopaila: horas × tarifa">'+cop(Math.round(((r.vigHd||0)+(r.vigHn||0))*VIG_COBRO_TARIFA))+'</span>':cop(r.cobro))+'</td>'
+        +'<td>'+(r.esVig?'<span style="color:var(--f)" title="Cobro a Riopaila guardado en el registro">'+cop(cobroVigDeRegistro(r))+'</span>':cop(r.cobro))+'</td>'
         +'<td>'+(alim>0?'<span style="color:var(--n);font-weight:600">'+cop(alim)+'</span>':'—')+'</td>'
         +'<td>'+(al?'<span class="bdg br2">⚠️</span>':'')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obs||'')+'">'+(r.obs?r.obs.substring(0,25):'—')+'</td>'
@@ -9629,7 +9640,7 @@ function meCalcular(){
     if(esNorte){
       // NORTE: el pago se liquida en nómina; el cobro va en cobroVig (NO en cobro, para no duplicar)
       pago=0; cobro=0;
-      cobroVig=Math.round(cant*((tar.c||0)||VIG_COBRO_TARIFA));
+      cobroVig=Math.round(cant*((tar.c||0)||vigCobroTarifaVigente()));
       esVigFinal=true;
     } else {
       // SUR: se paga y se cobra por hora como una labor normal
@@ -9656,7 +9667,7 @@ function calcME(){
   if(cEl) cEl.value=cop(c.cobro+c.cobroVig);
   var info=document.getElementById('me-tar-info');
   if(info){
-    var tarCobro=(c.esVig&&c.esNorte)?((c.tar.c||0)||VIG_COBRO_TARIFA):(c.tar.c||0);
+    var tarCobro=(c.esVig&&c.esNorte)?((c.tar.c||0)||vigCobroTarifaVigente()):(c.tar.c||0);
     info.innerHTML='Tarifa vigente'+(ME_SEDE?(' · <strong>'+ME_SEDE+'</strong>'):'')+': pago '+cop(c.tar.p||0)+' · cobro '+cop(tarCobro)+' por '+(c.u||'unidad')
       +(c.esVig&&c.esNorte?' <span style="color:#92400e">(vigilancia Norte: el pago al trabajador se calcula en la liquidación de nómina)</span>':'');
   }
