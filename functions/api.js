@@ -50,6 +50,7 @@ const PORTADAS = new Set([
   'getVigHorasSemana',
   'getConsolidadoCoord',
   'getIndiceDup', 'verificarDuplicadosLote',
+  'guardarTarifa',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -146,6 +147,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getConsolidadoCoord')  r = await accionGetConsolidadoCoord(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
+    else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1855,4 +1857,24 @@ async function accionVerificarDuplicadosLote(body, env) {
     if (m) dup.push({ idx, ced, sem, dia, labId: lab, coord: m.coord, id: m.id });
   });
   return { ok: true, duplicados: dup };
+}
+
+
+// ── Editar una tarifa (llave: código + sede; una labor puede tener tarifa distinta por sede) ──
+async function accionGuardarTarifa(body, env) {
+  const codigo = String(body.codigo || '').trim();
+  const sede = String(body.sede || '').trim().toUpperCase();
+  if (!codigo) return { ok: false, error: 'Falta el código de la tarifa' };
+  const cambios = {};
+  if (body.pago !== undefined && body.pago !== '') cambios.tarifa_colab = parseFloat(body.pago) || 0;
+  if (body.cobro !== undefined && body.cobro !== '') cambios.tarifa_cobro = parseFloat(body.cobro) || 0;
+  if (body.descripcion !== undefined) cambios.descripcion = String(body.descripcion).trim();
+  if (!Object.keys(cambios).length) return { ok: false, error: 'No hay cambios que guardar' };
+  let filtro = `codigo=eq.${encodeURIComponent(codigo)}`;
+  filtro += sede ? `&sede=eq.${encodeURIComponent(sede)}` : '&sede=is.null';
+  // Verificar que exista exactamente esa tarifa antes de tocarla
+  const ex = await sb(env, `tarifas?select=codigo&${filtro}&limit=1`);
+  if (!ex.length) return { ok: false, error: 'No se encontró la tarifa ' + codigo + (sede ? ' en la sede ' + sede : '') };
+  await sbWrite(env, 'PATCH', `tarifas?${filtro}`, cambios);
+  return { ok: true, codigo, sede, cambios };
 }
