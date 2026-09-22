@@ -9718,18 +9718,29 @@ function saveME(){
   .then(function(data){
     if(btn){btn.textContent='💾 Guardar cambios';btn.disabled=false;}
     if(!data.ok){
-      showSync('⚠️ Error al actualizar en Sheets: '+(data.error||'Error desconocido'),'r');
+      alert('⚠️ NO se guardó el registro.\n\n'+(data.error||'Error desconocido'));showSync('⚠️ Error al actualizar: '+(data.error||'Error desconocido'),'r');
       return;
     }
-    // Confirmar en memoria
-    Object.assign(srcCache[idx], nuevo);
+    // Confirmar en memoria en TODAS las listas donde esté ese registro
+    var idReg=srcCache[idx].id;
+    [REGS, (typeof TD_REGS_CACHE!=='undefined'?TD_REGS_CACHE:[]), (typeof MR_CACHE!=='undefined'?MR_CACHE:[])].forEach(function(arr){
+      if(!Array.isArray(arr)) return;
+      arr.forEach(function(x){ if(x && x.id===idReg) Object.assign(x, nuevo); });
+    });
     if(typeof clearSemanaCache==='function'&&srcCache[idx].sem) clearSemanaCache(srcCache[idx].sem);
     closeME(); carTodos();
-    showSync('✅ Registro actualizado correctamente en Sheets','v');
+    // Mostrar lo que REALMENTE quedó guardado en la base (verificación del servidor)
+    var g=data.guardado;
+    if(g){
+      var cobroTot=(g.cobro||0)+(g.cobroVig||0);
+      var coincide=(Math.abs(cobroTot-((nuevo.cobro||0)+(nuevo.cobroVig||0)))<1) && (Math.abs((g.pago||0)-(nuevo.pago||0))<1);
+      if(coincide) showSync('✅ Guardado: cant '+g.cant+' · pago '+cop(g.pago)+' · cobro '+cop(cobroTot),'v');
+      else showSync('⚠️ Se guardó distinto a lo calculado — en la base quedó: pago '+cop(g.pago)+' · cobro '+cop(cobroTot),'r');
+    } else showSync('✅ Registro actualizado correctamente','v');
   })
   .catch(function(err){
     if(btn){btn.textContent='💾 Guardar cambios';btn.disabled=false;}
-    showSync('⚠️ Error de conexión con Sheets. Intenta de nuevo.','r');
+    alert('⚠️ No se pudo guardar el registro: error de conexión. Intenta de nuevo.');showSync('⚠️ Error de conexión. Intenta de nuevo.','r');
   });
 }
 
