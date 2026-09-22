@@ -656,7 +656,14 @@ async function accionGetTrabajadores(body, env) {
 // ---------------------------------------------------------------------
 //  MÓDULO FACTURACIÓN
 // ---------------------------------------------------------------------
-function fechaONull(v) { v = String(v || '').trim(); return v || null; }
+function fechaONull(v) {
+  v = String(v || '').trim();
+  if (!v) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);              // ya ISO (yyyy-mm-dd)
+  var m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);            // dd/mm/yyyy o d/m/yyyy
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  return null;                                                          // formato desconocido → null (no rompe la BD)
+}
 
 // FACTURAS
 async function accionGuardarFactura(body, env) {
@@ -738,7 +745,7 @@ async function accionActualizarEstadoFac(body, env) {
   const id = body.id, estado = body.estado, fpago = body.fpago || '';
   if (!id || !estado) return { ok: false, error: 'Faltan datos' };
   const cambios = { estado };
-  if (fpago) cambios.fecha_pago = fpago;
+  if (fpago) { const iso = fechaONull(fpago); if (iso) cambios.fecha_pago = iso; }
   await sbWrite(env, 'PATCH', `facturas?id=eq.${encodeURIComponent(id)}`, cambios);
   return { ok: true };
 }
