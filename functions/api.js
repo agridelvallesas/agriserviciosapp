@@ -53,6 +53,7 @@ const PORTADAS = new Set([
   'guardarTarifa',
   'getRhCatalogos', 'guardarRhCatalogo', 'eliminarRhCatalogo',
   'getFotoTrabajador', 'guardarFotoTrabajador',
+  'getRhConfig', 'guardarRhConfig',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -155,6 +156,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarRhCatalogo')   r = await accionEliminarRhCatalogo(body, env);
     else if (accion === 'getFotoTrabajador')    r = await accionGetFotoTrabajador(body, env);
     else if (accion === 'guardarFotoTrabajador') r = await accionGuardarFotoTrabajador(body, env);
+    else if (accion === 'getRhConfig')          r = await accionGetRhConfig(body, env);
+    else if (accion === 'guardarRhConfig')      r = await accionGuardarRhConfig(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1932,8 +1935,11 @@ async function accionGuardarRhCatalogo(body, env) {
   return { ok: true };
 }
 async function accionEliminarRhCatalogo(body, env) {
-  if (!body.id) return { ok: false, error: 'Falta id' };
-  await sbWrite(env, 'DELETE', `rh_catalogos?id=eq.${encodeURIComponent(body.id)}`);
+  if (body.id) { await sbWrite(env, 'DELETE', `rh_catalogos?id=eq.${encodeURIComponent(body.id)}`); return { ok: true }; }
+  const tipo = String(body.tipo || '').trim();
+  const valor = String(body.valor || '').trim().toUpperCase();
+  if (!tipo || !valor) return { ok: false, error: 'Falta id, o tipo y valor' };
+  await sbWrite(env, 'DELETE', `rh_catalogos?tipo=eq.${encodeURIComponent(tipo)}&valor=eq.${encodeURIComponent(valor)}`);
   return { ok: true };
 }
 
@@ -1952,5 +1958,21 @@ async function accionGuardarFotoTrabajador(body, env) {
   const ex = await sb(env, `trabajador_fotos?select=cedula&cedula=eq.${encodeURIComponent(ced)}&limit=1`);
   if (ex.length) await sbWrite(env, 'PATCH', `trabajador_fotos?cedula=eq.${encodeURIComponent(ced)}`, { foto, fecha_carga: new Date().toISOString() });
   else await sbWrite(env, 'POST', 'trabajador_fotos', { cedula: ced, foto });
+  return { ok: true };
+}
+
+
+// ── Configuración de RH (qué campos aparecen en la hoja de datos) ──
+async function accionGetRhConfig(body, env) {
+  const rows = await sb(env, "rh_config?select=valor&clave=eq.hoja_datos&limit=1");
+  let config = {};
+  if (rows.length) { try { config = JSON.parse(rows[0].valor || '{}'); } catch (e) { config = {}; } }
+  return { ok: true, config };
+}
+async function accionGuardarRhConfig(body, env) {
+  const valor = JSON.stringify(body.config || {});
+  const ex = await sb(env, "rh_config?select=clave&clave=eq.hoja_datos&limit=1");
+  if (ex.length) await sbWrite(env, 'PATCH', "rh_config?clave=eq.hoja_datos", { valor });
+  else await sbWrite(env, 'POST', 'rh_config', { clave: 'hoja_datos', valor });
   return { ok: true };
 }
