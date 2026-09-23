@@ -4485,7 +4485,7 @@ function confirmarSemanasLote(){
     var cerrar=function(v){ if(ov.parentNode) document.body.removeChild(ov); resolve(v); };
     ov.querySelector('#cs-ok').onclick=function(){ cerrar(true); };
     ov.querySelector('#cs-cancel').onclick=function(){ cerrar(false); };
-    ov.onclick=function(e){ if(e.target===ov) cerrar(false); };
+    modalCerrarAlFondo(ov, function(){ cerrar(false); });
   });
 }
 
@@ -8036,7 +8036,7 @@ function histEditar(id){
   var ov=document.createElement('div');
   ov.id='hist-edit-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
-  ov.onclick=function(e){if(e.target===ov)histCerrarEdit();};
+  modalCerrarAlFondo(ov, function(){ histCerrarEdit(); });
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">'
     +'<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:14px">✏️ Editar cobro histórico</div>'
     +'<div class="fld" style="margin-bottom:10px"><label>Coordinador</label><input type="text" id="he-coord" value="'+coordEsc+'"/></div>'
@@ -9907,7 +9907,7 @@ function tarEditar(codigo, sede){
   var m=document.createElement('div');
   m.id='tar-modal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
-  m.onclick=function(e){ if(e.target===m) tarCerrar(); };
+  modalCerrarAlFondo(m, function(){ tarCerrar(); });
   m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:460px;width:100%">'
     +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
       +'<div><div style="font-size:15px;font-weight:800;color:var(--v)">✏️ Editar tarifa</div>'
@@ -11804,7 +11804,7 @@ function cruzarAbrir(){
   cruzarCerrar();
   var ov=document.createElement('div'); ov.id='cruce-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
-  ov.onclick=function(e){if(e.target===ov)cruzarCerrar();};
+  modalCerrarAlFondo(ov, function(){ cruzarCerrar(); });
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.2)">'
     +'<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:4px">🔄 Cruzar saldos entre coordinadores</div>'
     +'<div style="font-size:12px;color:var(--g3);margin-bottom:14px">Traslada saldo de un coordinador a otro. El total no cambia — solo se mueve. Queda registrado en Cobros históricos como "CRUCE".</div>'
@@ -12582,17 +12582,31 @@ function rhCatOpciones(tipo, padre){
   return lista.filter(function(x){ return !p ? true : String(x[1]||'').toUpperCase()===p; })
     .map(function(x){ return '<option value="'+gcEsc(x[0])+'">'; }).join('');
 }
+// Opciones para <select>; conserva el valor ya guardado aunque no esté en el catálogo
+function rhCatOpcionesSel(tipo, padre, val){
+  var lista=(RH_CAT[tipo]||[]).map(function(x){return x[0];});
+  var p=String(padre||'').toUpperCase().trim();
+  if(p) lista=(RH_CAT[tipo]||[]).filter(function(x){return String(x[1]||'').toUpperCase()===p;}).map(function(x){return x[0];});
+  var v=String(val||'').trim();
+  if(v && lista.indexOf(v)<0) lista=[v].concat(lista);
+  return lista.map(function(o){ return '<option value="'+gcEsc(o)+'"'+(v===o?' selected':'')+'>'+gcEsc(o)+'</option>'; }).join('');
+}
 // Al cambiar un campo: refresca los hijos (municipios) y muestra/oculta los condicionales
 function rhCampoCambio(k){
   var el=document.getElementById('rh-f-'+k); if(!el) return;
-  if(el.tagName==='INPUT') el.value=(el.value||'').toUpperCase();
+  if(el.tagName==='INPUT' && el.type==='text') el.value=(el.value||'').toUpperCase();
   Object.values(RH_BLOQUES).forEach(function(b){
     b.campos.forEach(function(c){
       // hijos encadenados (municipio depende del departamento)
       if(c.padreDe===k){
-        var dl=document.getElementById('rhdl-'+c.k);
-        if(dl) dl.innerHTML=rhCatOpciones(c.cat, el.value);
-        var hijo=document.getElementById('rh-f-'+c.k); if(hijo) hijo.value='';
+        var hijo=document.getElementById('rh-f-'+c.k);
+        if(c.cat==='municipio'){
+          var dl=document.getElementById('rhdl-'+c.k);
+          if(dl) dl.innerHTML=rhCatOpciones(c.cat, el.value);
+          if(hijo) hijo.value='';
+        } else if(hijo && hijo.tagName==='SELECT'){
+          hijo.innerHTML='<option value="">—</option>'+rhCatOpcionesSel(c.cat, el.value, '');
+        }
       }
       // campos condicionales (cónyuge, estudios)
       if(c.dep && c.dep.k===k){
@@ -12925,7 +12939,7 @@ function rhAbrirModal(t){
   modal=document.createElement('div');
   modal.id='rh-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)rhCerrarModal();};
+  modalCerrarAlFondo(modal, function(){ rhCerrarModal(); });
 
   var esEdicion=!!RH_EDITANDO;
   var titulo=esEdicion?'✏️ Editar trabajador':'➕ Nuevo trabajador';
@@ -12940,13 +12954,20 @@ function rhAbrirModal(t){
       var reqMark=c.req?' <span style="color:var(--r)">*</span>':'';
       var input='';
       if(c.tipo==='cat'){
-        // Lista desplegable desde los catálogos; permite además escribir (datalist)
-        var dl='rhdl-'+c.k;
         var padreVal=c.padreDe?String(t[c.padreDe]||'').toUpperCase():'';
-        input='<input type="text" id="rh-f-'+c.k+'" list="'+dl+'" value="'+val+'"'+req+
-              ' data-cat="'+c.cat+'"'+(c.padreDe?(' data-padre-de="'+c.padreDe+'"'):'')+
-              ' oninput="rhCampoCambio(\''+c.k+'\')" style="width:100%;text-transform:uppercase"/>'+
-              '<datalist id="'+dl+'">'+rhCatOpciones(c.cat, padreVal)+'</datalist>';
+        if(c.cat==='municipio'){
+          // Municipios: son más de 1.100, se busca escribiendo (con sugerencias)
+          var dl='rhdl-'+c.k;
+          input='<input type="text" id="rh-f-'+c.k+'" list="'+dl+'" value="'+val+'"'+req+
+                ' data-cat="'+c.cat+'"'+(c.padreDe?(' data-padre-de="'+c.padreDe+'"'):'')+
+                ' placeholder="Escribe para buscar..." onfocus="this.select()"'+
+                ' oninput="rhCampoCambio(\''+c.k+'\')" style="width:100%;text-transform:uppercase"/>'+
+                '<datalist id="'+dl+'">'+rhCatOpciones(c.cat, padreVal)+'</datalist>';
+        } else {
+          // Listas cortas: desplegable real (siempre muestra todas las opciones)
+          input='<select id="rh-f-'+c.k+'"'+req+' data-cat="'+c.cat+'" onchange="rhCampoCambio(\''+c.k+'\')" style="width:100%">'+
+                '<option value="">—</option>'+rhCatOpcionesSel(c.cat, padreVal, val)+'</select>';
+        }
       } else if(c.tipo==='select'){
         input='<select id="rh-f-'+c.k+'"'+req+' onchange="rhCampoCambio(\''+c.k+'\')" style="width:100%">'+
           '<option value="">—</option>'+
@@ -13132,7 +13153,7 @@ function rhAbrirImportar(){
   modal=document.createElement('div');
   modal.id='rh-mod-imp';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)rhCerrarImportar();};
+  modalCerrarAlFondo(modal, function(){ rhCerrarImportar(); });
 
   modal.innerHTML='<div style="background:#fff;border-radius:8px;max-width:680px;width:100%;max-height:85vh;overflow:auto;padding:0">'+
     '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
@@ -13545,7 +13566,7 @@ function vacAbrirModal(v){
   var modal=document.createElement('div');
   modal.id='vac-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)vacCerrarModal();};
+  modalCerrarAlFondo(modal, function(){ vacCerrarModal(); });
 
   // Combo de trabajadores
   var trabOpts='<option value="">— Selecciona —</option>';
@@ -14014,7 +14035,7 @@ function vacAbrirSaldo(){
   var modal=document.createElement('div');
   modal.id='vac-saldo-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)vacCerrarSaldo();};
+  modalCerrarAlFondo(modal, function(){ vacCerrarSaldo(); });
 
   // Combo de trabajadores
   var trabOpts='<option value="">— Selecciona o escribe un nombre/cédula —</option>';
@@ -14215,7 +14236,7 @@ function vacAbrirImportador(){
   var modal=document.createElement('div');
   modal.id='vac-imp-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)vacCerrarImportador();};
+  modalCerrarAlFondo(modal, function(){ vacCerrarImportador(); });
 
   modal.innerHTML='<div style="background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:0">'+
     '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
@@ -14572,7 +14593,7 @@ function cartasAbrirPromedio(){
   var modal=document.createElement('div');
   modal.id='cpm-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){ if(e.target===modal) cartasCerrarPromedio(); };
+  modalCerrarAlFondo(modal, function(){ cartasCerrarPromedio(); });
   modal.innerHTML='<div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto">'+
     '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
       '<div><div style="font-size:16px;font-weight:700;color:var(--v)">🧮 Promedio de devengado</div>'+
@@ -15563,7 +15584,7 @@ function acumAbrirReporte(){
   var modal=document.createElement('div');
   modal.id='acum-rep-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)acumCerrarReporte();};
+  modalCerrarAlFondo(modal, function(){ acumCerrarReporte(); });
 
   // Lista de conceptos únicos para el selector
   var conceptos=new Set();
@@ -15797,7 +15818,7 @@ function acumAbrirAnalisis(){
   var modal=document.createElement('div');
   modal.id='acum-an-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)acumCerrarAnalisis();};
+  modalCerrarAlFondo(modal, function(){ acumCerrarAnalisis(); });
 
   var conceptos=new Set();
   ACUM_DATA.forEach(function(a){if(a.CONCEPTO) conceptos.add(a.CONCEPTO);});
@@ -16202,7 +16223,7 @@ function acumAbrirConsulta(){
   var modal=document.createElement('div');
   modal.id='acum-consulta-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)acumCerrarConsulta();};
+  modalCerrarAlFondo(modal, function(){ acumCerrarConsulta(); });
 
   // Combo trabajadores con datos en ACUMULADOS
   var ceduladasUnicas={};
@@ -16342,6 +16363,13 @@ function acumGuardarConcepto(ix){
 // Nota: afecta futuras importaciones, no reclasifica lo ya cargado.
 // ═══════════════════════════════════════════════════════════════
 var GC_DATA=[]; // [{concepto,tipo,categoria}]
+// Cierra una ventana modal al hacer clic en el fondo, pero NO cuando el clic empezó
+// dentro (p. ej. al seleccionar texto y soltar el mouse fuera del formulario).
+function modalCerrarAlFondo(el, cerrar){
+  var desdeFondo=false;
+  el.onmousedown=function(e){ desdeFondo=(e.target===el); };
+  el.onclick=function(e){ if(e.target===el && desdeFondo) cerrar(); desdeFondo=false; };
+}
 function gcEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function acumGestorConceptos(){
   // Compatibilidad: ahora la gestión de conceptos vive en RH → Configuración
@@ -16553,7 +16581,7 @@ function acumAbrirImportador(){
   var modal=document.createElement('div');
   modal.id='acum-imp-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.onclick=function(e){if(e.target===modal)acumCerrarImp();};
+  modalCerrarAlFondo(modal, function(){ acumCerrarImp(); });
 
   modal.innerHTML='<div style="background:#fff;border-radius:10px;max-width:680px;width:100%;max-height:90vh;overflow:auto;padding:0">'+
     '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
@@ -17196,7 +17224,7 @@ function mostrarModalDup(regExistente, regNuevo, esEnLote){
     document.getElementById('dup-cancel').onclick=function(){modal.remove();resolve(false);};
     document.getElementById('dup-ok').onclick=function(){modal.remove();resolve(true);};
     // Cerrar con click en overlay
-    modal.onclick=function(e){if(e.target===modal){modal.remove();resolve(false);}};
+    modalCerrarAlFondo(modal, function(){ modal.remove(); resolve(false); });
     // Cerrar con Escape
     var escHandler=function(e){
       if(e.key==='Escape'){
@@ -17960,7 +17988,7 @@ function cnomAbrirGestor(){
     modal=document.createElement('div');
     modal.id='cnom-mod-conceptos';
     modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    modal.onclick=function(e){if(e.target===modal) cnomCerrarGestor();};
+    modalCerrarAlFondo(modal, function(){ cnomCerrarGestor(); });
     modal.innerHTML='<div style="background:#fff;border-radius:8px;max-width:700px;width:100%;max-height:85vh;overflow:auto;padding:20px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--gf);padding-bottom:10px;margin-bottom:14px">'+
         '<div><div style="font-size:16px;font-weight:700;color:var(--v)">⚙️ Gestión de Conceptos Personalizados</div>'+
@@ -18599,7 +18627,7 @@ function invEmpEditar(idRegn){
     var m=document.createElement('div');
     m.id='eme-modal';
     m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
-    m.onclick=function(ev){ if(ev.target===m) invEmpEditCerrar(); };
+    modalCerrarAlFondo(m, function(){ invEmpEditCerrar(); });
     m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:92vh;overflow:auto">'+
       '<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'+
         '<div style="font-size:16px;font-weight:800;color:var(--v)">✏️ Editar entrega</div>'+
@@ -18843,7 +18871,7 @@ function accModal(titulo,cuerpo,onSave){
   accCerrarModal();
   var ov=document.createElement('div'); ov.id='acc-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
-  ov.onclick=function(e){if(e.target===ov)accCerrarModal();};
+  modalCerrarAlFondo(ov, function(){ accCerrarModal(); });
   var box=document.createElement('div');
   box.style.cssText='background:#fff;border-radius:12px;max-width:420px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)';
   box.innerHTML='<div style="font-size:16px;font-weight:700;color:var(--v);margin-bottom:14px">✏️ '+titulo+'</div>'+cuerpo
