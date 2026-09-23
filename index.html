@@ -12819,7 +12819,137 @@ function hojaValores(t){
   return V;
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// PDF REAL con pdfmake: hoja carta exacta, encabezado y pie que
+// se repiten en cada página (sin depender del escalado del navegador)
+// ══════════════════════════════════════════════════════════════
+function rhSrcDataUrl(htmlImg){
+  var m=String(htmlImg||'').match(/src="([^"]+)"/);
+  return m?m[1]:'';
+}
+function cargarPdfMake(cb){
+  if(window.pdfMake && window.pdfMake.createPdf){ cb(true); return; }
+  var s1=document.createElement('script');
+  s1.src='https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js';
+  s1.onload=function(){
+    var s2=document.createElement('script');
+    s2.src='https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js';
+    s2.onload=function(){ cb(!!(window.pdfMake&&window.pdfMake.createPdf)); };
+    s2.onerror=function(){ cb(false); };
+    document.head.appendChild(s2);
+  };
+  s1.onerror=function(){ cb(false); };
+  document.head.appendChild(s1);
+}
+
 function rhHojaRender(t, foto){
+  cargarPdfMake(function(ok){
+    if(!ok){ rhHojaRenderHTML(t, foto); return; }   // respaldo: versión HTML
+    try{ rhHojaPDF(t, foto); }catch(e){ console.warn('PDF:',e); rhHojaRenderHTML(t, foto); }
+  });
+}
+
+function rhHojaPDF(t, foto){
+  var V=hojaValores(t);
+  var meta={}; HOJA_ITEMS.forEach(function(i){ meta[i.id]=i; });
+  var porSec={}, ordenSec=[];
+  hojaOrden().forEach(function(id){
+    if(!hojaVisible(id)) return;
+    var val=V[id]; if(!val) return;
+    var sec=(meta[id]||{}).sec||'per';
+    if(!porSec[sec]){ porSec[sec]=[]; ordenSec.push(sec); }
+    porSec[sec].push({n:meta[id].n, v:val});
+  });
+
+  var content=[];
+  // Encabezado del trabajador: nombre + foto
+  var nombre=String(t.NOMBRES||'').trim();
+  var sub=[t.CARGO,t.SEDE?('Sede '+t.SEDE):''].filter(Boolean).join('  ·  ');
+  var MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var hoy=new Date();
+  var izq={width:'*', stack:[
+    {text:'HOJA DE DATOS DEL TRABAJADOR', fontSize:8, color:'#64748b', characterSpacing:1.2, margin:[0,0,0,3]},
+    {text:nombre, fontSize:17, bold:true, color:'#0f172a'},
+    sub?{text:sub, fontSize:10.5, color:'#475569', margin:[0,2,0,0]}:{text:''},
+    {text:'Elaborada el '+hoy.getDate()+' de '+MESL[hoy.getMonth()]+' de '+hoy.getFullYear(), fontSize:8, color:'#94a3b8', margin:[0,3,0,0]}
+  ]};
+  var cols=[izq];
+  if(foto) cols.push({width:88, image:foto, fit:[88,110], alignment:'right'});
+  content.push({columns:cols, columnGap:10, margin:[0,0,0,6]});
+  content.push({canvas:[{type:'line',x1:0,y1:0,x2:531,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}], margin:[0,0,0,10]});
+
+  // Secciones
+  ordenSec.forEach(function(sec){
+    content.push({
+      table:{widths:['*'], body:[[{text:(HOJA_SECS[sec]||sec), fontSize:9.5, bold:true, color:'#ffffff',
+        fillColor:'#2d5a3d', characterSpacing:0.8, margin:[6,3,6,3]}]]},
+      layout:'noBorders', margin:[0,0,0,4]
+    });
+    var datos=porSec[sec], filas=[];
+    for(var i=0;i<datos.length;i+=2){
+      var celda=function(d){
+        if(!d) return {text:''};
+        return {stack:[
+          {text:String(d.n).toUpperCase(), fontSize:8, color:'#475569', characterSpacing:0.4},
+          {text:d.v, fontSize:10.5, bold:true, color:'#0f172a', margin:[0,1,0,0]}
+        ], margin:[2,3,2,3]};
+      };
+      filas.push([celda(datos[i]), celda(datos[i+1])]);
+    }
+    content.push({
+      table:{widths:['*','*'], body:filas},
+      layout:{ hLineWidth:function(i,node){ return (i===0||i===node.table.body.length)?0:0.6; },
+               vLineWidth:function(){ return 0; },
+               hLineColor:function(){ return '#e2e8f0'; },
+               paddingTop:function(){return 1;}, paddingBottom:function(){return 1;} },
+      margin:[0,0,0,9]
+    });
+  });
+
+  // Firmas
+  content.push({margin:[0,26,0,0], columns:[
+    {width:'*', stack:[
+      {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
+      {text:'Firma del trabajador', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
+    ]},
+    {width:40, text:''},
+    {width:'*', stack:[
+      (function(){ var f=rhSrcDataUrl(typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:''); 
+                   return f?{image:f, fit:[150,38], alignment:'center', margin:[0,0,0,2]}:{text:'', margin:[0,0,0,34]}; })(),
+      {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
+      {text:'Firma del representante legal', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
+    ]}
+  ]});
+
+  var logo=rhSrcDataUrl(typeof CARTA_LOGO!=='undefined'?CARTA_LOGO:'');
+  var emp=(typeof CONFIG_EMPRESA!=='undefined')?CONFIG_EMPRESA:{nombre:'',nit:'',direccion:'',telefono:'',email:''};
+  var pie=[emp.direccion, emp.telefono?('Tel: '+emp.telefono):'', emp.email].filter(Boolean).join('  ·  ');
+
+  var dd={
+    pageSize:'LETTER',
+    pageMargins:[42, logo?96:74, 42, 46],
+    header:function(){
+      var st=[];
+      if(logo) st.push({image:logo, fit:[170,46], alignment:'center', margin:[0,14,0,3]});
+      st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
+      if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
+      st.push({canvas:[{type:'line',x1:42,y1:0,x2:573,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}]});
+      return st;
+    },
+    footer:function(cp,pc){
+      return {margin:[42,10,42,0], columns:[
+        {text:pie, fontSize:7.5, color:'#94a3b8'},
+        {text:cp+' / '+pc, fontSize:7.5, color:'#94a3b8', alignment:'right', width:40}
+      ]};
+    },
+    content:content,
+    defaultStyle:{font:'Roboto', fontSize:10}
+  };
+  pdfMake.createPdf(dd).open();
+}
+
+function rhHojaRenderHTML(t, foto){
   var V=hojaValores(t);
   var meta={}; HOJA_ITEMS.forEach(function(i){ meta[i.id]=i; });
   // Agrupar en secciones respetando el orden configurado; solo datos con valor
