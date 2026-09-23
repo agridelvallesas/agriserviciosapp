@@ -665,6 +665,7 @@ const TRAB_MAP = [
   ['BANCO','banco'],['CUENTA','num_cuenta'],
   ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
   ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
+  ['BARRIO','barrio'],['TIPO_SANGRE','tipo_sangre'],['NUM_HIJOS','num_hijos'],['TEL_EMERG','tel_emerg'],['GRADO_ESCOLAR','grado_escolar'],
   ['PAIS_NAC','pais_nac'],['DEPTO_NAC','depto_nac'],['CIUDAD_NAC','ciudad_nac'],['DEPTO_EXP','depto_exp'],
   ['NIVEL_EDUCATIVO','nivel_educativo'],['TITULO','titulo'],['INSTITUCION','institucion'],
   ['ESTUDIA_ACTUAL','estudia_actual'],['EST_QUE','est_que'],['EST_DONDE','est_donde'],['EST_SEMESTRE','est_semestre'],
