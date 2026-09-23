@@ -12524,6 +12524,123 @@ var RH_DATA=[];          // lista de trabajadores
 var RH_EDITANDO=null;    // cédula del trabajador en edición, o null si es nuevo
 
 // Campos en bloques (deben coincidir con el backend)
+// ══════════════════════════════════════════════════════════════
+// Catálogos de RH (listas del formulario) y foto del trabajador
+// ══════════════════════════════════════════════════════════════
+var RH_CAT={};            // {tipo: [[valor,padre],...]}
+var RH_CAT_LISTO=false;
+var RH_FOTO_ACTUAL='';    // foto (base64) del trabajador abierto
+var RH_FOTO_ORIG='';      // imagen original cargada, para recortar
+
+function rhCargarCatalogos(cb){
+  if(RH_CAT_LISTO){ if(cb)cb(); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRhCatalogos'})})
+  .then(function(r){return r.json();}).then(function(d){
+    RH_CAT={};
+    (d&&d.items||[]).forEach(function(it){ (RH_CAT[it[0]]=RH_CAT[it[0]]||[]).push([it[1],it[2]||'']); });
+    RH_CAT_LISTO=true; if(cb)cb();
+  }).catch(function(){ if(cb)cb(); });
+}
+// Opciones de un catálogo; si tiene padre (municipios), filtra por ese departamento
+function rhCatOpciones(tipo, padre){
+  var lista=RH_CAT[tipo]||[];
+  var p=String(padre||'').toUpperCase().trim();
+  return lista.filter(function(x){ return !p ? true : String(x[1]||'').toUpperCase()===p; })
+    .map(function(x){ return '<option value="'+gcEsc(x[0])+'">'; }).join('');
+}
+// Al cambiar un campo: refresca los hijos (municipios) y muestra/oculta los condicionales
+function rhCampoCambio(k){
+  var el=document.getElementById('rh-f-'+k); if(!el) return;
+  if(el.tagName==='INPUT') el.value=(el.value||'').toUpperCase();
+  Object.values(RH_BLOQUES).forEach(function(b){
+    b.campos.forEach(function(c){
+      // hijos encadenados (municipio depende del departamento)
+      if(c.padreDe===k){
+        var dl=document.getElementById('rhdl-'+c.k);
+        if(dl) dl.innerHTML=rhCatOpciones(c.cat, el.value);
+        var hijo=document.getElementById('rh-f-'+c.k); if(hijo) hijo.value='';
+      }
+      // campos condicionales (cónyuge, estudios)
+      if(c.dep && c.dep.k===k){
+        var w=document.getElementById('rh-w-'+c.k);
+        if(w) w.style.display=(c.dep.vals.indexOf(String(el.value||'').toUpperCase())>=0)?'':'none';
+      }
+    });
+  });
+}
+
+// ── Foto: elegir, recortar a tamaño carné (3:4) y previsualizar ──
+function rhFotoElegir(ev){
+  var f=ev.target.files&&ev.target.files[0]; if(!f) return;
+  var fr=new FileReader();
+  fr.onload=function(e){ RH_FOTO_ORIG=e.target.result; rhFotoAbrirRecorte(); };
+  fr.readAsDataURL(f);
+}
+function rhFotoAbrirRecorte(){
+  var m=document.createElement('div');
+  m.id='rh-crop';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#fff;border-radius:12px;padding:16px;max-width:420px;width:100%">'
+    +'<div style="font-size:15px;font-weight:800;color:var(--v);margin-bottom:8px">✂️ Ajustar foto</div>'
+    +'<canvas id="rh-crop-cv" width="240" height="300" style="width:240px;height:300px;border:1px solid var(--bd);border-radius:8px;display:block;margin:0 auto;background:#f1f5f9;touch-action:none;cursor:move"></canvas>'
+    +'<div style="margin-top:10px"><label style="font-size:11px;color:var(--g2)">Zoom</label>'
+    +'<input type="range" id="rh-crop-zoom" min="50" max="300" value="100" oninput="rhFotoDibujar()" style="width:100%"/></div>'
+    +'<div style="font-size:11px;color:var(--g3);text-align:center">Arrastra la imagen para acomodarla</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+      +'<button class="btn bg" onclick="rhFotoCerrarRecorte()">Cancelar</button>'
+      +'<button class="btn bv" onclick="rhFotoAplicar()">✓ Usar esta foto</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  RH_CROP={x:0,y:0,drag:false,lx:0,ly:0,img:new Image()};
+  RH_CROP.img.onload=function(){
+    var cv=document.getElementById('rh-crop-cv');
+    var esc=Math.max(cv.width/RH_CROP.img.width, cv.height/RH_CROP.img.height);
+    RH_CROP.base=esc;
+    RH_CROP.x=(cv.width-RH_CROP.img.width*esc)/2;
+    RH_CROP.y=(cv.height-RH_CROP.img.height*esc)/2;
+    rhFotoDibujar();
+  };
+  RH_CROP.img.src=RH_FOTO_ORIG;
+  var cv=document.getElementById('rh-crop-cv');
+  var pos=function(e){ var r=cv.getBoundingClientRect(); var t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; };
+  cv.onmousedown=cv.ontouchstart=function(e){ var p=pos(e); RH_CROP.drag=true; RH_CROP.lx=p.x; RH_CROP.ly=p.y; e.preventDefault(); };
+  cv.onmousemove=cv.ontouchmove=function(e){ if(!RH_CROP.drag)return; var p=pos(e); RH_CROP.x+=p.x-RH_CROP.lx; RH_CROP.y+=p.y-RH_CROP.ly; RH_CROP.lx=p.x; RH_CROP.ly=p.y; rhFotoDibujar(); e.preventDefault(); };
+  cv.onmouseup=cv.onmouseleave=cv.ontouchend=function(){ RH_CROP.drag=false; };
+}
+var RH_CROP=null;
+function rhFotoDibujar(){
+  if(!RH_CROP||!RH_CROP.img.width) return;
+  var cv=document.getElementById('rh-crop-cv'); if(!cv) return;
+  var ctx=cv.getContext('2d');
+  var z=(parseInt((document.getElementById('rh-crop-zoom')||{}).value)||100)/100;
+  var esc=RH_CROP.base*z;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(RH_CROP.img, RH_CROP.x, RH_CROP.y, RH_CROP.img.width*esc, RH_CROP.img.height*esc);
+}
+function rhFotoCerrarRecorte(){ var m=document.getElementById('rh-crop'); if(m) m.remove(); RH_CROP=null; }
+function rhFotoAplicar(){
+  var cv=document.getElementById('rh-crop-cv'); if(!cv) return;
+  // Guardar a 240x300 (carné) en JPEG liviano
+  RH_FOTO_ACTUAL=cv.toDataURL('image/jpeg',0.8);
+  rhFotoCerrarRecorte();
+  rhFotoPintar();
+}
+function rhFotoPintar(){
+  var img=document.getElementById('rh-foto-prev'), vac=document.getElementById('rh-foto-vacia');
+  if(!img) return;
+  if(RH_FOTO_ACTUAL){ img.src=RH_FOTO_ACTUAL; img.style.display='block'; if(vac) vac.style.display='none'; }
+  else { img.src=''; img.style.display='none'; if(vac) vac.style.display='block'; }
+}
+function rhFotoQuitar(){ RH_FOTO_ACTUAL=''; rhFotoPintar(); }
+function rhFotoCargar(cedula){
+  RH_FOTO_ACTUAL=''; rhFotoPintar();
+  if(!cedula) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getFotoTrabajador',cedula:String(cedula)})})
+  .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&d.foto){ RH_FOTO_ACTUAL=d.foto; rhFotoPintar(); } })
+  .catch(function(){});
+}
+
 var RH_BLOQUES={
   ident:{titulo:'🪪 Identificación', campos:[
     {k:'CEDULA', n:'Cédula', tipo:'text', req:true},
@@ -12532,14 +12649,24 @@ var RH_BLOQUES={
     {k:'P_APELLIDO', n:'Primer apellido', tipo:'text', req:true},
     {k:'S_APELLIDO', n:'Segundo apellido', tipo:'text'},
     {k:'FECHA_EXP', n:'Fecha exp. cédula', tipo:'date'},
-    {k:'LUGAR_EXP', n:'Lugar exp. cédula', tipo:'text'},
-    {k:'FECHA_NAC', n:'Fecha de nacimiento', tipo:'date'}
+    {k:'DEPTO_EXP', n:'Depto. exp. cédula', tipo:'cat', cat:'departamento'},
+    {k:'LUGAR_EXP', n:'Ciudad exp. cédula', tipo:'cat', cat:'municipio', padreDe:'DEPTO_EXP'},
+    {k:'FECHA_NAC', n:'Fecha de nacimiento', tipo:'date'},
+    {k:'ESTADO_CIVIL', n:'Estado civil', tipo:'cat', cat:'estado_civil'},
+    {k:'CONYUGE_NOMBRE', n:'Nombre del cónyuge / compañero(a)', tipo:'text', w:2, dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}},
+    {k:'CONYUGE_CEDULA', n:'Cédula del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}},
+    {k:'CONYUGE_TEL', n:'Teléfono del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}}
+  ]},
+  nacimiento:{titulo:'🌎 Lugar de nacimiento', campos:[
+    {k:'PAIS_NAC', n:'País', tipo:'cat', cat:'pais'},
+    {k:'DEPTO_NAC', n:'Departamento', tipo:'cat', cat:'departamento'},
+    {k:'CIUDAD_NAC', n:'Ciudad / municipio', tipo:'cat', cat:'municipio', padreDe:'DEPTO_NAC'}
   ]},
   contacto:{titulo:'📞 Contacto', campos:[
     {k:'TELEFONO', n:'Teléfono', tipo:'text'},
     {k:'DIRECCION', n:'Dirección', tipo:'text', w:2},
-    {k:'CIUDAD', n:'Ciudad', tipo:'text'},
-    {k:'DEPARTAMENTO', n:'Departamento', tipo:'text'},
+    {k:'DEPARTAMENTO', n:'Departamento', tipo:'cat', cat:'departamento'},
+    {k:'CIUDAD', n:'Ciudad / municipio', tipo:'cat', cat:'municipio', padreDe:'DEPARTAMENTO'},
     {k:'EMAIL', n:'Correo electrónico', tipo:'email', w:2},
     {k:'CONTACTO_EMERG', n:'Contacto de emergencia (nombre y teléfono)', tipo:'text', w:3}
   ]},
@@ -12556,11 +12683,11 @@ var RH_BLOQUES={
     {k:'CUENTA', n:'Número de cuenta', tipo:'text', w:2}
   ]},
   ss:{titulo:'🩺 Seguridad social', campos:[
-    {k:'EPS', n:'EPS', tipo:'text'},
-    {k:'PENSION', n:'Fondo de pensión', tipo:'text'},
-    {k:'CAJA', n:'Caja de compensación', tipo:'text'},
-    {k:'ARL', n:'ARL', tipo:'text'},
-    {k:'CESANTIAS', n:'Fondo cesantías', tipo:'text'}
+    {k:'EPS', n:'EPS', tipo:'cat', cat:'eps'},
+    {k:'PENSION', n:'Fondo de pensión', tipo:'cat', cat:'pension'},
+    {k:'CAJA', n:'Caja de compensación', tipo:'cat', cat:'caja'},
+    {k:'ARL', n:'ARL', tipo:'cat', cat:'arl'},
+    {k:'CESANTIAS', n:'Fondo cesantías', tipo:'cat', cat:'cesantias'}
   ]},
   dotacion:{titulo:'👕 Dotación', campos:[
     {k:'TALLA_CAMISA', n:'Talla camisa', tipo:'text'},
@@ -12569,6 +12696,15 @@ var RH_BLOQUES={
     {k:'TALLA_BOTA', n:'Talla bota', tipo:'text'},
     {k:'TALLA_ZAPATO', n:'Talla zapato', tipo:'text'},
     {k:'TALLA_IMPERMEABLE', n:'Talla impermeable', tipo:'text'}
+  ]},
+  escolaridad:{titulo:'🎓 Escolaridad', campos:[
+    {k:'NIVEL_EDUCATIVO', n:'Último grado de educación', tipo:'cat', cat:'nivel_educativo'},
+    {k:'TITULO', n:'Título obtenido', tipo:'text'},
+    {k:'INSTITUCION', n:'Institución', tipo:'text'},
+    {k:'ESTUDIA_ACTUAL', n:'¿Estudia actualmente?', tipo:'select', opciones:['SI']},
+    {k:'EST_QUE', n:'¿Qué estudia?', tipo:'text', dep:{k:'ESTUDIA_ACTUAL', vals:['SI']}},
+    {k:'EST_DONDE', n:'¿Dónde estudia?', tipo:'text', dep:{k:'ESTUDIA_ACTUAL', vals:['SI']}},
+    {k:'EST_SEMESTRE', n:'Semestre / año', tipo:'text', dep:{k:'ESTUDIA_ACTUAL', vals:['SI']}}
   ]},
   obs:{titulo:'📝 Observaciones', campos:[
     {k:'OBSERVACIONES', n:'Observaciones', tipo:'textarea', w:3}
@@ -12660,14 +12796,14 @@ function rhRender(){
 
 function rhAbrirModalNuevo(){
   RH_EDITANDO=null;
-  rhAbrirModal({});
+  rhCargarCatalogos(function(){ rhAbrirModal({}); RH_FOTO_ACTUAL=''; rhFotoPintar(); });
 }
 
 function rhAbrirModalEdit(cedula){
   var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(cedula);});
   if(!t){alert('Trabajador no encontrado');return;}
   RH_EDITANDO=cedula;
-  rhAbrirModal(t);
+  rhCargarCatalogos(function(){ rhAbrirModal(t); rhFotoCargar(cedula); });
 }
 
 function rhAbrirModal(t){
@@ -12690,8 +12826,16 @@ function rhAbrirModal(t){
       var req=c.req?' required':'';
       var reqMark=c.req?' <span style="color:var(--r)">*</span>':'';
       var input='';
-      if(c.tipo==='select'){
-        input='<select id="rh-f-'+c.k+'"'+req+' style="width:100%">'+
+      if(c.tipo==='cat'){
+        // Lista desplegable desde los catálogos; permite además escribir (datalist)
+        var dl='rhdl-'+c.k;
+        var padreVal=c.padreDe?String(t[c.padreDe]||'').toUpperCase():'';
+        input='<input type="text" id="rh-f-'+c.k+'" list="'+dl+'" value="'+val+'"'+req+
+              ' data-cat="'+c.cat+'"'+(c.padreDe?(' data-padre-de="'+c.padreDe+'"'):'')+
+              ' oninput="rhCampoCambio(\''+c.k+'\')" style="width:100%;text-transform:uppercase"/>'+
+              '<datalist id="'+dl+'">'+rhCatOpciones(c.cat, padreVal)+'</datalist>';
+      } else if(c.tipo==='select'){
+        input='<select id="rh-f-'+c.k+'"'+req+' onchange="rhCampoCambio(\''+c.k+'\')" style="width:100%">'+
           '<option value="">—</option>'+
           c.opciones.map(function(o){return '<option value="'+o+'"'+(val===o?' selected':'')+'>'+o+'</option>';}).join('')+
         '</select>';
@@ -12702,7 +12846,8 @@ function rhAbrirModal(t){
         var dis=(esEdicion&&c.k==='CEDULA')?' readonly':'';
         input='<input type="'+c.tipo+'" id="rh-f-'+c.k+'" value="'+val+'"'+req+dis+' style="width:100%'+(dis?';background:#f3f4f6':'')+'"/>';
       }
-      return '<div class="fld" style="grid-column:span '+span+';margin:0"><label style="font-size:11px">'+c.n+reqMark+'</label>'+input+'</div>';
+      var oculto=c.dep?(c.dep.vals.indexOf(String(t[c.dep.k]||'').toUpperCase())<0):false;
+      return '<div class="fld" id="rh-w-'+c.k+'" style="grid-column:span '+span+';margin:0'+(oculto?';display:none':'')+'"><label style="font-size:11px">'+c.n+reqMark+'</label>'+input+'</div>';
     }).join('');
     return '<div style="background:var(--vs);border-radius:6px;padding:12px;margin-bottom:10px">'+
       '<div style="font-size:12px;font-weight:700;color:var(--v);margin-bottom:8px;text-transform:uppercase">'+b.titulo+'</div>'+
@@ -12718,6 +12863,22 @@ function rhAbrirModal(t){
     '</div>'+
 
     '<div style="padding:14px 18px">'+
+      '<div style="background:var(--vs);border-radius:6px;padding:12px;margin-bottom:10px">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--v);margin-bottom:8px;text-transform:uppercase">📷 Foto</div>'+
+        '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'+
+          '<div style="width:120px;height:150px;border:2px dashed var(--bd);border-radius:8px;overflow:hidden;background:#f8fafc;display:flex;align-items:center;justify-content:center">'+
+            '<img id="rh-foto-prev" src="" style="width:100%;height:100%;object-fit:cover;display:none"/>'+
+            '<span id="rh-foto-vacia" style="font-size:11px;color:var(--g3);text-align:center;padding:6px">Sin foto</span>'+
+          '</div>'+
+          '<div style="flex:1;min-width:200px">'+
+            '<input type="file" id="rh-foto-file" accept="image/*" onchange="rhFotoElegir(event)" style="font-size:12px"/>'+
+            '<div style="font-size:11px;color:var(--g3);margin-top:6px">Elige una imagen y ajústala con el recuadro. Se guarda recortada (tamaño carné).</div>'+
+            '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'+
+              '<button type="button" class="btn bg" style="font-size:11px;padding:4px 10px" onclick="rhFotoQuitar()">🗑️ Quitar foto</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
       bloquesHtml+
       '<div id="rh-modal-msg" style="font-size:11px;margin:8px 0;display:none"></div>'+
     '</div>'+
@@ -12785,6 +12946,8 @@ function rhGuardarTrabajador(){
       var idx=RH_DATA.findIndex(function(x){return String(x.CEDULA)===String(t.CEDULA);});
       if(idx>=0) RH_DATA[idx]=t;
       else RH_DATA.push(t);
+      // Guardar la foto (tabla aparte); si se quitó, se borra
+      fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarFotoTrabajador',cedula:t.CEDULA,foto:RH_FOTO_ACTUAL||''})}).catch(function(){});
       rhRender();
       rhCerrarModal();
     } else {
