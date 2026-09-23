@@ -4666,7 +4666,8 @@ function calcT(n){
       // NORTE: pago se liquida en nómina
       if(info) info.textContent=ht>0?(ht>96?'⚠️ Supera 96h — habrá horas extras':'✅ Dentro de las 96h ordinarias por quincena'):'';
       var s=document.getElementById('s'+n);
-      if(s) s.textContent=ht>0?ht+'h (liquidar en nómina)':'$0';
+      var cobroVigN=Math.round(ht*((cobroH||0)||vigCobroTarifaVigente()));
+      if(s) s.textContent=ht>0?(ht+'h · Cobro '+cop(cobroVigN)+' (pago en nómina)'):'$0';
     }
   } else {
     if(cnorm) cnorm.style.display='';
@@ -4696,7 +4697,13 @@ function calcTots(){
     var lab=document.getElementById('lab'+i);
     if(!lab||!lab.value) continue;
     var esVigI=lab.dataset.vig==='1';
-    if(esVigI&&S.sede!=='SUR') continue; // NORTE: vigilancia se liquida en nómina
+    if(esVigI&&S.sede!=='SUR'){
+      // NORTE: el PAGO se liquida en nómina, pero el COBRO a Riopaila sí se calcula (horas × tarifa)
+      var hdN=parseFloat(document.getElementById('vhd'+i)&&document.getElementById('vhd'+i).value)||0;
+      var hnN=parseFloat(document.getElementById('vhn'+i)&&document.getElementById('vhn'+i).value)||0;
+      tc+=Math.round((hdN+hnN)*((parseFloat(lab.dataset.c)||0)||vigCobroTarifaVigente()));
+      continue;
+    }
     if(esVigI&&S.sede==='SUR'){
       var hd2=parseFloat(document.getElementById('vhd'+i)&&document.getElementById('vhd'+i).value)||0;
       var hn2=parseFloat(document.getElementById('vhn'+i)&&document.getElementById('vhn'+i).value)||0;
