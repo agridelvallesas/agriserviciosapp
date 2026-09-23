@@ -12875,40 +12875,38 @@ function rhHojaPDF(t, foto){
     {text:'Elaborada el '+hoy.getDate()+' de '+MESL[hoy.getMonth()]+' de '+hoy.getFullYear(), fontSize:8, color:'#94a3b8', margin:[0,3,0,0]}
   ]};
   var cols=[izq];
-  if(foto) cols.push({width:88, image:foto, fit:[88,110], alignment:'right'});
-  content.push({columns:cols, columnGap:10, margin:[0,0,0,6]});
-  content.push({canvas:[{type:'line',x1:0,y1:0,x2:531,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}], margin:[0,0,0,10]});
+  if(foto) cols.push({width:74, image:foto, fit:[74,92], alignment:'right'});
+  content.push({columns:cols, columnGap:10, margin:[0,0,0,4]});
+  content.push({canvas:[{type:'line',x1:0,y1:0,x2:531,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}], margin:[0,0,0,7]});
 
   // Secciones
   ordenSec.forEach(function(sec){
-    content.push({
-      table:{widths:['*'], body:[[{text:(HOJA_SECS[sec]||sec), fontSize:9.5, bold:true, color:'#ffffff',
-        fillColor:'#2d5a3d', characterSpacing:0.8, margin:[6,3,6,3]}]]},
-      layout:'noBorders', margin:[0,0,0,4]
-    });
     var datos=porSec[sec], filas=[];
     for(var i=0;i<datos.length;i+=2){
       var celda=function(d){
         if(!d) return {text:''};
         return {stack:[
           {text:String(d.n).toUpperCase(), fontSize:8, color:'#475569', characterSpacing:0.4},
-          {text:d.v, fontSize:10.5, bold:true, color:'#0f172a', margin:[0,1,0,0]}
-        ], margin:[2,3,2,3]};
+          {text:d.v, fontSize:10.5, bold:true, color:'#0f172a', margin:[0,0.5,0,0]}
+        ], margin:[2,1.5,2,1.5]};
       };
       filas.push([celda(datos[i]), celda(datos[i+1])]);
     }
-    content.push({
-      table:{widths:['*','*'], body:filas},
-      layout:{ hLineWidth:function(i,node){ return (i===0||i===node.table.body.length)?0:0.6; },
-               vLineWidth:function(){ return 0; },
-               hLineColor:function(){ return '#e2e8f0'; },
-               paddingTop:function(){return 1;}, paddingBottom:function(){return 1;} },
-      margin:[0,0,0,9]
-    });
+    // La barra de la sección y sus datos van juntos: nunca se parten entre páginas
+    content.push({unbreakable:true, margin:[0,0,0,6], stack:[
+      { table:{widths:['*'], body:[[{text:(HOJA_SECS[sec]||sec), fontSize:9.5, bold:true, color:'#ffffff',
+          fillColor:'#2d5a3d', characterSpacing:0.8, margin:[6,2.5,6,2.5]}]]},
+        layout:'noBorders', margin:[0,0,0,2] },
+      { table:{widths:['*','*'], body:filas},
+        layout:{ hLineWidth:function(i,node){ return (i===0||i===node.table.body.length)?0:0.6; },
+                 vLineWidth:function(){ return 0; },
+                 hLineColor:function(){ return '#e2e8f0'; },
+                 paddingTop:function(){return 0.5;}, paddingBottom:function(){return 0.5;} } }
+    ]});
   });
 
   // Firmas
-  content.push({margin:[0,26,0,0], columns:[
+  content.push({unbreakable:true, margin:[0,16,0,0], columns:[
     {width:'*', stack:[
       {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
       {text:'Firma del trabajador', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
@@ -12928,10 +12926,10 @@ function rhHojaPDF(t, foto){
 
   var dd={
     pageSize:'LETTER',
-    pageMargins:[42, logo?96:74, 42, 46],
+    pageMargins:[42, logo?84:64, 42, 40],
     header:function(){
       var st=[];
-      if(logo) st.push({image:logo, fit:[170,46], alignment:'center', margin:[0,14,0,3]});
+      if(logo) st.push({image:logo, fit:[150,40], alignment:'center', margin:[0,10,0,2]});
       st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
       if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
       st.push({canvas:[{type:'line',x1:42,y1:0,x2:573,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}]});
