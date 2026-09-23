@@ -6073,7 +6073,7 @@ function carTodos(desde){
         +'<td>'+(al?'<span class="bdg br2">⚠️</span>':'')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obs||'')+'">'+(r.obs?r.obs.substring(0,25):'—')+'</td>'
         +'<td style="font-size:10px;color:var(--g3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(r.obsTarea||'')+'">'+(r.obsTarea?r.obsTarea.substring(0,25):'—')+'</td>'
-        +'<td style="font-size:10px;color:var(--g3);white-space:nowrap">'+(r.fReg?String(r.fReg).slice(0,16).replace('T',' '):'—')+'</td>'
+        +'<td style="font-size:10px;color:var(--g3);white-space:nowrap">'+fmtFechaHoraCO(r.fReg)+'</td>'
         +'<td class="no-print">'+(puedeGestionarRegs()?'<button class="btn bas" style="padding:3px 8px;font-size:11px" onclick="abrirME(\''+r.id+'\')">Editar</button>':'<span style="color:var(--g3)">\u2014</span>')+'</td>'
         +'<td class="no-print">'+(puedeGestionarRegs()?'<input type="checkbox" class="td-chk" value="'+r.id+'"/>':'')+'</td>'
         +'</tr>';
@@ -8151,6 +8151,22 @@ document.addEventListener('change', function(e){
   }
 });
 
+// Muestra una marca de tiempo guardada en UTC con la hora real de Colombia (UTC-5)
+function fmtFechaHoraCO(v){
+  if(!v) return '—';
+  var str=String(v).trim();
+  // Si viene sin zona horaria, se asume UTC (así lo guarda el backend)
+  var iso=str.replace(' ','T');
+  if(!/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(iso)) iso+='Z';
+  var d=new Date(iso);
+  if(isNaN(d.getTime())) return str.slice(0,16).replace('T',' ');
+  try{
+    return d.toLocaleString('es-CO',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+  }catch(e){
+    var l=new Date(d.getTime()-5*3600000);
+    return l.toISOString().slice(0,16).replace('T',' ');
+  }
+}
 function fmtFechaCorta(f){
   if(!f||f==='—'||f==='') return '—';
   // Formato YYYY-MM-DD (viene del input date HTML)
