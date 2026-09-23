@@ -12727,23 +12727,48 @@ function rhHojaFmt(c, v){
   if(c.k==='CEDULA'||c.k==='CONYUGE_CEDULA'){ return String(v).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
   return v;
 }
+// Líneas y secciones que se pueden ordenar u ocultar desde RH → Configuración
+var HOJA_ITEMS=[
+  {id:'fecha_elab', n:'Fecha de elaboración'},
+  {id:'nombres',    n:'Nombres'},
+  {id:'apellidos',  n:'Apellidos'},
+  {id:'cedula',     n:'Cédula de ciudadanía'},
+  {id:'fnac',       n:'Fecha y lugar de nacimiento'},
+  {id:'telefono',   n:'Celular y fijo'},
+  {id:'direccion',  n:'Dirección'},
+  {id:'barrio',     n:'Barrio'},
+  {id:'sangre',     n:'Tipo de sangre'},
+  {id:'fingreso',   n:'Fecha de ingreso'},
+  {id:'cargo',      n:'Cargo'},
+  {id:'email',      n:'Correo electrónico'},
+  {id:'civil',      n:'▸ Sección: ESTADO CIVIL'},
+  {id:'escolar',    n:'▸ Sección: NIVEL DE ESCOLARIDAD'},
+  {id:'emerg',      n:'▸ Sección: EN CASO DE ACCIDENTE'},
+  {id:'dotacion',   n:'▸ Sección: INFORMACIÓN PARA DOTACIÓN'},
+  {id:'afiliacion', n:'Afiliado a (EPS, AFP, ARL, CCF)'}
+];
+function hojaOrden(){
+  var guardado=(RH_CFG&&Array.isArray(RH_CFG.orden))?RH_CFG.orden:[];
+  var ids=HOJA_ITEMS.map(function(i){return i.id;});
+  var orden=guardado.filter(function(id){return ids.indexOf(id)>=0;});
+  ids.forEach(function(id){ if(orden.indexOf(id)<0) orden.push(id); });
+  return orden;
+}
+function hojaVisible(id){ return !(RH_CFG&&RH_CFG.ocultos&&RH_CFG.ocultos[id]); }
+
 function rhHojaRender(t, foto){
   var MES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  function fLarga(iso){ // 23 DE AGOSTO DE 2003
+  function fLarga(iso){
     var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return '';
     return parseInt(m[3])+' DE '+MES[parseInt(m[2])-1]+' DE '+m[1];
   }
   function v(k){ return String(t[k]||'').trim(); }
-  function sub(txt, ancho){ // valor subrayado como en el formato
+  function sub(txt, ancho){
     return '<span style="border-bottom:1px solid #000;display:inline-block;min-width:'+(ancho||'120px')+';padding:0 4px">'+gcEsc(txt||'')+'</span>';
   }
-  function linea(lbl, val, ancho){
-    return '<div style="margin:5px 0;font-size:10.5pt">'+lbl+' '+sub(val,ancho)+'</div>';
-  }
-  function titulo(txt){
-    return '<div style="text-align:center;font-weight:bold;font-size:11pt;margin:10px 0 6px">'+txt+'</div>';
-  }
-  function marca(cond){ return cond?'<strong>X</strong>':'&nbsp;&nbsp;'; }
+  function linea(lbl, val, ancho){ return '<div style="margin:5px 0;font-size:10.5pt">'+lbl+' '+sub(val,ancho)+'</div>'; }
+  function titulo(txt){ return '<div style="text-align:center;font-weight:bold;font-size:11pt;margin:10px 0 6px">'+txt+'</div>'; }
+  function marca(c){ return c?'<strong>X</strong>':'&nbsp;&nbsp;'; }
 
   var hoy=new Date();
   var fechaElab=MES[hoy.getMonth()]+' '+hoy.getDate()+' DE '+hoy.getFullYear();
@@ -12752,12 +12777,53 @@ function rhHojaRender(t, foto){
   var ced=String(v('CEDULA')).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
   var cedDe=ced+(v('LUGAR_EXP')?(' DE '+v('LUGAR_EXP')+(v('DEPTO_EXP')?(' - '+v('DEPTO_EXP')):'')):'');
   var nacim=fLarga(v('FECHA_NAC'))+(v('CIUDAD_NAC')?(' – '+v('CIUDAD_NAC')+(v('DEPTO_NAC')?(' – '+v('DEPTO_NAC')):'')):'');
-  var est=v('ESTADO_CIVIL').toUpperCase();
-  var niv=v('NIVEL_EDUCATIVO').toUpperCase();
-  var esPrim=niv.indexOf('PRIMARIA')>=0;
+  var est=v('ESTADO_CIVIL').toUpperCase(), niv=v('NIVEL_EDUCATIVO').toUpperCase();
   var esSec=(niv.indexOf('BACHILLER')>=0||niv.indexOf('SECUNDARIA')>=0);
-  var esTec=(niv==='TÉCNICO'||niv==='TECNICO');
-  var esTecno=(niv.indexOf('TECNÓLOGO')>=0||niv.indexOf('TECNOLOGO')>=0);
+
+  var P={};
+  P.fecha_elab = linea('FECHA DE ELABORACIÓN:', fechaElab,'190px');
+  P.nombres    = linea('NOMBRES:', nombres,'200px');
+  P.apellidos  = linea('APELLIDOS:', apellidos,'200px');
+  P.cedula     = linea('CÉDULA CIUDADANÍA:', cedDe,'260px');
+  P.fnac       = linea('FECHA DE NACIMIENTO:', nacim,'260px');
+  P.telefono   = linea('CELULAR Y FIJO:', v('TELEFONO'),'180px');
+  P.direccion  = linea('DIRECCIÓN:', v('DIRECCION'),'320px');
+  P.barrio     = linea('BARRIO:', v('BARRIO'),'240px');
+  P.sangre     = linea('TIPO DE SANGRE:', v('TIPO_SANGRE'),'80px');
+  P.fingreso   = linea('FECHA DE INGRESO:', fLarga(v('FECHA_INGRESO')),'240px');
+  P.cargo      = linea('CARGO:', v('CARGO'),'260px');
+  P.email      = linea('CORREO ELECTRÓNICO:', v('EMAIL'),'260px');
+  P.civil      = titulo('ESTADO CIVIL')
+    +'<div style="font-size:10.5pt;margin:5px 0">'
+      +'CASADO: '+sub(marca(est.indexOf('CASADO')>=0),'40px')+' &nbsp; '
+      +'UNIÓN LIBRE: '+sub(marca(est.indexOf('UNIÓN')>=0||est.indexOf('UNION')>=0),'40px')+' &nbsp; '
+      +'SOLTERO: '+sub(marca(est.indexOf('SOLTERO')>=0),'40px')+' &nbsp; '
+      +'N.º DE HIJOS: '+sub(v('NUM_HIJOS'),'50px')+'</div>'
+    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRE DEL CÓNYUGUE: '+sub(v('CONYUGE_NOMBRE'),'230px')
+      +' &nbsp; CELULAR: '+sub(v('CONYUGE_TEL'),'120px')+'</div>';
+  P.escolar    = titulo('NIVEL DE ESCOLARIDAD')
+    +'<div style="font-size:10.5pt;margin:5px 0">'
+      +'PRIMARIA '+sub(marca(niv.indexOf('PRIMARIA')>=0),'50px')+' &nbsp; '
+      +'SECUNDARIA '+sub(esSec?(v('GRADO_ESCOLAR')||'X'):'','60px')+' &nbsp; '
+      +'TÉCNICO '+sub(marca(niv==='TÉCNICO'||niv==='TECNICO'),'50px')+' &nbsp; '
+      +'TECNÓLOGO '+sub(marca(niv.indexOf('TECNÓLOGO')>=0||niv.indexOf('TECNOLOGO')>=0),'50px')+'</div>'
+    +(v('TITULO')?('<div style="font-size:10.5pt;margin:5px 0">TÍTULO: '+sub(v('TITULO'),'250px')+'</div>'):'');
+  P.emerg      = titulo('EN CASO DE ACCIDENTE AVISAR A:')
+    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRES Y APELLIDOS: '+sub(v('CONTACTO_EMERG'),'230px')
+      +' &nbsp; CELULAR: '+sub(v('TEL_EMERG'),'120px')+'</div>';
+  P.dotacion   = titulo('INFORMACIÓN PARA DOTACIÓN')
+    +'<div style="font-size:10.5pt;margin:5px 0;text-align:center">'
+      +'CAMISA: '+sub(v('TALLA_CAMISA'),'50px')+' &nbsp; PANTALÓN: '+sub(v('TALLA_PANTALON'),'50px')
+      +' &nbsp; BOTAS: '+sub(v('TALLA_BOTA'),'50px')+' &nbsp; GUAYOS: '+sub(v('TALLA_GUAYO'),'50px')+'</div>';
+  P.afiliacion = '<div style="font-size:10.5pt;margin:8px 0"><strong>AFILIADO A: EPS:</strong> '+sub(v('EPS'),'110px')
+      +' <strong>AFP:</strong> '+sub(v('PENSION'),'110px')
+      +' <strong>ARL:</strong> '+sub(v('ARL'),'100px')
+      +' <strong>CCF:</strong> '+sub(v('CAJA'),'100px')+'</div>';
+
+  // Las primeras líneas van junto a la foto; el resto debajo
+  var orden=hojaOrden().filter(hojaVisible);
+  var arriba=orden.slice(0,6).map(function(id){return P[id]||'';}).join('');
+  var abajo=orden.slice(6).map(function(id){return P[id]||'';}).join('');
 
   var fotoHtml=foto
     ?'<img src="'+foto+'" style="width:120px;height:150px;object-fit:cover;border:1px solid #000"/>'
@@ -12766,59 +12832,11 @@ function rhHojaRender(t, foto){
   var cuerpo='<div class="body" style="font-size:10.5pt">'
     +'<div style="text-align:center;font-weight:bold;font-size:12pt;margin-bottom:8px">HOJA DE DATOS</div>'
     +'<table style="width:100%"><tr>'
-      +'<td style="vertical-align:top">'
-        +linea('FECHA DE ELABORACIÓN:', fechaElab,'190px')
-        +linea('NOMBRES:', nombres,'200px')
-        +linea('APELLIDOS:', apellidos,'200px')
-        +linea('CÉDULA CIUDADANÍA:', cedDe,'260px')
-        +linea('FECHA DE NACIMIENTO:', nacim,'260px')
-        +linea('CELULAR Y FIJO:', v('TELEFONO'),'180px')
-      +'</td>'
+      +'<td style="vertical-align:top">'+arriba+'</td>'
       +'<td style="vertical-align:top;text-align:center;width:140px">'+fotoHtml
         +'<div style="font-weight:bold;font-size:9pt;margin-top:3px">FOTO</div></td>'
     +'</tr></table>'
-    +linea('DIRECCIÓN:', v('DIRECCION'),'320px')
-    +linea('BARRIO:', v('BARRIO'),'240px')
-    +linea('TIPO DE SANGRE:', v('TIPO_SANGRE'),'80px')
-    +linea('FECHA DE INGRESO:', fLarga(v('FECHA_INGRESO')),'240px')
-    +linea('CARGO:', v('CARGO'),'260px')
-    +linea('CORREO ELECTRÓNICO:', v('EMAIL'),'260px')
-
-    +titulo('ESTADO CIVIL')
-    +'<div style="font-size:10.5pt;margin:5px 0">'
-      +'CASADO: '+sub(marca(est.indexOf('CASADO')>=0),'40px')+' &nbsp; '
-      +'UNIÓN LIBRE: '+sub(marca(est.indexOf('UNIÓN')>=0||est.indexOf('UNION')>=0),'40px')+' &nbsp; '
-      +'SOLTERO: '+sub(marca(est.indexOf('SOLTERO')>=0),'40px')+' &nbsp; '
-      +'N.º DE HIJOS: '+sub(v('NUM_HIJOS'),'50px')
-    +'</div>'
-    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRE DEL CÓNYUGUE: '+sub(v('CONYUGE_NOMBRE'),'230px')
-      +' &nbsp; CELULAR: '+sub(v('CONYUGE_TEL'),'120px')+'</div>'
-
-    +titulo('NIVEL DE ESCOLARIDAD')
-    +'<div style="font-size:10.5pt;margin:5px 0">'
-      +'PRIMARIA '+sub(marca(esPrim),'50px')+' &nbsp; '
-      +'SECUNDARIA '+sub(esSec?(v('GRADO_ESCOLAR')||'X'):'','60px')+' &nbsp; '
-      +'TÉCNICO '+sub(marca(esTec),'50px')+' &nbsp; '
-      +'TECNÓLOGO '+sub(marca(esTecno),'50px')
-    +'</div>'
-    +(v('TITULO')?('<div style="font-size:10.5pt;margin:5px 0">TÍTULO: '+sub(v('TITULO'),'250px')+'</div>'):'')
-
-    +titulo('EN CASO DE ACCIDENTE AVISAR A:')
-    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRES Y APELLIDOS: '+sub(v('CONTACTO_EMERG'),'230px')
-      +' &nbsp; CELULAR: '+sub(v('TEL_EMERG'),'120px')+'</div>'
-
-    +titulo('INFORMACIÓN PARA DOTACIÓN')
-    +'<div style="font-size:10.5pt;margin:5px 0;text-align:center">'
-      +'CAMISA: '+sub(v('TALLA_CAMISA'),'50px')+' &nbsp; '
-      +'PANTALÓN: '+sub(v('TALLA_PANTALON'),'50px')+' &nbsp; '
-      +'BOTAS: '+sub(v('TALLA_BOTA'),'50px')+' &nbsp; '
-      +'GUAYOS: '+sub(v('TALLA_GUAYO'),'50px')
-    +'</div>'
-    +'<div style="font-size:10.5pt;margin:8px 0"><strong>AFILIADO A: EPS:</strong> '+sub(v('EPS'),'110px')
-      +' <strong>AFP:</strong> '+sub(v('PENSION'),'110px')
-      +' <strong>ARL:</strong> '+sub(v('ARL'),'100px')
-      +' <strong>CCF:</strong> '+sub(v('CAJA'),'100px')+'</div>'
-
+    +abajo
     +'<table style="width:100%;margin-top:45px"><tr>'
       +'<td style="width:45%;text-align:center;font-size:9.5pt">'
         +'<div style="border-top:1px solid #000;padding-top:3px">FIRMA DEL TRABAJADOR</div></td>'
@@ -16451,32 +16469,47 @@ function rhCfgInit(){
   cargarConfigEmpresa(empCfgLlenar);
   rhCfgTab('emp');
 }
-// ── Configuración: campos visibles en la hoja de datos ──
+// ── Configuración: orden y visibilidad de la hoja de datos ──
+var HOJA_ORDEN_TMP=[];
 function rhCfgCamposRender(){
   var cont=document.getElementById('rhcfg-campos'); if(!cont) return;
-  cont.innerHTML=Object.entries(RH_BLOQUES).map(function(e){
-    var b=e[1];
-    return '<div style="margin-bottom:12px">'
-      +'<div style="font-size:12px;font-weight:700;color:var(--v);margin-bottom:6px">'+gcEsc(b.titulo)+'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px">'
-      +b.campos.map(function(c){
-        var on=rhCampoVisible(c.k);
-        return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:3px 6px;border-radius:4px">'
-          +'<input type="checkbox" class="rhcfg-chk" data-k="'+c.k+'"'+(on?' checked':'')+'/> '+gcEsc(c.n)+'</label>';
-      }).join('')
-      +'</div></div>';
-  }).join('');
+  if(!HOJA_ORDEN_TMP.length) HOJA_ORDEN_TMP=hojaOrden();
+  var mapa={}; HOJA_ITEMS.forEach(function(i){ mapa[i.id]=i.n; });
+  cont.innerHTML='<div style="font-size:12px;color:var(--g3);margin-bottom:8px">Usa las flechas para cambiar el orden en que salen impresos. Desmarca los que no quieras que aparezcan.</div>'
+    +'<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden">'
+    +HOJA_ORDEN_TMP.map(function(id,i){
+      var oculto=(RH_CFG&&RH_CFG.ocultos&&RH_CFG.ocultos[id]);
+      var esSec=String(mapa[id]||'').indexOf('▸')===0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:'+(i?'1px solid var(--bd)':'none')+';'+(esSec?'background:var(--vs)':'')+'">'
+        +'<span style="width:22px;text-align:center;color:var(--g3);font-size:11px">'+(i+1)+'</span>'
+        +'<input type="checkbox" class="hoja-chk" data-id="'+id+'"'+(oculto?'':' checked')+'/>'
+        +'<span style="flex:1;font-size:12px'+(esSec?';font-weight:700;color:var(--v)':'')+'">'+gcEsc(mapa[id]||id)+'</span>'
+        +'<button class="btn bg" style="padding:2px 8px;font-size:11px" onclick="rhCfgMover('+i+',-1)"'+(i===0?' disabled':'')+'>&#9650;</button>'
+        +'<button class="btn bg" style="padding:2px 8px;font-size:11px" onclick="rhCfgMover('+i+',1)"'+(i===HOJA_ORDEN_TMP.length-1?' disabled':'')+'>&#9660;</button>'
+      +'</div>';
+    }).join('')+'</div>';
+}
+function rhCfgMover(i, dir){
+  var j=i+dir; if(j<0||j>=HOJA_ORDEN_TMP.length) return;
+  rhCfgLeerChecks();
+  var tmp=HOJA_ORDEN_TMP[i]; HOJA_ORDEN_TMP[i]=HOJA_ORDEN_TMP[j]; HOJA_ORDEN_TMP[j]=tmp;
+  rhCfgCamposRender();
+}
+function rhCfgLeerChecks(){
+  var oc={};
+  document.querySelectorAll('#rhcfg-campos .hoja-chk').forEach(function(ch){ if(!ch.checked) oc[ch.getAttribute('data-id')]=true; });
+  RH_CFG=Object.assign({},RH_CFG,{ocultos:oc});
 }
 function rhCfgCamposTodos(v){
-  document.querySelectorAll('#rhcfg-campos .rhcfg-chk').forEach(function(ch){ ch.checked=!!v; });
+  document.querySelectorAll('#rhcfg-campos .hoja-chk').forEach(function(ch){ ch.checked=!!v; });
+  rhCfgLeerChecks();
 }
 function rhCfgCamposGuardar(){
-  var campos={};
-  document.querySelectorAll('#rhcfg-campos .rhcfg-chk').forEach(function(ch){ campos[ch.getAttribute('data-k')]=ch.checked; });
-  RH_CFG={campos:campos};
+  rhCfgLeerChecks();
+  RH_CFG=Object.assign({},RH_CFG,{orden:HOJA_ORDEN_TMP.slice()});
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarRhConfig',config:RH_CFG})})
   .then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ RH_CFG_LISTO=true; alert('✅ Configuración guardada. Se aplica a las próximas hojas de datos.'); }
+    if(d&&d.ok){ RH_CFG_LISTO=true; alert('✅ Orden y campos guardados. Se aplican a las próximas hojas de datos.'); }
     else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
   }).catch(function(e){alert('Error de red: '+e.message);});
 }
@@ -16515,7 +16548,7 @@ function rhCatListBorrar(tipo, valor){
 }
 
 function rhCfgTab(n){
-  if(n==='hoja'){ rhCargarConfig(rhCfgCamposRender); }
+  if(n==='hoja'){ rhCargarConfig(function(){ HOJA_ORDEN_TMP=hojaOrden(); rhCfgCamposRender(); }); }
   if(n==='list'){ RH_CAT_LISTO=false; rhCargarCatalogos(rhCatListRender); }
   ['emp','plt','con','hoja','list'].forEach(function(x){
     var pane=document.getElementById('rhcfg-'+x); if(pane) pane.style.display=(x===n)?'block':'none';
