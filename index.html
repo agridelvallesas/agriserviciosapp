@@ -14946,10 +14946,10 @@ function abrirCartaImprimible(htmlBody, titulo){
       '@page{size:Letter;margin:0}'+
       'body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.5;color:#000;margin:0}'+
       /* HEADER */
-      '.hdr{text-align:center;border-bottom:2px solid #2d5a3d;padding:16px 2cm 12px;margin:0}'+
-      '.hdr h1{margin:0;font-size:16pt;color:#2d5a3d}'+
+      '.hdr{text-align:center;border-bottom:2px solid #2d5a3d;padding:10px 2cm 8px;margin:0}'+
+      '.hdr h1{margin:0;font-size:14pt;color:#2d5a3d}'+
       '.hdr .nit{font-size:11pt;color:#555;margin-top:4px}'+
-      '.hdr img{max-height:75px;margin-bottom:6px}'+
+      '.hdr img{max-height:62px;margin-bottom:3px}'+
       /* FOOTER */
       '.ftr{text-align:center;font-size:9pt;color:#666;border-top:1px solid #ddd;padding:8px 2cm 12px;margin:0}'+
       /* CUERPO */
@@ -14962,11 +14962,22 @@ function abrirCartaImprimible(htmlBody, titulo){
         '.hdr{position:fixed;top:0;left:0;right:0;background:#fff}'+
         '.ftr{position:fixed;bottom:0;left:0;right:0;background:#fff}'+
         /* El cuerpo reserva espacio para no solaparse con header/footer */
-        '.body{padding-top:44mm;padding-bottom:24mm}'+
+        '.body{padding-top:34mm;padding-bottom:18mm}'+
       '}'+
     '</style></head><body>'+
     '<div class="toolbar"><button onclick="window.print()">🖨️ Imprimir / PDF</button><button onclick="window.opener&&window.opener.descargarCartaWordActual()">📄 Word</button></div>'+
     doc+
+    '<script>(function(){'+
+      'function ajustar(){'+
+        'var h=document.querySelector(".hdr"),f=document.querySelector(".ftr"),b=document.querySelector(".body");'+
+        'if(!b)return;'+
+        'if(h&&h.offsetHeight) b.style.paddingTop=(h.offsetHeight+16)+"px";'+
+        'if(f&&f.offsetHeight) b.style.paddingBottom=(f.offsetHeight+10)+"px";'+
+      '}'+
+      'window.addEventListener("load",ajustar);'+
+      'window.addEventListener("beforeprint",ajustar);'+
+      'setTimeout(ajustar,300);'+
+    '})();<\/script>'+
     '</body></html>'
   );
   w.document.close();
