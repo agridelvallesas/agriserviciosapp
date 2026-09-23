@@ -51,6 +51,8 @@ const PORTADAS = new Set([
   'getConsolidadoCoord',
   'getIndiceDup', 'verificarDuplicadosLote',
   'guardarTarifa',
+  'getRhCatalogos', 'guardarRhCatalogo', 'eliminarRhCatalogo',
+  'getFotoTrabajador', 'guardarFotoTrabajador',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -148,6 +150,11 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
+    else if (accion === 'getRhCatalogos')       r = await accionGetRhCatalogos(body, env);
+    else if (accion === 'guardarRhCatalogo')    r = await accionGuardarRhCatalogo(body, env);
+    else if (accion === 'eliminarRhCatalogo')   r = await accionEliminarRhCatalogo(body, env);
+    else if (accion === 'getFotoTrabajador')    r = await accionGetFotoTrabajador(body, env);
+    else if (accion === 'guardarFotoTrabajador') r = await accionGuardarFotoTrabajador(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -655,6 +662,10 @@ const TRAB_MAP = [
   ['BANCO','banco'],['CUENTA','num_cuenta'],
   ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
   ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
+  ['PAIS_NAC','pais_nac'],['DEPTO_NAC','depto_nac'],['CIUDAD_NAC','ciudad_nac'],['DEPTO_EXP','depto_exp'],
+  ['NIVEL_EDUCATIVO','nivel_educativo'],['TITULO','titulo'],['INSTITUCION','institucion'],
+  ['ESTUDIA_ACTUAL','estudia_actual'],['EST_QUE','est_que'],['EST_DONDE','est_donde'],['EST_SEMESTRE','est_semestre'],
+  ['ESTADO_CIVIL','estado_civil'],['CONYUGE_NOMBRE','conyuge_nombre'],['CONYUGE_CEDULA','conyuge_cedula'],['CONYUGE_TEL','conyuge_tel'],
   ['OBSERVACIONES','observacion'],['FECHA_CREACION','fecha_registro'],['ACTUALIZADO_POR','actualizado_por'],
 ];
 async function accionGetTrabajadores(body, env) {
@@ -664,7 +675,8 @@ async function accionGetTrabajadores(body, env) {
     const o = {};
     for (const [key, col] of TRAB_MAP) {
       let v = f[col];
-      if (v === null || v === undefined) v = '';
+      if (col === 'estudia_actual') v = (v === true || v === 'true') ? 'SI' : '';
+      else if (v === null || v === undefined) v = '';
       else if (col.indexOf('fecha') === 0) v = String(v).slice(0, 10);
       else v = String(v);
       o[key] = v;
@@ -1053,6 +1065,9 @@ function trabAObjDB(t) {
   }
   row.cedula = parseInt(String(t.CEDULA || '').replace(/,/g, '')) || null;
   row.nombres = nombresConcat(t);
+  // Campo booleano: el formulario envía 'SI' / '' — la columna es boolean
+  const ea = String(t.ESTUDIA_ACTUAL == null ? '' : t.ESTUDIA_ACTUAL).trim().toUpperCase();
+  row.estudia_actual = (ea === 'SI' || ea === 'SÍ' || ea === 'TRUE' || ea === '1');
   return row;
 }
 
@@ -1893,4 +1908,49 @@ async function accionGuardarTarifa(body, env) {
   if (!ex.length) return { ok: false, error: 'No se encontró la tarifa ' + codigo + (sede ? ' en la sede ' + sede : '') };
   await sbWrite(env, 'PATCH', `tarifas?${filtro}`, cambios);
   return { ok: true, codigo, sede, cambios };
+}
+
+
+// ── Catálogos de RH (listas del formulario: departamentos, municipios, EPS, ARL, etc.) ──
+async function accionGetRhCatalogos(body, env) {
+  const tipo = String(body.tipo || '').trim();
+  let path = 'rh_catalogos?select=id,tipo,valor,padre,orden,activo&activo=is.true&order=tipo,orden,valor';
+  if (tipo) path = `rh_catalogos?select=id,tipo,valor,padre,orden,activo&tipo=eq.${encodeURIComponent(tipo)}&activo=is.true&order=orden,valor`;
+  const rows = await sbAll(env, path);
+  // Compacto: [tipo, valor, padre] para que la carga sea liviana
+  return { ok: true, items: rows.map((r) => [String(r.tipo), String(r.valor), String(r.padre || '')]) };
+}
+async function accionGuardarRhCatalogo(body, env) {
+  const tipo = String(body.tipo || '').trim();
+  const valor = String(body.valor || '').trim().toUpperCase();
+  const padre = String(body.padre || '').trim().toUpperCase();
+  if (!tipo || !valor) return { ok: false, error: 'Falta tipo o valor' };
+  if (body.id) { await sbWrite(env, 'PATCH', `rh_catalogos?id=eq.${encodeURIComponent(body.id)}`, { valor, padre }); return { ok: true }; }
+  const ex = await sb(env, `rh_catalogos?select=id&tipo=eq.${encodeURIComponent(tipo)}&valor=eq.${encodeURIComponent(valor)}&padre=eq.${encodeURIComponent(padre)}&limit=1`);
+  if (ex.length) return { ok: true, id: ex[0].id };
+  await sbWrite(env, 'POST', 'rh_catalogos', { tipo, valor, padre });
+  return { ok: true };
+}
+async function accionEliminarRhCatalogo(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `rh_catalogos?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
+}
+
+// ── Foto del trabajador (tabla aparte para no alentar la lista de trabajadores) ──
+async function accionGetFotoTrabajador(body, env) {
+  const ced = String(body.cedula || '').replace(/[,.\s]/g, '').trim();
+  if (!ced) return { ok: false, error: 'Falta cédula' };
+  const rows = await sb(env, `trabajador_fotos?select=foto&cedula=eq.${encodeURIComponent(ced)}&limit=1`);
+  return { ok: true, foto: rows.length ? String(rows[0].foto || '') : '' };
+}
+async function accionGuardarFotoTrabajador(body, env) {
+  const ced = String(body.cedula || '').replace(/[,.\s]/g, '').trim();
+  if (!ced) return { ok: false, error: 'Falta cédula' };
+  const foto = String(body.foto || '');
+  if (!foto) { await sbWrite(env, 'DELETE', `trabajador_fotos?cedula=eq.${encodeURIComponent(ced)}`); return { ok: true, borrada: true }; }
+  const ex = await sb(env, `trabajador_fotos?select=cedula&cedula=eq.${encodeURIComponent(ced)}&limit=1`);
+  if (ex.length) await sbWrite(env, 'PATCH', `trabajador_fotos?cedula=eq.${encodeURIComponent(ced)}`, { foto, fecha_carga: new Date().toISOString() });
+  else await sbWrite(env, 'POST', 'trabajador_fotos', { cedula: ced, foto });
+  return { ok: true };
 }
