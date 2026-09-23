@@ -12728,41 +12728,105 @@ function rhHojaFmt(c, v){
   return v;
 }
 function rhHojaRender(t, foto){
-  var bloques=Object.entries(RH_BLOQUES).map(function(e){
-    var b=e[1];
-    var filas=b.campos.filter(function(c){
-      if(!rhCampoVisible(c.k)) return false;
-      // Ocultar condicionales que no aplican (cónyuge si es soltero, estudios si no estudia)
-      if(c.dep && c.dep.vals.indexOf(String(t[c.dep.k]||'').toUpperCase())<0) return false;
-      return String(t[c.k]||'').trim()!=='';
-    }).map(function(c){
-      return '<tr><td style="padding:3px 8px;border:1px solid #d1d5db;background:#f8fafc;width:38%;font-size:10pt">'+gcEsc(c.n)+'</td>'
-        +'<td style="padding:3px 8px;border:1px solid #d1d5db;font-size:10pt"><strong>'+gcEsc(rhHojaFmt(c,t[c.k]))+'</strong></td></tr>';
-    }).join('');
-    if(!filas) return '';
-    return '<div style="margin-bottom:10px"><div style="font-size:10pt;font-weight:700;color:#2d5a3d;border-bottom:1px solid #2d5a3d;margin-bottom:4px">'+gcEsc(b.titulo)+'</div>'
-      +'<table style="width:100%;border-collapse:collapse">'+filas+'</table></div>';
-  }).join('');
+  var MES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  function fLarga(iso){ // 23 DE AGOSTO DE 2003
+    var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return '';
+    return parseInt(m[3])+' DE '+MES[parseInt(m[2])-1]+' DE '+m[1];
+  }
+  function v(k){ return String(t[k]||'').trim(); }
+  function sub(txt, ancho){ // valor subrayado como en el formato
+    return '<span style="border-bottom:1px solid #000;display:inline-block;min-width:'+(ancho||'120px')+';padding:0 4px">'+gcEsc(txt||'')+'</span>';
+  }
+  function linea(lbl, val, ancho){
+    return '<div style="margin:5px 0;font-size:10.5pt">'+lbl+' '+sub(val,ancho)+'</div>';
+  }
+  function titulo(txt){
+    return '<div style="text-align:center;font-weight:bold;font-size:11pt;margin:10px 0 6px">'+txt+'</div>';
+  }
+  function marca(cond){ return cond?'<strong>X</strong>':'&nbsp;&nbsp;'; }
 
-  var fotoHtml=foto?'<img src="'+foto+'" style="width:100px;height:125px;object-fit:cover;border:1px solid #999"/>'
-                   :'<div style="width:100px;height:125px;border:1px dashed #bbb;display:flex;align-items:center;justify-content:center;font-size:9pt;color:#999">Sin foto</div>';
-  var hoy=new Date(); var fechaHoy=('0'+hoy.getDate()).slice(-2)+'/'+('0'+(hoy.getMonth()+1)).slice(-2)+'/'+hoy.getFullYear();
+  var hoy=new Date();
+  var fechaElab=MES[hoy.getMonth()]+' '+hoy.getDate()+' DE '+hoy.getFullYear();
+  var nombres=[v('P_NOMBRE'),v('S_NOMBRE')].filter(Boolean).join(' ');
+  var apellidos=[v('P_APELLIDO'),v('S_APELLIDO')].filter(Boolean).join(' ');
+  var ced=String(v('CEDULA')).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  var cedDe=ced+(v('LUGAR_EXP')?(' DE '+v('LUGAR_EXP')+(v('DEPTO_EXP')?(' - '+v('DEPTO_EXP')):'')):'');
+  var nacim=fLarga(v('FECHA_NAC'))+(v('CIUDAD_NAC')?(' – '+v('CIUDAD_NAC')+(v('DEPTO_NAC')?(' – '+v('DEPTO_NAC')):'')):'');
+  var est=v('ESTADO_CIVIL').toUpperCase();
+  var niv=v('NIVEL_EDUCATIVO').toUpperCase();
+  var esPrim=niv.indexOf('PRIMARIA')>=0;
+  var esSec=(niv.indexOf('BACHILLER')>=0||niv.indexOf('SECUNDARIA')>=0);
+  var esTec=(niv==='TÉCNICO'||niv==='TECNICO');
+  var esTecno=(niv.indexOf('TECNÓLOGO')>=0||niv.indexOf('TECNOLOGO')>=0);
 
-  var cuerpo='<div class="body">'
-    +'<h2 style="text-align:center;margin:0 0 10px;font-size:14pt">HOJA DE DATOS DEL TRABAJADOR</h2>'
-    +'<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px">'
-      +'<div style="flex:1">'
-        +'<div style="font-size:12pt;font-weight:700">'+gcEsc(t.NOMBRES||'')+'</div>'
-        +'<div style="font-size:10pt;color:#444">C.C. '+gcEsc(rhHojaFmt({k:'CEDULA'},t.CEDULA))+(t.CARGO?(' · '+gcEsc(t.CARGO)):'')+(t.SEDE?(' · Sede '+gcEsc(t.SEDE)):'')+'</div>'
-        +'<div style="font-size:9pt;color:#666;margin-top:4px">Fecha de impresión: '+fechaHoy+'</div>'
-      +'</div>'
-      +'<div>'+fotoHtml+'</div>'
+  var fotoHtml=foto
+    ?'<img src="'+foto+'" style="width:120px;height:150px;object-fit:cover;border:1px solid #000"/>'
+    :'<div style="width:120px;height:150px;border:1px solid #000"></div>';
+
+  var cuerpo='<div class="body" style="font-size:10.5pt">'
+    +'<div style="text-align:center;font-weight:bold;font-size:12pt;margin-bottom:8px">HOJA DE DATOS</div>'
+    +'<table style="width:100%"><tr>'
+      +'<td style="vertical-align:top">'
+        +linea('FECHA DE ELABORACIÓN:', fechaElab,'190px')
+        +linea('NOMBRES:', nombres,'200px')
+        +linea('APELLIDOS:', apellidos,'200px')
+        +linea('CÉDULA CIUDADANÍA:', cedDe,'260px')
+        +linea('FECHA DE NACIMIENTO:', nacim,'260px')
+        +linea('CELULAR Y FIJO:', v('TELEFONO'),'180px')
+      +'</td>'
+      +'<td style="vertical-align:top;text-align:center;width:140px">'+fotoHtml
+        +'<div style="font-weight:bold;font-size:9pt;margin-top:3px">FOTO</div></td>'
+    +'</tr></table>'
+    +linea('DIRECCIÓN:', v('DIRECCION'),'320px')
+    +linea('BARRIO:', v('BARRIO'),'240px')
+    +linea('TIPO DE SANGRE:', v('TIPO_SANGRE'),'80px')
+    +linea('FECHA DE INGRESO:', fLarga(v('FECHA_INGRESO')),'240px')
+    +linea('CARGO:', v('CARGO'),'260px')
+    +linea('CORREO ELECTRÓNICO:', v('EMAIL'),'260px')
+
+    +titulo('ESTADO CIVIL')
+    +'<div style="font-size:10.5pt;margin:5px 0">'
+      +'CASADO: '+sub(marca(est.indexOf('CASADO')>=0),'40px')+' &nbsp; '
+      +'UNIÓN LIBRE: '+sub(marca(est.indexOf('UNIÓN')>=0||est.indexOf('UNION')>=0),'40px')+' &nbsp; '
+      +'SOLTERO: '+sub(marca(est.indexOf('SOLTERO')>=0),'40px')+' &nbsp; '
+      +'N.º DE HIJOS: '+sub(v('NUM_HIJOS'),'50px')
     +'</div>'
-    +bloques
-    +'<div style="margin-top:40px;display:flex;justify-content:space-between;gap:30px">'
-      +'<div style="flex:1;text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9pt">Firma del trabajador<br>C.C. '+gcEsc(rhHojaFmt({k:'CEDULA'},t.CEDULA))+'</div>'
-      +'<div style="flex:1;text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9pt">Recursos Humanos</div>'
+    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRE DEL CÓNYUGUE: '+sub(v('CONYUGE_NOMBRE'),'230px')
+      +' &nbsp; CELULAR: '+sub(v('CONYUGE_TEL'),'120px')+'</div>'
+
+    +titulo('NIVEL DE ESCOLARIDAD')
+    +'<div style="font-size:10.5pt;margin:5px 0">'
+      +'PRIMARIA '+sub(marca(esPrim),'50px')+' &nbsp; '
+      +'SECUNDARIA '+sub(esSec?(v('GRADO_ESCOLAR')||'X'):'','60px')+' &nbsp; '
+      +'TÉCNICO '+sub(marca(esTec),'50px')+' &nbsp; '
+      +'TECNÓLOGO '+sub(marca(esTecno),'50px')
     +'</div>'
+    +(v('TITULO')?('<div style="font-size:10.5pt;margin:5px 0">TÍTULO: '+sub(v('TITULO'),'250px')+'</div>'):'')
+
+    +titulo('EN CASO DE ACCIDENTE AVISAR A:')
+    +'<div style="font-size:10.5pt;margin:5px 0">NOMBRES Y APELLIDOS: '+sub(v('CONTACTO_EMERG'),'230px')
+      +' &nbsp; CELULAR: '+sub(v('TEL_EMERG'),'120px')+'</div>'
+
+    +titulo('INFORMACIÓN PARA DOTACIÓN')
+    +'<div style="font-size:10.5pt;margin:5px 0;text-align:center">'
+      +'CAMISA: '+sub(v('TALLA_CAMISA'),'50px')+' &nbsp; '
+      +'PANTALÓN: '+sub(v('TALLA_PANTALON'),'50px')+' &nbsp; '
+      +'BOTAS: '+sub(v('TALLA_BOTA'),'50px')+' &nbsp; '
+      +'GUAYOS: '+sub(v('TALLA_GUAYO'),'50px')
+    +'</div>'
+    +'<div style="font-size:10.5pt;margin:8px 0"><strong>AFILIADO A: EPS:</strong> '+sub(v('EPS'),'110px')
+      +' <strong>AFP:</strong> '+sub(v('PENSION'),'110px')
+      +' <strong>ARL:</strong> '+sub(v('ARL'),'100px')
+      +' <strong>CCF:</strong> '+sub(v('CAJA'),'100px')+'</div>'
+
+    +'<table style="width:100%;margin-top:45px"><tr>'
+      +'<td style="width:45%;text-align:center;font-size:9.5pt">'
+        +'<div style="border-top:1px solid #000;padding-top:3px">FIRMA DEL TRABAJADOR</div></td>'
+      +'<td style="width:10%"></td>'
+      +'<td style="width:45%;text-align:center;font-size:9.5pt">'
+        +'<div style="height:40px">'+(typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:'')+'</div>'
+        +'<div style="border-top:1px solid #000;padding-top:3px">FIRMA DEL REPRESENTANTE LEGAL</div></td>'
+    +'</tr></table>'
   +'</div>';
   if(typeof abrirCartaImprimible==='function') abrirCartaImprimible(cuerpo, 'Hoja de datos - '+(t.NOMBRES||''));
 }
@@ -12778,7 +12842,9 @@ var RH_BLOQUES={
     {k:'DEPTO_EXP', n:'Depto. exp. cédula', tipo:'cat', cat:'departamento'},
     {k:'LUGAR_EXP', n:'Ciudad exp. cédula', tipo:'cat', cat:'municipio', padreDe:'DEPTO_EXP'},
     {k:'FECHA_NAC', n:'Fecha de nacimiento', tipo:'date'},
+    {k:'TIPO_SANGRE', n:'Tipo de sangre', tipo:'cat', cat:'tipo_sangre'},
     {k:'ESTADO_CIVIL', n:'Estado civil', tipo:'cat', cat:'estado_civil'},
+    {k:'NUM_HIJOS', n:'N.º de hijos', tipo:'text'},
     {k:'CONYUGE_NOMBRE', n:'Nombre del cónyuge / compañero(a)', tipo:'text', w:2, dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}},
     {k:'CONYUGE_CEDULA', n:'Cédula del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}},
     {k:'CONYUGE_TEL', n:'Teléfono del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}}
@@ -12791,10 +12857,12 @@ var RH_BLOQUES={
   contacto:{titulo:'📞 Contacto', campos:[
     {k:'TELEFONO', n:'Teléfono', tipo:'text'},
     {k:'DIRECCION', n:'Dirección', tipo:'text', w:2},
+    {k:'BARRIO', n:'Barrio / corregimiento', tipo:'text'},
     {k:'DEPARTAMENTO', n:'Departamento', tipo:'cat', cat:'departamento'},
     {k:'CIUDAD', n:'Ciudad / municipio', tipo:'cat', cat:'municipio', padreDe:'DEPARTAMENTO'},
     {k:'EMAIL', n:'Correo electrónico', tipo:'email', w:2},
-    {k:'CONTACTO_EMERG', n:'Contacto de emergencia (nombre y teléfono)', tipo:'text', w:3}
+    {k:'CONTACTO_EMERG', n:'Contacto de emergencia (nombre)', tipo:'text', w:2},
+    {k:'TEL_EMERG', n:'Celular del contacto', tipo:'text'}
   ]},
   laboral:{titulo:'💼 Información laboral', campos:[
     {k:'SEDE', n:'Sede', tipo:'select', opciones:['NORTE','SUR'], req:true},
@@ -12825,6 +12893,7 @@ var RH_BLOQUES={
   ]},
   escolaridad:{titulo:'🎓 Escolaridad', campos:[
     {k:'NIVEL_EDUCATIVO', n:'Último grado de educación', tipo:'cat', cat:'nivel_educativo'},
+    {k:'GRADO_ESCOLAR', n:'Grado cursado (ej. 9°)', tipo:'text'},
     {k:'TITULO', n:'Título obtenido', tipo:'text'},
     {k:'INSTITUCION', n:'Institución', tipo:'text'},
     {k:'ESTUDIA_ACTUAL', n:'¿Estudia actualmente?', tipo:'select', opciones:['SI']},
