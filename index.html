@@ -1600,6 +1600,8 @@ tfoot td{background:var(--gf);font-weight:700}
         <button id="rhcfg-tab-emp" onclick="rhCfgTab('emp')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">🏢 Datos de la empresa</button>
         <button id="rhcfg-tab-plt" onclick="rhCfgTab('plt')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">📜 Plantillas de cartas</button>
         <button id="rhcfg-tab-con" onclick="rhCfgTab('con')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">🏷️ Conceptos de acumulados</button>
+        <button id="rhcfg-tab-hoja" onclick="rhCfgTab('hoja')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">📄 Hoja de datos</button>
+        <button id="rhcfg-tab-list" onclick="rhCfgTab('list')" style="background:none;border:none;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--g3)">📋 Listas (EPS, ARL…)</button>
       </div>
 
       <div id="rhcfg-emp" class="rhcfg-pane">
@@ -1623,6 +1625,38 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="ct">📜 Plantillas de cartas</div>
           <p style="color:var(--g3);font-size:13px;margin:6px 0 12px">Crea y edita las plantillas de cartas (laboral, retiro, vacaciones, etc.) que se usan al generar cartas.</p>
           <button class="btn ba" onclick="go('plantillas')">📝 Abrir editor de plantillas</button>
+        </div>
+      </div>
+
+      <div id="rhcfg-hoja" class="rhcfg-pane" style="display:none">
+        <div class="card">
+          <div class="ct">📄 Campos de la hoja de datos <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Marca los que quieres que aparezcan al imprimir</span></div>
+          <div id="rhcfg-campos"><div style="padding:20px;text-align:center;color:var(--g3)">⏳ Cargando...</div></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button class="btn bg" onclick="rhCfgCamposTodos(true)">✓ Marcar todos</button>
+            <button class="btn bg" onclick="rhCfgCamposTodos(false)">✗ Desmarcar todos</button>
+            <button class="btn bv" onclick="rhCfgCamposGuardar()">💾 Guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="rhcfg-list" class="rhcfg-pane" style="display:none">
+        <div class="card">
+          <div class="ct">📋 Listas desplegables <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">EPS, pensión, ARL, cajas, cesantías, países y niveles educativos</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+            <div class="fld" style="min-width:180px;margin:0"><label style="font-size:10px">Lista</label>
+              <select id="rhcl-tipo" onchange="rhCatListRender()">
+                <option value="eps">EPS</option><option value="pension">Fondo de pensión</option>
+                <option value="cesantias">Cesantías</option><option value="arl">ARL</option>
+                <option value="caja">Caja de compensación</option><option value="nivel_educativo">Nivel educativo</option>
+                <option value="estado_civil">Estado civil</option><option value="pais">País</option>
+              </select>
+            </div>
+            <div class="fld" style="flex:2;min-width:200px;margin:0"><label style="font-size:10px">Agregar valor</label><input type="text" id="rhcl-nuevo" placeholder="Nombre de la entidad" style="text-transform:uppercase"/></div>
+            <button class="btn bv" onclick="rhCatListAgregar()" style="height:36px">➕ Agregar</button>
+          </div>
+          <div id="rhcl-tabla"></div>
+          <div style="font-size:11px;color:var(--g3);margin-top:8px">Los departamentos y municipios vienen del DANE y no se editan aquí.</div>
         </div>
       </div>
 
@@ -12641,6 +12675,84 @@ function rhFotoCargar(cedula){
   .catch(function(){});
 }
 
+// ══════════════════════════════════════════════════════════════
+// HOJA DE DATOS DEL TRABAJADOR (PDF con membrete de la empresa)
+// ══════════════════════════════════════════════════════════════
+var RH_CFG={campos:{}};   // qué campos se muestran (se configura en RH → Configuración)
+var RH_CFG_LISTO=false;
+
+function rhCargarConfig(cb){
+  if(RH_CFG_LISTO){ if(cb)cb(); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRhConfig'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok&&d.config) RH_CFG=Object.assign({campos:{}}, d.config);
+    RH_CFG_LISTO=true; if(cb)cb();
+  }).catch(function(){ RH_CFG_LISTO=true; if(cb)cb(); });
+}
+// Un campo se muestra salvo que esté explícitamente apagado en la configuración
+function rhCampoVisible(k){ return RH_CFG.campos[k]!==false; }
+
+// Genera la hoja de datos e imprime/PDF con el membrete de las cartas
+function rhHojaDatos(cedula){
+  var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(cedula);});
+  if(!t){ alert('Trabajador no encontrado'); return; }
+  cargarConfigEmpresa(function(){
+    rhCargarConfig(function(){
+      // Traer la foto (si tiene) y luego armar la hoja
+      fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getFotoTrabajador',cedula:String(cedula)})})
+      .then(function(r){return r.json();}).then(function(d){ rhHojaRender(t,(d&&d.foto)||''); })
+      .catch(function(){ rhHojaRender(t,''); });
+    });
+  });
+}
+function rhHojaFmt(c, v){
+  v=String(v==null?'':v).trim();
+  if(!v) return '';
+  if(c.tipo==='date'){ var m=v.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[3]+'/'+m[2]+'/'+m[1]; }
+  if(c.k==='SALARIO_MENSUAL'){ var n=parseFloat(v); if(!isNaN(n)) return cop(n); }
+  if(c.k==='CEDULA'||c.k==='CONYUGE_CEDULA'){ return String(v).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+  return v;
+}
+function rhHojaRender(t, foto){
+  var bloques=Object.entries(RH_BLOQUES).map(function(e){
+    var b=e[1];
+    var filas=b.campos.filter(function(c){
+      if(!rhCampoVisible(c.k)) return false;
+      // Ocultar condicionales que no aplican (cónyuge si es soltero, estudios si no estudia)
+      if(c.dep && c.dep.vals.indexOf(String(t[c.dep.k]||'').toUpperCase())<0) return false;
+      return String(t[c.k]||'').trim()!=='';
+    }).map(function(c){
+      return '<tr><td style="padding:3px 8px;border:1px solid #d1d5db;background:#f8fafc;width:38%;font-size:10pt">'+gcEsc(c.n)+'</td>'
+        +'<td style="padding:3px 8px;border:1px solid #d1d5db;font-size:10pt"><strong>'+gcEsc(rhHojaFmt(c,t[c.k]))+'</strong></td></tr>';
+    }).join('');
+    if(!filas) return '';
+    return '<div style="margin-bottom:10px"><div style="font-size:10pt;font-weight:700;color:#2d5a3d;border-bottom:1px solid #2d5a3d;margin-bottom:4px">'+gcEsc(b.titulo)+'</div>'
+      +'<table style="width:100%;border-collapse:collapse">'+filas+'</table></div>';
+  }).join('');
+
+  var fotoHtml=foto?'<img src="'+foto+'" style="width:100px;height:125px;object-fit:cover;border:1px solid #999"/>'
+                   :'<div style="width:100px;height:125px;border:1px dashed #bbb;display:flex;align-items:center;justify-content:center;font-size:9pt;color:#999">Sin foto</div>';
+  var hoy=new Date(); var fechaHoy=('0'+hoy.getDate()).slice(-2)+'/'+('0'+(hoy.getMonth()+1)).slice(-2)+'/'+hoy.getFullYear();
+
+  var cuerpo='<div class="body">'
+    +'<h2 style="text-align:center;margin:0 0 10px;font-size:14pt">HOJA DE DATOS DEL TRABAJADOR</h2>'
+    +'<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px">'
+      +'<div style="flex:1">'
+        +'<div style="font-size:12pt;font-weight:700">'+gcEsc(t.NOMBRES||'')+'</div>'
+        +'<div style="font-size:10pt;color:#444">C.C. '+gcEsc(rhHojaFmt({k:'CEDULA'},t.CEDULA))+(t.CARGO?(' · '+gcEsc(t.CARGO)):'')+(t.SEDE?(' · Sede '+gcEsc(t.SEDE)):'')+'</div>'
+        +'<div style="font-size:9pt;color:#666;margin-top:4px">Fecha de impresión: '+fechaHoy+'</div>'
+      +'</div>'
+      +'<div>'+fotoHtml+'</div>'
+    +'</div>'
+    +bloques
+    +'<div style="margin-top:40px;display:flex;justify-content:space-between;gap:30px">'
+      +'<div style="flex:1;text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9pt">Firma del trabajador<br>C.C. '+gcEsc(rhHojaFmt({k:'CEDULA'},t.CEDULA))+'</div>'
+      +'<div style="flex:1;text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9pt">Recursos Humanos</div>'
+    +'</div>'
+  +'</div>';
+  if(typeof abrirCartaImprimible==='function') abrirCartaImprimible(cuerpo, 'Hoja de datos - '+(t.NOMBRES||''));
+}
+
 var RH_BLOQUES={
   ident:{titulo:'🪪 Identificación', campos:[
     {k:'CEDULA', n:'Cédula', tipo:'text', req:true},
@@ -12788,6 +12900,7 @@ function rhRender(){
       '<td style="padding:6px 8px;text-align:center">'+estadoBadge+'</td>'+
       '<td style="padding:6px 8px;text-align:center;white-space:nowrap" class="no-print">'+
         '<button class="btn bg" style="padding:3px 8px;font-size:10px" onclick="rhAbrirModalEdit(\''+cedEsc+'\')" title="Ver/editar">✏️</button> '+
+        '<button class="btn bvs" style="padding:3px 8px;font-size:10px" onclick="rhHojaDatos(\''+cedEsc+'\')" title="Hoja de datos (PDF)">📄</button> '+
         '<button class="btn br" style="padding:3px 8px;font-size:10px" onclick="rhEliminar(\''+cedEsc+'\')" title="Eliminar">🗑️</button>'+
       '</td>'+
       '</tr>';
@@ -12884,6 +12997,7 @@ function rhAbrirModal(t){
     '</div>'+
 
     '<div style="position:sticky;bottom:0;background:#fff;padding:12px 18px;border-top:2px solid var(--gf);display:flex;gap:8px;justify-content:flex-end">'+
+      (esEdicion?'<button class="btn bvs" onclick="rhHojaDatos(\''+String(t.CEDULA||'')+'\')">📄 Hoja de datos</button>':'')+
       '<button class="btn bg" onclick="rhCerrarModal()">Cancelar</button>'+
       '<button class="btn bn" onclick="rhGuardarTrabajador()">💾 '+(esEdicion?'Guardar cambios':'Crear trabajador')+'</button>'+
     '</div>'+
@@ -16240,8 +16354,73 @@ function rhCfgInit(){
   cargarConfigEmpresa(empCfgLlenar);
   rhCfgTab('emp');
 }
+// ── Configuración: campos visibles en la hoja de datos ──
+function rhCfgCamposRender(){
+  var cont=document.getElementById('rhcfg-campos'); if(!cont) return;
+  cont.innerHTML=Object.entries(RH_BLOQUES).map(function(e){
+    var b=e[1];
+    return '<div style="margin-bottom:12px">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--v);margin-bottom:6px">'+gcEsc(b.titulo)+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px">'
+      +b.campos.map(function(c){
+        var on=rhCampoVisible(c.k);
+        return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:3px 6px;border-radius:4px">'
+          +'<input type="checkbox" class="rhcfg-chk" data-k="'+c.k+'"'+(on?' checked':'')+'/> '+gcEsc(c.n)+'</label>';
+      }).join('')
+      +'</div></div>';
+  }).join('');
+}
+function rhCfgCamposTodos(v){
+  document.querySelectorAll('#rhcfg-campos .rhcfg-chk').forEach(function(ch){ ch.checked=!!v; });
+}
+function rhCfgCamposGuardar(){
+  var campos={};
+  document.querySelectorAll('#rhcfg-campos .rhcfg-chk').forEach(function(ch){ campos[ch.getAttribute('data-k')]=ch.checked; });
+  RH_CFG={campos:campos};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarRhConfig',config:RH_CFG})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ RH_CFG_LISTO=true; alert('✅ Configuración guardada. Se aplica a las próximas hojas de datos.'); }
+    else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+
+// ── Configuración: listas desplegables (EPS, ARL, cajas…) ──
+function rhCatListRender(){
+  var tipo=(document.getElementById('rhcl-tipo')||{}).value||'eps';
+  var cont=document.getElementById('rhcl-tabla'); if(!cont) return;
+  var lista=(RH_CAT[tipo]||[]).map(function(x){return x[0];}).sort();
+  cont.innerHTML='<div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+    +(lista.length?lista.map(function(v){
+        return '<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 10px">'+gcEsc(v)+'</td>'
+          +'<td style="padding:6px 10px;text-align:right;width:60px"><button class="btn br" style="padding:2px 8px;font-size:11px" onclick="rhCatListBorrar(\''+tipo+'\',\''+gcEsc(v).replace(/\x27/g,"\\\x27")+'\')">🗑️</button></td></tr>';
+      }).join(''):'<tr><td style="padding:16px;text-align:center;color:var(--g3)">Lista vacía</td></tr>')
+    +'</tbody></table></div>';
+}
+function rhCatListAgregar(){
+  var tipo=(document.getElementById('rhcl-tipo')||{}).value||'eps';
+  var el=document.getElementById('rhcl-nuevo');
+  var valor=(el.value||'').trim().toUpperCase();
+  if(!valor){ alert('Escribe el nombre'); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardarRhCatalogo',tipo:tipo,valor:valor})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ el.value=''; RH_CAT_LISTO=false; rhCargarCatalogos(rhCatListRender); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+function rhCatListBorrar(tipo, valor){
+  if(!confirm('¿Quitar "'+valor+'" de la lista?\n\nNo afecta a los trabajadores que ya lo tengan registrado.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarRhCatalogo',tipo:tipo,valor:valor})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ RH_CAT_LISTO=false; rhCargarCatalogos(rhCatListRender); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+
 function rhCfgTab(n){
-  ['emp','plt','con'].forEach(function(x){
+  if(n==='hoja'){ rhCargarConfig(rhCfgCamposRender); }
+  if(n==='list'){ RH_CAT_LISTO=false; rhCargarCatalogos(rhCatListRender); }
+  ['emp','plt','con','hoja','list'].forEach(function(x){
     var pane=document.getElementById('rhcfg-'+x); if(pane) pane.style.display=(x===n)?'block':'none';
     var tab=document.getElementById('rhcfg-tab-'+x);
     if(tab){ tab.style.borderBottomColor=(x===n)?'var(--v)':'transparent'; tab.style.color=(x===n)?'var(--v)':'var(--g3)'; tab.style.fontWeight=(x===n)?'800':'600'; }
