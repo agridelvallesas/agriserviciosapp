@@ -15208,13 +15208,19 @@ function cartaPDF(htmlBody, titulo){
   pdfMake.createPdf(dd).open();
 }
 function abrirCartaImprimible(htmlBody, titulo){
+  // La variable {FIRMA} se reemplaza por la firma escaneada del representante
+  htmlBody=String(htmlBody||'').replace(/\{FIRMA\}/g, (typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:''));
   // Guardar para la exportación a Word (que sigue disponible)
   CARTA_ACTUAL_NOMBRE=titulo||'carta'; CARTA_ACTUAL_BODY=htmlBody;
-  cargarHtmlToPdf(function(ok){
-    if(!ok){ abrirCartaImprimibleHTML(htmlBody, titulo); return; }
-    try{ cartaPDF(htmlBody, titulo); }
-    catch(e){ console.warn('PDF carta:',e); abrirCartaImprimibleHTML(htmlBody, titulo); }
-  });
+  var seguir=function(){
+    cargarHtmlToPdf(function(ok){
+      if(!ok){ abrirCartaImprimibleHTML(htmlBody, titulo); return; }
+      try{ cartaPDF(htmlBody, titulo); }
+      catch(e){ console.warn('PDF carta:',e); abrirCartaImprimibleHTML(htmlBody, titulo); }
+    });
+  };
+  // Asegurar los datos de la empresa (nombre, NIT, pie) antes de armar el membrete
+  if(typeof cargarConfigEmpresa==='function') cargarConfigEmpresa(seguir); else seguir();
 }
 
 function abrirCartaImprimibleHTML(htmlBody, titulo){
