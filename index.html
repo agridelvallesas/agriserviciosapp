@@ -12913,19 +12913,21 @@ function rhHojaPDF(t, foto){
     ]});
   });
 
-  // Firmas
+  // Firmas: ambas columnas con la MISMA altura para que las líneas queden alineadas
+  var firmaSrc=rhSrcDataUrl(typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:'');
+  var altoFirma=30;   // espacio reservado para la firma escaneada
+  function colFirma(img, texto){
+    return {width:'*', stack:[
+      img ? {image:img, fit:[120,altoFirma], alignment:'center', margin:[0,0,0,1]}
+          : {text:' ', fontSize:1, margin:[0,0,0,altoFirma]},
+      {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
+      {text:texto, fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
+    ]};
+  }
   content.push({unbreakable:true, margin:[0,10,0,0], columns:[
-    {width:'*', stack:[
-      {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
-      {text:'Firma del trabajador', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
-    ]},
+    colFirma(null, 'Firma del trabajador'),
     {width:40, text:''},
-    {width:'*', stack:[
-      (function(){ var f=rhSrcDataUrl(typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:''); 
-                   return f?{image:f, fit:[120,30], alignment:'center', margin:[0,0,0,1]}:{text:'', margin:[0,0,0,28]}; })(),
-      {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
-      {text:'Firma del representante legal', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
-    ]}
+    colFirma(firmaSrc, 'Firma del representante legal')
   ]});
 
   var logo=rhSrcDataUrl(typeof CARTA_LOGO!=='undefined'?CARTA_LOGO:'');
