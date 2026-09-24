@@ -4229,7 +4229,7 @@ function go(pg){
   if(pg==='da') carDA();
   if(pg==='mis-reg') carMR();
   if(pg==='cvf') cvfInit();
-  if(pg==='emp') filtEmp();
+  if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
   if(pg==='todos') carTodos();
@@ -4255,7 +4255,7 @@ function go(pg){
   if(pg==='inv-emp') invEmpInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
-  if(pg==='emp') filtEmp();
+  if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
   if(pg==='registro') initReg();
@@ -6955,6 +6955,26 @@ function acTrabAsegurar(cb){
   if(typeof RH_DATA!=='undefined' && RH_DATA.length){ if(cb)cb(); return; }
   if(typeof rhCargar==='function'){ rhCargar(); setTimeout(function(){ if(cb)cb(); }, 800); }
   else if(cb) cb();
+}
+// Adjunta el buscador con desplegable (estilo "Todos los registros") a un campo ya existente,
+// creando la capa del desplegable al vuelo. Sirve para los filtros de las listas.
+function acAdjuntarBuscador(inputId, fuente, onSelect){
+  var inp=document.getElementById(inputId); if(!inp) return;
+  if(inp.getAttribute('data-ac')==='1'){ if(fuente) ACE_SRC[inputId]=fuente; if(onSelect) ACE_STATE[inputId]=onSelect; return; }
+  var cont=inp.parentNode; if(!cont) return;
+  var pos=window.getComputedStyle(cont).position;
+  if(pos==='static') cont.style.position='relative';
+  var dropId=inputId+'-acdrop';
+  var drop=document.getElementById(dropId);
+  if(!drop){
+    drop=document.createElement('div');
+    drop.id=dropId;
+    drop.style.cssText='display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:230px;overflow-y:auto;z-index:200;box-shadow:0 6px 16px rgba(0,0,0,.15)';
+    cont.appendChild(drop);
+  }
+  inp.setAttribute('data-ac','1');
+  inp.setAttribute('autocomplete','off');
+  acEmpInit(inputId, dropId, onSelect, fuente);
 }
 function acEmpInit(inputId, dropId, onSelect, fuente){
   var inp=document.getElementById(inputId);
@@ -13107,6 +13127,7 @@ var RH_BLOQUES={
 };
 
 function rhInit(){
+  acTrabAsegurar(function(){ acAdjuntarBuscador('rh-buscar', acTrabFuente, function(ced,nom){ var i=document.getElementById('rh-buscar'); if(i){i.value=nom;} rhRender(); }); });
   // Cargar datos al entrar al módulo si no están cargados
   if(!RH_DATA.length) rhCargar();
 }
@@ -13688,6 +13709,7 @@ var VAC_DATA=[];      // lista de periodos cargados
 var VAC_LOADED=false;
 
 function vacInit(){
+  acTrabAsegurar(function(){ acAdjuntarBuscador('vac-buscar', acTrabFuente, function(ced,nom){ var i=document.getElementById('vac-buscar'); if(i){i.value=ced;} vacRender(); }); });
   if(!VAC_LOADED) vacCargar();
   else vacRender();
 }
@@ -15623,6 +15645,7 @@ var ACUM_CACHE_KEY='agriserv_acum_cache_v1';
 var ACUM_CACHE_TTL=4*60*60*1000; // 4 horas
 
 function acumInit(){
+  acTrabAsegurar(function(){ acAdjuntarBuscador('acum-busc', acTrabFuente, function(ced,nom){ var i=document.getElementById('acum-busc'); if(i){i.value=ced;} acumRender(); }); });
   // Intentar leer cache de localStorage primero
   if(!ACUM_LOADED){
     if(acumCargarDesdeCacheLocal()){
@@ -16175,7 +16198,7 @@ function acumAbrirAnalisis(){
 
       '<div class="fld" id="an-fld-trab" style="display:none;margin-bottom:14px">'+
         '<label>Trabajador *</label>'+
-        '<select id="an-trab" onchange="acumAnalisisCalc()">'+trabOpts+'</select>'+
+'<div style="position:relative"><input type="text" id="an-trab-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>'+'<input type="hidden" id="an-trab"/>'+'<div id="an-trab-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'+
       '</div>'+
 
       '<div id="an-result" style="display:none"></div>'+
@@ -16187,6 +16210,13 @@ function acumAbrirAnalisis(){
     '</div>'+
   '</div>';
   document.body.appendChild(modal);
+  acTrabAsegurar(function(){
+    acEmpInit('an-trab-q','an-trab-drop', function(ced,nom){
+      document.getElementById('an-trab-q').value=nom+' · '+ced;
+      document.getElementById('an-trab').value=ced;
+      if(typeof acumAnalisisCalc==='function') acumAnalisisCalc();
+    }, acTrabFuente);
+  });
 }
 
 function acumCerrarAnalisis(){
@@ -17716,6 +17746,7 @@ var CNOM_SAVE_TIMER=null;
 var CNOM_PENDING_SAVES={};  // {cedula_concepto: valor}
 
 function cnomInit(){
+  acTrabAsegurar(function(){ acAdjuntarBuscador('cnom-buscar', acTrabFuente, function(ced,nom){ var i=document.getElementById('cnom-buscar'); if(i){i.value=ced;} if(typeof cnomFiltrarTabla==='function') cnomFiltrarTabla(); }); });
   // Poblar dropdown de quincenas si no está poblado
   var sel=document.getElementById('cnom-q');
   if(sel&&sel.options.length===0){
@@ -18850,6 +18881,7 @@ function invVerActaRender(a, firma){
 var EMP_RESUMEN=[], EMP_GRUPOS=[], EMP_ITEMS={};
 function invEmpCedNorm(c){ return String(c==null?'':c).replace(/[.\s,\-]/g,'').trim(); }
 function invEmpInit(){
+  acTrabAsegurar(function(){ acAdjuntarBuscador('iemp-q', acTrabFuente, function(ced,nom){ var i=document.getElementById('iemp-q'); if(i){i.value=nom;} invEmpRender(); }); });
   cargarConfigEmpresa();
   var tb=document.getElementById('iemp-tb'); if(tb) tb.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--g3)">⏳ Cargando entregas...</td></tr>';
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invEntregasResumen'})})
