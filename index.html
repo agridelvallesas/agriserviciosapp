@@ -1693,7 +1693,8 @@ tfoot td{background:var(--gf);font-weight:700}
         <div class="ct">Vista previa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">✏️ Puedes editar el texto directamente aquí (ej. la ciudad de expedición) antes de imprimir</span></div>
         <div id="cr-preview" contenteditable="true" style="background:#fff;border:1px dashed var(--v);border-radius:8px;padding:30px;min-height:200px;outline:none"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-          <button class="btn bf" onclick="cartasImprimirEditada()">🖨️ Imprimir esta versión</button>
+          <button class="btn bf" onclick="cartasImprimirEditada()">📄 Generar PDF</button>
+          <button class="btn bg" onclick="cartasWordEditada()">📝 Word</button>
           <button class="btn bg" onclick="cartasGenerar(true)" title="Descartar cambios y volver a armar la carta desde los datos del trabajador">↩️ Regenerar</button>
         </div>
       </div>
@@ -14867,6 +14868,14 @@ function cartasGenerar(preview){
   }
 }
 // Imprime la carta tal como quedó en la vista previa (con las ediciones manuales del usuario)
+// Exporta a Word lo que está en la vista previa (con las ediciones manuales)
+function cartasWordEditada(){
+  var cont=document.getElementById('cr-preview');
+  if(!cont||!cont.innerHTML.trim()){ alert('No hay carta en la vista previa'); return; }
+  CARTA_ACTUAL_BODY=cont.innerHTML;
+  CARTA_ACTUAL_NOMBRE=CR_ULTIMA_NOMBRE||'Carta';
+  if(typeof descargarCartaWordActual==='function') descargarCartaWordActual();
+}
 function cartasImprimirEditada(){
   var cont=document.getElementById('cr-preview');
   if(!cont){ return; }
@@ -15136,7 +15145,79 @@ function empPie(){
   if(CONFIG_EMPRESA.email)p.push(CONFIG_EMPRESA.email);
   return p.join(' · ');
 }
+
+// ══════════════════════════════════════════════════════════════
+// CARTAS Y ACTAS EN PDF REAL (pdfmake) — mismo diseño para todas:
+// hoja carta exacta, membrete y pie repetidos en cada página.
+// ══════════════════════════════════════════════════════════════
+function cargarHtmlToPdf(cb){
+  cargarPdfMake(function(ok){
+    if(!ok){ cb(false); return; }
+    if(window.htmlToPdfmake){ cb(true); return; }
+    var sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/html-to-pdfmake@2.5.4/browser.js';
+    sc.onload=function(){ cb(!!window.htmlToPdfmake); };
+    sc.onerror=function(){ cb(false); };
+    document.head.appendChild(sc);
+  });
+}
+// Encabezado y pie comunes a todos los documentos de la empresa
+function cartaMembrete(){
+  var logo=rhSrcDataUrl(typeof CARTA_LOGO!=='undefined'?CARTA_LOGO:'');
+  var emp=(typeof CONFIG_EMPRESA!=='undefined')?CONFIG_EMPRESA:{nombre:'',nit:'',direccion:'',telefono:'',email:''};
+  var pie=[emp.direccion, emp.telefono?('Tel: '+emp.telefono):'', emp.email].filter(Boolean).join('  ·  ');
+  return {
+    logo:logo, emp:emp,
+    header:function(){
+      var st=[];
+      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,8,0,1]});
+      st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
+      if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
+      st.push({canvas:[{type:'line',x1:42,y1:0,x2:573,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}]});
+      return st;
+    },
+    footer:function(cp,pc){
+      return {margin:[42,10,42,0], columns:[
+        {text:pie, fontSize:7.5, color:'#94a3b8'},
+        {text:cp+' / '+pc, fontSize:7.5, color:'#94a3b8', alignment:'right', width:40}
+      ]};
+    }
+  };
+}
+// Convierte el cuerpo HTML de una carta a PDF con el membrete de la empresa
+function cartaPDF(htmlBody, titulo){
+  var m=cartaMembrete();
+  var contenido=window.htmlToPdfmake(htmlBody, {
+    window:window,
+    defaultStyles:{
+      p:{margin:[0,0,0,8], lineHeight:1.35},
+      b:{bold:true}, strong:{bold:true}, u:{decoration:'underline'},
+      h1:{fontSize:15, bold:true, margin:[0,0,0,8], alignment:'center'},
+      h2:{fontSize:13, bold:true, margin:[0,0,0,6], alignment:'center'},
+      h3:{fontSize:11.5, bold:true, margin:[0,0,0,5]},
+      li:{margin:[0,0,0,3]}, table:{margin:[0,4,0,8]}, th:{bold:true, fillColor:'#eef2f7'}
+    }
+  });
+  var dd={
+    pageSize:'LETTER',
+    pageMargins:[56, m.logo?78:60, 56, 40],
+    header:m.header, footer:m.footer,
+    content:contenido,
+    defaultStyle:{font:'Roboto', fontSize:11, color:'#111827', lineHeight:1.3}
+  };
+  pdfMake.createPdf(dd).open();
+}
 function abrirCartaImprimible(htmlBody, titulo){
+  // Guardar para la exportación a Word (que sigue disponible)
+  CARTA_ACTUAL_NOMBRE=titulo||'carta'; CARTA_ACTUAL_BODY=htmlBody;
+  cargarHtmlToPdf(function(ok){
+    if(!ok){ abrirCartaImprimibleHTML(htmlBody, titulo); return; }
+    try{ cartaPDF(htmlBody, titulo); }
+    catch(e){ console.warn('PDF carta:',e); abrirCartaImprimibleHTML(htmlBody, titulo); }
+  });
+}
+
+function abrirCartaImprimibleHTML(htmlBody, titulo){
   htmlBody=String(htmlBody||'').replace(/\{FIRMA\}/g, FIRMA_IMG);
   var doc='<div class="hdr">'+CARTA_LOGO+'<h1>'+CONFIG_EMPRESA.nombre+'</h1><div class="nit">NIT. '+CONFIG_EMPRESA.nit+'</div></div>'+
           '<div class="body">'+htmlBody+'</div>'+
