@@ -12862,6 +12862,14 @@ function rhHojaPDF(t, foto){
     porSec[sec].push({n:meta[id].n, v:val});
   });
 
+  // Modo compacto automático: si el trabajador tiene muchos datos, se aprieta
+  // un poco la tipografía para que la hoja siga cabiendo en una sola carta.
+  var nDatos=0; ordenSec.forEach(function(sec){ nDatos+=porSec[sec].length; });
+  var apretado = (nDatos + ordenSec.length*1.6) > 22;
+  var FZL = apretado ? 7.5 : 8;      // etiqueta
+  var FZV = apretado ? 9.5 : 10.5;   // valor
+  var PADR = apretado ? 0.5 : 1;     // aire de cada fila
+
   var content=[];
   // Encabezado del trabajador: nombre + foto
   var nombre=String(t.NOMBRES||'').trim();
@@ -12869,15 +12877,15 @@ function rhHojaPDF(t, foto){
   var MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   var hoy=new Date();
   var izq={width:'*', stack:[
-    {text:'HOJA DE DATOS DEL TRABAJADOR', fontSize:8, color:'#64748b', characterSpacing:1.2, margin:[0,0,0,3]},
-    {text:nombre, fontSize:17, bold:true, color:'#0f172a'},
-    sub?{text:sub, fontSize:10.5, color:'#475569', margin:[0,2,0,0]}:{text:''},
+    {text:'HOJA DE DATOS DEL TRABAJADOR', fontSize:7.5, color:'#64748b', characterSpacing:1.2, margin:[0,0,0,2]},
+    {text:nombre, fontSize:15.5, bold:true, color:'#0f172a'},
+    sub?{text:sub, fontSize:10, color:'#475569', margin:[0,1,0,0]}:{text:''},
     {text:'Elaborada el '+hoy.getDate()+' de '+MESL[hoy.getMonth()]+' de '+hoy.getFullYear(), fontSize:8, color:'#94a3b8', margin:[0,3,0,0]}
   ]};
   var cols=[izq];
   if(foto) cols.push({width:74, image:foto, fit:[74,92], alignment:'right'});
   content.push({columns:cols, columnGap:10, margin:[0,0,0,4]});
-  content.push({canvas:[{type:'line',x1:0,y1:0,x2:531,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}], margin:[0,0,0,7]});
+  content.push({canvas:[{type:'line',x1:0,y1:0,x2:531,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}], margin:[0,0,0,5]});
 
   // Secciones
   ordenSec.forEach(function(sec){
@@ -12886,27 +12894,27 @@ function rhHojaPDF(t, foto){
       var celda=function(d){
         if(!d) return {text:''};
         return {stack:[
-          {text:String(d.n).toUpperCase(), fontSize:8, color:'#475569', characterSpacing:0.4},
-          {text:d.v, fontSize:10.5, bold:true, color:'#0f172a', margin:[0,0.5,0,0]}
-        ], margin:[2,1.5,2,1.5]};
+          {text:String(d.n).toUpperCase(), fontSize:FZL, color:'#475569', characterSpacing:0.4},
+          {text:d.v, fontSize:FZV, bold:true, color:'#0f172a', margin:[0,0.5,0,0]}
+        ], margin:[2,PADR,2,PADR]};
       };
       filas.push([celda(datos[i]), celda(datos[i+1])]);
     }
     // La barra de la sección y sus datos van juntos: nunca se parten entre páginas
-    content.push({unbreakable:true, margin:[0,0,0,6], stack:[
+    content.push({unbreakable:true, margin:[0,0,0,4], stack:[
       { table:{widths:['*'], body:[[{text:(HOJA_SECS[sec]||sec), fontSize:9.5, bold:true, color:'#ffffff',
-          fillColor:'#2d5a3d', characterSpacing:0.8, margin:[6,2.5,6,2.5]}]]},
-        layout:'noBorders', margin:[0,0,0,2] },
+          fillColor:'#2d5a3d', characterSpacing:0.8, margin:[6,2,6,2]}]]},
+        layout:'noBorders', margin:[0,0,0,1.5] },
       { table:{widths:['*','*'], body:filas},
         layout:{ hLineWidth:function(i,node){ return (i===0||i===node.table.body.length)?0:0.6; },
                  vLineWidth:function(){ return 0; },
                  hLineColor:function(){ return '#e2e8f0'; },
-                 paddingTop:function(){return 0.5;}, paddingBottom:function(){return 0.5;} } }
+                 paddingTop:function(){return 0;}, paddingBottom:function(){return 0;} } }
     ]});
   });
 
   // Firmas
-  content.push({unbreakable:true, margin:[0,16,0,0], columns:[
+  content.push({unbreakable:true, margin:[0,10,0,0], columns:[
     {width:'*', stack:[
       {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
       {text:'Firma del trabajador', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
@@ -12914,7 +12922,7 @@ function rhHojaPDF(t, foto){
     {width:40, text:''},
     {width:'*', stack:[
       (function(){ var f=rhSrcDataUrl(typeof FIRMA_IMG!=='undefined'?FIRMA_IMG:''); 
-                   return f?{image:f, fit:[150,38], alignment:'center', margin:[0,0,0,2]}:{text:'', margin:[0,0,0,34]}; })(),
+                   return f?{image:f, fit:[120,30], alignment:'center', margin:[0,0,0,1]}:{text:'', margin:[0,0,0,28]}; })(),
       {canvas:[{type:'line',x1:0,y1:0,x2:210,y2:0,lineWidth:0.8,lineColor:'#334155'}]},
       {text:'Firma del representante legal', fontSize:9, color:'#334155', margin:[0,3,0,0], alignment:'center', width:210}
     ]}
@@ -12926,10 +12934,10 @@ function rhHojaPDF(t, foto){
 
   var dd={
     pageSize:'LETTER',
-    pageMargins:[42, logo?84:64, 42, 40],
+    pageMargins:[42, logo?78:60, 42, 32],
     header:function(){
       var st=[];
-      if(logo) st.push({image:logo, fit:[150,40], alignment:'center', margin:[0,10,0,2]});
+      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,8,0,1]});
       st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
       if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
       st.push({canvas:[{type:'line',x1:42,y1:0,x2:573,y2:0,lineWidth:1.6,lineColor:'#2d5a3d'}]});
