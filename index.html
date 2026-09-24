@@ -1673,7 +1673,8 @@ tfoot td{background:var(--gf);font-weight:700}
         <div class="ct">📜 Generar carta <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Elige el trabajador y el tipo de carta</span></div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
           <div class="fld" style="flex:2;min-width:240px;margin:0"><label>Trabajador</label>
-            <input type="text" id="cr-trab" list="cr-trab-list" placeholder="Escribe nombre o cédula..." autocomplete="off" onfocus="cartasTrabList()" onchange="cartasTrabChange()"/>
+            <div style="position:relative"><input type="text" id="cr-trab" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>
+              <div id="cr-trab-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--w);border:1px solid var(--bd);border-radius:var(--rads);max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div></div>
             <datalist id="cr-trab-list"></datalist>
           </div>
           <div class="fld" style="flex:2;min-width:220px;margin:0"><label>Tipo de carta</label>
@@ -3024,7 +3025,8 @@ tfoot td{background:var(--gf);font-weight:700}
       <div class="card" style="padding:16px;border-radius:14px;border:none;box-shadow:0 2px 8px rgba(0,0,0,.06)">
         <div class="fld" style="margin-bottom:18px">
           <label style="font-size:12px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="background:#2563eb;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">1</span><span>¿Quién recibe?</span></label>
-          <input type="text" id="sal-emp" list="sal-emp-list" placeholder="Buscar por nombre o cédula..." oninput="invSalEmpChange()" style="width:100%;font-size:15px;padding:12px 14px;border:2px solid #cbd5e1;border-radius:10px"/><datalist id="sal-emp-list"></datalist>
+          <div style="position:relative"><input type="text" id="sal-emp" placeholder="Buscar por nombre o cédula..." autocomplete="off" style="width:100%;font-size:15px;padding:12px 14px;border:2px solid #cbd5e1;border-radius:10px"/>
+            <div id="sal-emp-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:10px;max-height:230px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>
           <input type="text" id="sal-cedula" placeholder="Cédula / documento" style="width:100%;font-size:15px;padding:11px 12px;border:2px solid #e2e8f0;border-radius:10px;margin-top:8px"/>
         </div>
         <div class="fld" style="margin-bottom:18px">
@@ -6941,11 +6943,26 @@ function initAcEmps(){
 // onSelect(ced, nom) se llama cuando el usuario selecciona un empleado
 var ACE_STATE={};
 
-function acEmpInit(inputId, dropId, onSelect){
+var ACE_SRC={};   // fuente de datos por buscador: función que devuelve [{c:cédula, n:nombre}]
+// Fuente estándar del maestro de TRABAJADORES (módulos RH, vacaciones, cartas, inventario…)
+function acTrabFuente(){
+  if(typeof RH_DATA==='undefined'||!RH_DATA.length) return [];
+  return RH_DATA.map(function(t){ return {c:String(t.CEDULA||'').trim(), n:String(t.NOMBRES||'').trim()}; })
+                .filter(function(x){ return x.c||x.n; });
+}
+// Asegura que el maestro de trabajadores esté cargado antes de buscar
+function acTrabAsegurar(cb){
+  if(typeof RH_DATA!=='undefined' && RH_DATA.length){ if(cb)cb(); return; }
+  if(typeof rhCargar==='function'){ rhCargar(); setTimeout(function(){ if(cb)cb(); }, 800); }
+  else if(cb) cb();
+}
+function acEmpInit(inputId, dropId, onSelect, fuente){
   var inp=document.getElementById(inputId);
   var drop=document.getElementById(dropId);
   if(!inp||!drop) return;
   ACE_STATE[inputId]=onSelect||null;
+  if(fuente) ACE_SRC[inputId]=fuente;
+  inp.addEventListener('focus', function(){ acEmpFilter(inputId, dropId); });
   inp.addEventListener('input', function(){
     acEmpFilter(inputId, dropId);
   });
@@ -6959,10 +6976,12 @@ function acEmpFilter(inputId, dropId){
   var drop=document.getElementById(dropId);
   if(!inp||!drop) return;
   var q=inp.value.toLowerCase().trim();
-  if(!q||q.length<2){drop.style.display='none';return;}
-  var matches=EMP.filter(function(e){
-    return e.n.toLowerCase().includes(q)||e.c.includes(q);
-  }).slice(0,10);
+  var lista=ACE_SRC[inputId]?ACE_SRC[inputId]():EMP;
+  var matches;
+  if(!q){ matches=lista.slice(0,10); }              // al enfocar: primeros resultados
+  else { matches=lista.filter(function(e){
+      return String(e.n||'').toLowerCase().includes(q)||String(e.c||'').includes(q);
+    }).slice(0,10); }
   if(!matches.length){drop.style.display='none';return;}
   drop.innerHTML=matches.map(function(e){
     return'<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bd)" '
@@ -13839,7 +13858,7 @@ function vacAbrirModal(v){
 
     '<div style="padding:18px">'+
       '<div class="fld" style="margin-bottom:12px"><label>Trabajador *</label>'+
-        '<select id="vac-f-cedula" '+(es_edit?'disabled':'')+'>'+trabOpts+'</select>'+
+'<div style="position:relative"><input type="text" id="vac-f-ced-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>'+'<input type="hidden" id="vac-f-cedula"/>'+'<div id="vac-f-ced-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'+
       '</div>'+
 
       // Hint dinámico de sugerencia (se llena al elegir trabajador)
@@ -13858,6 +13877,18 @@ function vacAbrirModal(v){
     '</div>'+
   '</div>';
   document.body.appendChild(modal);
+  acTrabAsegurar(function(){
+    acEmpInit('vac-f-ced-q','vac-f-ced-drop', function(ced,nom){
+      document.getElementById('vac-f-ced-q').value=nom+' · '+ced;
+      document.getElementById('vac-f-cedula').value=ced;
+    }, acTrabFuente);
+    // Al EDITAR, mostrar el trabajador que ya tenía el periodo
+    if(v && v.CEDULA){
+      var hid=document.getElementById('vac-f-cedula'); if(hid) hid.value=String(v.CEDULA);
+      var q=document.getElementById('vac-f-ced-q');
+      if(q){ q.value=String(v.NOMBRES||'')+' · '+String(v.CEDULA); if(es_edit){ q.readOnly=true; q.style.background='#f1f5f9'; } }
+    }
+  });
 
   // Listeners del bloque inicial
   vacAttachBloqueListeners(0);
@@ -14304,7 +14335,7 @@ function vacAbrirSaldo(){
 
     '<div style="padding:18px">'+
       '<div class="fld" style="margin-bottom:12px"><label>Trabajador</label>'+
-        '<select id="vac-saldo-ced" onchange="vacSaldoCalcular()">'+trabOpts+'</select>'+
+'<div style="position:relative"><input type="text" id="vac-saldo-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>'+'<input type="hidden" id="vac-saldo-ced"/>'+'<div id="vac-saldo-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'+
       '</div>'+
 
       '<div id="vac-saldo-result" style="display:none"></div>'+
@@ -14316,6 +14347,13 @@ function vacAbrirSaldo(){
   '</div>';
 
   document.body.appendChild(modal);
+  acTrabAsegurar(function(){
+    acEmpInit('vac-saldo-q','vac-saldo-drop', function(ced,nom){
+      document.getElementById('vac-saldo-q').value=nom+' · '+ced;
+      document.getElementById('vac-saldo-ced').value=ced;
+      if(typeof vacSaldoCalcular==='function') vacSaldoCalcular();
+    }, acTrabFuente);
+  });
 }
 
 function vacCerrarSaldo(){
@@ -14712,6 +14750,12 @@ function numeroALetras(num){
 
 function cartasInit(force){
   cargarConfigEmpresa();
+  acTrabAsegurar(function(){
+    acEmpInit('cr-trab','cr-trab-drop', function(ced,nom){
+      document.getElementById('cr-trab').value=ced+' - '+nom;
+      if(typeof cartasTrabChange==='function') cartasTrabChange();
+    }, acTrabFuente);
+  });
   if((typeof RH_DATA==='undefined'||!RH_DATA.length) && typeof rhCargar==='function'){ rhCargar(); setTimeout(cartasTrabList,600); }
   cartasTrabList();
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getPlantillas'})})
@@ -16508,7 +16552,7 @@ function acumAbrirConsulta(){
 
     '<div style="padding:18px">'+
       '<div class="fld" style="margin-bottom:14px"><label>Trabajador</label>'+
-        '<select id="acum-c-ced" onchange="acumConsultaCalc()">'+trabOpts+'</select>'+
+'<div style="position:relative"><input type="text" id="acum-c-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>'+'<input type="hidden" id="acum-c-ced"/>'+'<div id="acum-c-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'+
       '</div>'+
       '<div id="acum-c-result" style="display:none"></div>'+
       '<div style="display:flex;justify-content:flex-end;margin-top:14px">'+
@@ -16517,6 +16561,13 @@ function acumAbrirConsulta(){
     '</div>'+
   '</div>';
   document.body.appendChild(modal);
+  acTrabAsegurar(function(){
+    acEmpInit('acum-c-q','acum-c-drop', function(ced,nom){
+      document.getElementById('acum-c-q').value=nom+' · '+ced;
+      document.getElementById('acum-c-ced').value=ced;
+      if(typeof acumConsultaCalc==='function') acumConsultaCalc();
+    }, acTrabFuente);
+  });
 }
 
 function acumCerrarConsulta(){
@@ -18642,6 +18693,12 @@ function invEntGuardar(){
 // ── SALIDA / ENTREGA (con firma) ──
 function invSalInit(){
   cargarConfigEmpresa();
+  acTrabAsegurar(function(){
+    acEmpInit('sal-emp','sal-emp-drop', function(ced,nom){
+      document.getElementById('sal-emp').value=ced+' - '+nom;
+      if(typeof invSalEmpChange==='function') invSalEmpChange();
+    }, acTrabFuente);
+  });
   var f=document.getElementById('sal-fecha'); if(f&&!f.value) f.value=new Date().toISOString().slice(0,10);
   if((typeof RH_DATA==='undefined'||!RH_DATA.length)&&typeof rhCargar==='function'){ rhCargar(); setTimeout(invSalEmpList,700); } else invSalEmpList();
   invCargarConfig(invLlenarAuxiliar);
