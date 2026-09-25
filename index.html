@@ -13912,6 +13912,8 @@ function vacAbrirModal(v){
     acEmpInit('vac-f-ced-q','vac-f-ced-drop', function(ced,nom){
       document.getElementById('vac-f-ced-q').value=nom+' · '+ced;
       document.getElementById('vac-f-cedula').value=ced;
+      // Al elegir el trabajador, sugerir automáticamente su siguiente periodo pendiente
+      if(typeof vacSugerirPeriodo==='function') vacSugerirPeriodo(ced);
     }, acTrabFuente);
     // Al EDITAR, mostrar el trabajador que ya tenía el periodo
     if(v && v.CEDULA){
@@ -14136,13 +14138,9 @@ function vacGuardar(id){
   var ced=document.getElementById('vac-f-cedula').value;
   if(!ced){alert('Selecciona un trabajador');return;}
 
-  // Obtener nombre del trabajador
+  // Obtener nombre del trabajador (desde el maestro, por la cédula elegida)
   var nombres='';
-  var sel=document.getElementById('vac-f-cedula');
-  if(sel.selectedIndex>=0){
-    nombres=sel.options[sel.selectedIndex].getAttribute('data-nom')||'';
-  }
-  if(!nombres && typeof RH_DATA!=='undefined'){
+  if(typeof RH_DATA!=='undefined'){
     var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(ced);});
     if(t) nombres=t.NOMBRES||'';
   }
