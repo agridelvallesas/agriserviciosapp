@@ -7180,6 +7180,7 @@ function renderNomRows(rows){
         +'<div style="font-size:11px;font-weight:700;color:var(--f);margin-bottom:6px">&#128295; Vigilancia NORTE &#x2014; '+Math.round((r.hVigTotal||0)*10)/10+'h total</div>'
         +r.vigDetHoras.map(function(h){return'<span style="display:inline-block;background:var(--w);border:1px solid var(--bd);border-radius:4px;padding:2px 8px;margin:2px;font-size:10px">'+h.tipo+': <strong>'+h.h+'h</strong> &times; '+cop(h.tar)+' = <strong>'+cop(h.val)+'</strong></span>';}).join('')
         +(r.domVigN>0?'<div style="font-size:11px;margin-top:4px;color:var(--f)">Dom/fest vig: <strong>'+cop(r.domVigN)+'</strong> | Aux alim vig: <strong>'+cop(r.auxAlimVig||0)+'</strong> | Aux transp vig: <strong>'+cop(r.auxVig||0)+'</strong></div>':'')
+        +((r.vigDetHoras.reglaSems&&r.vigDetHoras.reglaSems.length)?'<div style="font-size:10.5px;margin-top:5px;padding:4px 7px;background:#fff7ed;border-left:3px solid #f59e0b;border-radius:3px;color:#92400e">&#9888; Semana '+r.vigDetHoras.reglaSems.join(', ')+': no alcanz&oacute; el m&iacute;nimo de horas &rarr; las festivas se pagaron como <strong>ordinarias</strong></div>':'')
         +'</div>';
     }
     var detHTML=r.det.map(function(d){
@@ -7848,6 +7849,7 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       var T2=getCFG();
       var LIMITE2=T2.lim||110;
       var hTotales={dOrd:0,nOrd:0,dFest:0,nFest:0,xDOrd:0,xNOrd:0,xDFest:0,xNFest:0};
+      var vigReglaSems=[];   // semanas donde las festivas se pagaron como ordinarias
       var horasOrd2=0;
       // Usar mismos segmentos calculados arriba
       var segmentos2=[];
@@ -7861,9 +7863,9 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
         if(hn>0){hd+=1;hn-=1;}
         var hn1=Math.min(5,hn);
         var hn2=hn-hn1;
-        if(hd>0) segmentos2.push({h:hd,fest:festDia,tipo:'D',ts:base2+6*3600000});
-        if(hn1>0) segmentos2.push({h:hn1,fest:festDia,tipo:'N',ts:base2+19*3600000});
-        if(hn2>0) segmentos2.push({h:hn2,fest:festSig,tipo:'N',ts:base2+24*3600000});
+        if(hd>0) segmentos2.push({h:hd,fest:festDia,tipo:'D',sem:t.sem,ts:base2+6*3600000});
+        if(hn1>0) segmentos2.push({h:hn1,fest:festDia,tipo:'N',sem:t.sem,ts:base2+19*3600000});
+        if(hn2>0) segmentos2.push({h:hn2,fest:festSig,tipo:'N',sem:t.sem,ts:base2+24*3600000});
       });
       // Mismo orden cronológico que el cálculo del pago
       segmentos2.sort(function(a,b){ return a.ts-b.ts; });
@@ -7872,11 +7874,15 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
         if(ordEste<0) ordEste=0;
         var extEste=seg.h-ordEste;
         horasOrd2+=ordEste;
+        // Misma regla que el pago: si la semana no llega al mínimo de horas, las festivas van como ordinarias
+        var bajar=seg.fest && vigBajarFestiva(emp.ced, seg.sem);
+        if(bajar && vigReglaSems.indexOf(parseInt(seg.sem))<0) vigReglaSems.push(parseInt(seg.sem));
+        var festPagoDet=seg.fest && !bajar;
         if(seg.tipo==='D'){
-          if(!seg.fest){hTotales.dOrd+=ordEste;hTotales.xDOrd+=extEste;}
+          if(!festPagoDet){hTotales.dOrd+=ordEste;hTotales.xDOrd+=extEste;}
           else{hTotales.dFest+=ordEste;hTotales.xDFest+=extEste;}
         } else {
-          if(!seg.fest){hTotales.nOrd+=ordEste;hTotales.xNOrd+=extEste;}
+          if(!festPagoDet){hTotales.nOrd+=ordEste;hTotales.xNOrd+=extEste;}
           else{hTotales.nFest+=ordEste;hTotales.xNFest+=extEste;}
         }
       });
@@ -7888,6 +7894,7 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       if(hTotales.xNOrd>0) vigDetHoras.push({tipo:'Extra nocturna',     h:hTotales.xNOrd,tar:T2.t4,val:Math.round(hTotales.xNOrd*T2.t4)});
       if(hTotales.xDFest>0)vigDetHoras.push({tipo:'Extra fest. diurna', h:hTotales.xDFest,tar:T2.t6,val:Math.round(hTotales.xDFest*T2.t6)});
       if(hTotales.xNFest>0)vigDetHoras.push({tipo:'Extra fest. noct.',  h:hTotales.xNFest,tar:T2.t8,val:Math.round(hTotales.xNFest*T2.t8)});
+      vigDetHoras.reglaSems=vigReglaSems;
     }
     // Filtrar por sede si aplica
     var empSede=getSedeCo(emp.coord)||'';
