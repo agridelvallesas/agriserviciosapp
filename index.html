@@ -6350,7 +6350,7 @@ function vigPagoWorker(regs, T){
     extraVig+=Math.round(extEste*tarExt);
     var pagoOrd=Math.round(ordEste*tarOrd);
     if(festReal){ domRealByDia[seg.sem+'_'+seg.dia]=true; }
-    if(festPago){ var dk=seg.sem+'_'+seg.dia; domVigByDia[dk]=(domVigByDia[dk]||0)+pagoOrd; }
+    if(seg.fest){ var dk=seg.sem+'_'+seg.dia; domVigByDia[dk]=(domVigByDia[dk]||0)+pagoOrd; }
     else salVig+=pagoOrd;
   });
   var domVig=0; Object.keys(domVigByDia).forEach(function(k){domVig+=domVigByDia[k];});
@@ -7803,8 +7803,9 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
         // Marcar día festivo REAL trabajado (aunque se pague ordinario) → afecta domingo de descanso
         if(festReal){ domRealByDia[seg.sem+'_'+seg.dia]=true; }
 
-        // Clasificar en dominical/festivo o salario normal SEGÚN cómo se paga
-        if(festPago){
+        // La casilla la define el día REAL (si es domingo/festivo va a dominical),
+        // aunque por la regla del umbral se haya pagado a tarifa ordinaria.
+        if(festReal){
           var dk=seg.sem+'_'+seg.dia;
           if(!domVigByDia[dk]) domVigByDia[dk]=0;
           domVigByDia[dk]+=pagoOrd;
@@ -7850,6 +7851,7 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       var LIMITE2=T2.lim||110;
       var hTotales={dOrd:0,nOrd:0,dFest:0,nFest:0,xDOrd:0,xNOrd:0,xDFest:0,xNFest:0};
       var vigReglaSems=[];   // semanas donde las festivas se pagaron como ordinarias
+      var hVal={}, hTar={};  // valor y tarifa aplicada por tipo de hora
       var horasOrd2=0;
       // Usar mismos segmentos calculados arriba
       var segmentos2=[];
@@ -7874,26 +7876,25 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
         if(ordEste<0) ordEste=0;
         var extEste=seg.h-ordEste;
         horasOrd2+=ordEste;
-        // Misma regla que el pago: si la semana no llega al mínimo de horas, las festivas van como ordinarias
+        // La etiqueta la da el día REAL; la tarifa, la regla del umbral
         var bajar=seg.fest && vigBajarFestiva(emp.ced, seg.sem);
         if(bajar && vigReglaSems.indexOf(parseInt(seg.sem))<0) vigReglaSems.push(parseInt(seg.sem));
         var festPagoDet=seg.fest && !bajar;
-        if(seg.tipo==='D'){
-          if(!festPagoDet){hTotales.dOrd+=ordEste;hTotales.xDOrd+=extEste;}
-          else{hTotales.dFest+=ordEste;hTotales.xDFest+=extEste;}
-        } else {
-          if(!festPagoDet){hTotales.nOrd+=ordEste;hTotales.xNOrd+=extEste;}
-          else{hTotales.nFest+=ordEste;hTotales.xNFest+=extEste;}
-        }
+        var tOrd=seg.tipo==='D'?(festPagoDet?T2.t5:T2.t1):(festPagoDet?T2.t7:T2.t3);
+        var tExt=seg.tipo==='D'?(festPagoDet?T2.t6:T2.t2):(festPagoDet?T2.t8:T2.t4);
+        var kOrd=(seg.tipo==='D')?(seg.fest?'dFest':'dOrd'):(seg.fest?'nFest':'nOrd');
+        var kExt=(seg.tipo==='D')?(seg.fest?'xDFest':'xDOrd'):(seg.fest?'xNFest':'xNOrd');
+        hTotales[kOrd]+=ordEste; hVal[kOrd]=(hVal[kOrd]||0)+ordEste*tOrd; hTar[kOrd]=tOrd;
+        hTotales[kExt]+=extEste; hVal[kExt]=(hVal[kExt]||0)+extEste*tExt; hTar[kExt]=tExt;
       });
-      if(hTotales.dOrd>0)  vigDetHoras.push({tipo:'Diurna ordinaria',   h:hTotales.dOrd, tar:T2.t1,val:Math.round(hTotales.dOrd*T2.t1)});
-      if(hTotales.nOrd>0)  vigDetHoras.push({tipo:'Nocturna',           h:hTotales.nOrd, tar:T2.t3,val:Math.round(hTotales.nOrd*T2.t3)});
-      if(hTotales.dFest>0) vigDetHoras.push({tipo:'Festiva diurna',     h:hTotales.dFest,tar:T2.t5,val:Math.round(hTotales.dFest*T2.t5)});
-      if(hTotales.nFest>0) vigDetHoras.push({tipo:'Festiva nocturna',   h:hTotales.nFest,tar:T2.t7,val:Math.round(hTotales.nFest*T2.t7)});
-      if(hTotales.xDOrd>0) vigDetHoras.push({tipo:'Extra diurna',       h:hTotales.xDOrd,tar:T2.t2,val:Math.round(hTotales.xDOrd*T2.t2)});
-      if(hTotales.xNOrd>0) vigDetHoras.push({tipo:'Extra nocturna',     h:hTotales.xNOrd,tar:T2.t4,val:Math.round(hTotales.xNOrd*T2.t4)});
-      if(hTotales.xDFest>0)vigDetHoras.push({tipo:'Extra fest. diurna', h:hTotales.xDFest,tar:T2.t6,val:Math.round(hTotales.xDFest*T2.t6)});
-      if(hTotales.xNFest>0)vigDetHoras.push({tipo:'Extra fest. noct.',  h:hTotales.xNFest,tar:T2.t8,val:Math.round(hTotales.xNFest*T2.t8)});
+      if(hTotales.dOrd>0)  vigDetHoras.push({tipo:'Diurna ordinaria',   h:hTotales.dOrd, tar:hTar.dOrd||T2.t1, val:Math.round(hVal.dOrd||0)});
+      if(hTotales.nOrd>0)  vigDetHoras.push({tipo:'Nocturna',           h:hTotales.nOrd, tar:hTar.nOrd||T2.t3, val:Math.round(hVal.nOrd||0)});
+      if(hTotales.dFest>0) vigDetHoras.push({tipo:'Dom/fest diurna'+((hTar.dFest&&hTar.dFest===T2.t1)?' (tarifa ord.)':''), h:hTotales.dFest,tar:hTar.dFest||T2.t5, val:Math.round(hVal.dFest||0)});
+      if(hTotales.nFest>0) vigDetHoras.push({tipo:'Dom/fest nocturna'+((hTar.nFest&&hTar.nFest===T2.t3)?' (tarifa ord.)':''), h:hTotales.nFest,tar:hTar.nFest||T2.t7, val:Math.round(hVal.nFest||0)});
+      if(hTotales.xDOrd>0) vigDetHoras.push({tipo:'Extra diurna',       h:hTotales.xDOrd,tar:hTar.xDOrd||T2.t2, val:Math.round(hVal.xDOrd||0)});
+      if(hTotales.xNOrd>0) vigDetHoras.push({tipo:'Extra nocturna',     h:hTotales.xNOrd,tar:hTar.xNOrd||T2.t4, val:Math.round(hVal.xNOrd||0)});
+      if(hTotales.xDFest>0)vigDetHoras.push({tipo:'Extra dom/fest diurna', h:hTotales.xDFest,tar:hTar.xDFest||T2.t6, val:Math.round(hVal.xDFest||0)});
+      if(hTotales.xNFest>0)vigDetHoras.push({tipo:'Extra dom/fest noct.', h:hTotales.xNFest,tar:hTar.xNFest||T2.t8, val:Math.round(hVal.xNFest||0)});
       vigDetHoras.reglaSems=vigReglaSems;
     }
     // Filtrar por sede si aplica
