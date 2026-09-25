@@ -15013,6 +15013,48 @@ function cartasPromUsar(){
   cartasCerrarPromedio();
 }
 
+// ── Cálculo de días de vacaciones (hábiles = sin domingos ni festivos) ──
+function vacFechaDe(iso){
+  var p=String(iso||'').split('-'); if(p.length<3) return null;
+  var d=new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  return isNaN(d.getTime())?null:d;
+}
+function vacISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Días calendario entre dos fechas (ambas incluidas)
+function vacDiasCalendario(iniISO, finISO){
+  var a=vacFechaDe(iniISO), b=vacFechaDe(finISO);
+  if(!a||!b) return 0;
+  return Math.round((b-a)/86400000)+1;
+}
+// Días hábiles entre dos fechas (excluye domingos y festivos)
+function vacDiasHabiles(iniISO, finISO){
+  var a=vacFechaDe(iniISO), b=vacFechaDe(finISO);
+  if(!a||!b) return 0;
+  var n=0, d=new Date(a.getTime());
+  while(d<=b){ if(!esDomFest(d)) n++; d.setDate(d.getDate()+1); }
+  return n;
+}
+// Fecha en la que se cumplen N días hábiles desde el inicio (último día de descanso)
+function vacFinPorHabiles(iniISO, nHabiles){
+  var a=vacFechaDe(iniISO); if(!a||!nHabiles) return '';
+  var n=0, d=new Date(a.getTime()), ultimo=null;
+  while(n<nHabiles){ if(!esDomFest(d)){ n++; ultimo=new Date(d.getTime()); } d.setDate(d.getDate()+1); }
+  return ultimo?vacISO(ultimo):'';
+}
+// Primer día hábil después de una fecha (para el reintegro)
+function vacSiguienteHabil(iso){
+  var d=vacFechaDe(iso); if(!d) return '';
+  do{ d.setDate(d.getDate()+1); }while(esDomFest(d));
+  return vacISO(d);
+}
+// "lunes 7 de septiembre de 2026"
+function vacFechaConDia(iso){
+  var d=vacFechaDe(iso); if(!d) return '';
+  var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return DIAS[d.getDay()]+' '+d.getDate()+' de '+MESES[d.getMonth()]+' de '+d.getFullYear();
+}
+
 function vacConstruirVariables(v, trab){
   var fmt=function(iso){
     if(!iso) return '';
@@ -15045,7 +15087,20 @@ function vacConstruirVariables(v, trab){
     FECHA_INGRESO: trab.FECHA_INGRESO||'',
     FECHA_INGRESO_LARGA: fmt(trab.FECHA_INGRESO),
     FECHA_CARTA_LARGA: fechaCarta,
-    REPRESENTANTE: CONFIG_EMPRESA.representante
+    REPRESENTANTE: CONFIG_EMPRESA.representante,
+    // ── Días hábiles vs calendario ──
+    // Hábiles = sin domingos ni festivos. Si el periodo es de 15 días calendario
+    // o menos, se usa el mismo número en ambos (regla indicada por la empresa).
+    DIAS_HABILES: (function(){
+      var cal=vacDiasCalendario(v.FECHA_INICIO, v.FECHA_FIN);
+      var hab=vacDiasHabiles(v.FECHA_INICIO, v.FECHA_FIN);
+      return (cal>0 && cal<=15) ? String(cal) : String(hab||'');
+    })(),
+    DIAS_CALENDARIO: String(vacDiasCalendario(v.FECHA_INICIO, v.FECHA_FIN)||''),
+    FECHA_INICIO_DIA: vacFechaConDia(v.FECHA_INICIO),
+    FECHA_FIN_DIA: vacFechaConDia(v.FECHA_FIN),
+    FECHA_REINTEGRO: vacSiguienteHabil(v.FECHA_FIN),
+    FECHA_REINTEGRO_DIA: vacFechaConDia(vacSiguienteHabil(v.FECHA_FIN))
   };
 }
 
