@@ -10641,8 +10641,16 @@ function jefeGenerar(){
   // Cargar los registros de esas semanas y calcular
   var s1=Math.min.apply(null,sems.map(Number)), s2=Math.max.apply(null,sems.map(Number));
   var hacer=function(){ jefeCalcular(qna, sems); };
-  if(typeof cargarSemanasMultiples==='function') cargarSemanasMultiples(sems.slice(), hacer);
-  else hacer();
+  var conDetallado=function(){
+    // La facturación sale del detallado; si no está cargado (se carga en Facturación), traerlo
+    if(typeof DETALLADO_CACHE!=='undefined' && DETALLADO_CACHE.length){ hacer(); return; }
+    if(typeof carDetalladoAll==='function'){
+      cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando detallado de facturación...</div>';
+      carDetalladoAll(function(){ hacer(); });
+    } else hacer();
+  };
+  if(typeof cargarSemanasMultiples==='function') cargarSemanasMultiples(sems.slice(), conDetallado);
+  else conDetallado();
 }
 function jefeCalcular(qna, sems){
   var T=getCFG();
@@ -12430,7 +12438,7 @@ function clConstruirYRender(s1, s2){
   }
 
   // Calcular pago vigilancia desde liquidación nómina (TAR + tarifas configuradas)
-  clCalcularPagosVigilancia(s1, s2);
+  // (el pago de vigilancia ya se calculó en el paso 1b con la misma lógica de la nómina)
 
   clRender();
 }
