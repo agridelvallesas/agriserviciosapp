@@ -10700,7 +10700,52 @@ function jefeCalcular(qna, sems){
       if(zonas[z][k]) zonas[z][k].facturado+=(d.val||0);
     });
   }
-  JEFE_DATA={qna:qna, sems:sems, zonas:zonas};
+  // ── Si ESTA quincena ya está liquidada, usar los valores REALES de la nómina
+  //    (el prorrateo de arriba es solo una estimación para cuando aún no se liquida).
+  var usóNomina=false;
+  if(typeof NOM_ROWS_CACHE!=='undefined' && NOM_ROWS_CACHE && NOM_ROWS_CACHE.length &&
+     window.NOM_QNA_OBJ && String(window.NOM_QNA_OBJ.id)===String(qna.id)){
+    usóNomina=true;
+    // Reiniciar lo liquidado; el reporte y el cobro se mantienen
+    sems.forEach(function(k){ ['NORTE','SUR'].forEach(function(z){
+      zonas[z][k].pagoAquiLab=0; zonas[z][k].pagoAquiVig=0; zonas[z][k].pagoVecLab=0; zonas[z][k].pagoVecVig=0;
+    }); });
+    // Horas de vigilancia por trabajador y semana dentro de esta quincena (para repartir su pago)
+    var horasCedSem={};
+    regs.forEach(function(r){
+      if(!r.esVig) return;
+      var k=String(parseInt(r.sem)||0); var ven=jefeVentana(qna,k);
+      if(ven && !ven(r.dia)) return;
+      var kk=String(r.ced)+'|'+k;
+      horasCedSem[kk]=(horasCedSem[kk]||0)+((r.vigHd||0)+(r.vigHn||0));
+    });
+    NOM_ROWS_CACHE.forEach(function(row){
+      var z=zonaDe(row.coord);
+      // Labores: lo que la nómina liquidó por semana (sin ajustes)
+      (row.det||[]).forEach(function(d){
+        var k=String(parseInt(d.sem)||0);
+        if(!zonas[z][k]) return;
+        zonas[z][k].pagoAquiLab+=(d.sProp||0)+((d.domSem||0)-(d.ajSem||0));
+      });
+      // Vigilancia: el total liquidado de la fila, repartido por las horas de cada semana
+      var vigTot=(row.vigN||0)+(row.domVigN||0)+(row.ajDomVigN||0)+(row.auxAlimVig||0);
+      if(vigTot>0){
+        var hTot=0, hPorSem={};
+        sems.forEach(function(k){ var h=horasCedSem[String(row.ced)+'|'+k]||0; if(h>0){ hPorSem[k]=h; hTot+=h; } });
+        if(hTot>0){ Object.keys(hPorSem).forEach(function(k){
+          if(zonas[z][k]) zonas[z][k].pagoAquiVig+=vigTot*(hPorSem[k]/hTot);
+        }); }
+      }
+    });
+    // Lo que queda para la quincena vecina = reportado − lo pagado aquí
+    sems.forEach(function(k){ ['NORTE','SUR'].forEach(function(z){
+      var Z=zonas[z][k];
+      Z.pagoVecLab=Math.max(0, Z.reporteLab-Z.pagoAquiLab);
+      Z.pagoVecVig=Math.max(0, Z.reporteVig-Z.pagoAquiVig);
+    }); });
+  }
+
+  JEFE_DATA={qna:qna, sems:sems, zonas:zonas, usóNomina:usóNomina};
   jefeRender();
 }
 function jefeRender(){
@@ -10787,6 +10832,9 @@ function jefeRender(){
       +'</div>'
     +'</div>';
   });
+  if(html && !JEFE_DATA.usóNomina){
+    html='<div style="margin-bottom:10px;padding:9px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:11.5px;color:#92400e">⚠️ Esta quincena no está liquidada en esta sesión: las columnas de <strong>pago de nómina</strong> son una estimación. Liquídala en “Liquidación quincena” y vuelve aquí para ver los valores exactos.</div>'+html;
+  }
   cont.innerHTML=html||'<div class="card" style="text-align:center;padding:24px;color:var(--g3)">Sin datos para esa quincena</div>';
 }
 // Exportar el informe a Excel
