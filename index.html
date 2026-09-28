@@ -1350,7 +1350,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <div style="background:var(--vs);border-radius:var(--rads);padding:10px;font-size:12px;color:var(--g2)">
           <strong style="color:var(--v)">💡 Cómo funciona:</strong>
           <strong>LABORES</strong> usa pago directo de cada registro (no prorrateado por quincena) vs cobro Riopaila labores.
-          <strong>VIGILANCIA NORTE</strong> usa el pago liquidado en nómina por horas diurnas/nocturnas/festivas vs cobro vigilancia.
+          <strong>VIGILANCIA NORTE</strong> usa el pago liquidado en nómina por horas diurnas/nocturnas/festivas vs cobro vigilancia. Si la quincena está liquidada, toma el valor exacto de la nómina (el tope de horas y el domingo de descanso se aplican por quincena, no por el rango consultado).
           El <strong>%</strong> indica cuánto del cobro se va en pago al trabajador (menor = mejor margen).
         </div>
       </div>
@@ -11604,32 +11604,46 @@ function rcTogVigPanel(){
   var labText=(document.getElementById('rc-lab-q').value||'').toUpperCase();
   var sede=RC_SEDE;
   var esVig=labText.includes('VIGILANCIA MAQUINARIA');
-  var esVigNorte=esVig&&sede==='NORTE';
   var panel=document.getElementById('rc-vig-panel');
   var cantWrap=document.getElementById('rc-cant-wrap');
   var pagoWrap=document.getElementById('rc-pago-wrap');
-  if(panel) panel.style.display=esVigNorte?'block':'none';
-  if(cantWrap) cantWrap.style.display=esVigNorte?'none':'block';
-  if(pagoWrap) pagoWrap.style.display=esVigNorte?'none':'block';
+  // El panel de horas aplica a vigilancia en las DOS sedes (cambia solo la forma de pago)
+  if(panel) panel.style.display=esVig?'block':'none';
+  if(cantWrap) cantWrap.style.display=esVig?'none':'block';
+  if(pagoWrap) pagoWrap.style.display='block';
 }
 
+// Tarifa vigente del código EN LA SEDE del coordinador seleccionado
+// (una misma labor tiene tarifa distinta en Norte y Sur)
+function rcTarifa(labId){
+  var sede=String(RC_SEDE||'').toUpperCase();
+  var t=TAR.find(function(x){return x.id===labId && String(x.sede||'').toUpperCase()===sede;});
+  if(!t) t=TAR.find(function(x){return x.id===labId && !x.sede;});
+  if(!t) t=TAR.find(function(x){return x.id===labId;});
+  return t||null;
+}
+function rcEsVigLab(){
+  return String(document.getElementById('rc-lab-q').value||'').toUpperCase().includes('VIGILANCIA MAQUINARIA');
+}
 function rcCalcVig(){
   var hd=parseFloat(document.getElementById('rc-vigD').value)||0;
   var hn=parseFloat(document.getElementById('rc-vigN').value)||0;
   document.getElementById('rc-vigT').value=(hd+hn)+'h';
-  // Mostrar cobro estimado
   var labId=document.getElementById('rc-lab-id').value;
-  var tar=TAR.find(function(t){return t.id===labId;});
+  var tar=rcTarifa(labId);
   if(tar){
-    var cobro=Math.round((hd+hn)*(tar.c||0));
-    document.getElementById('rc-cobro').value=cop(cobro);
+    var horas=hd+hn;
+    document.getElementById('rc-cobro').value=cop(Math.round(horas*(tar.c||0)));
+    var pEl=document.getElementById('rc-pago');
+    // NORTE: el pago se liquida en nómina. SUR: se paga por hora como labor normal.
+    if(pEl) pEl.value=(String(RC_SEDE||'').toUpperCase()==='NORTE')?'Se liquida en nómina':cop(Math.round(horas*(tar.p||0)));
   }
 }
 
 function rcCalc(){
   var labId=document.getElementById('rc-lab-id').value;
   var cant=parseFloat(document.getElementById('rc-cant').value)||0;
-  var tar=TAR.find(function(t){return t.id===labId;});
+  var tar=rcTarifa(labId);
   if(!tar||!cant) return;
   document.getElementById('rc-pago').value=cop(Math.round(tar.p*cant));
   document.getElementById('rc-cobro').value=cop(Math.round(tar.c*cant));
@@ -11655,17 +11669,26 @@ async function rcGuardar(){
   var esVigNorte=esVig&&RC_SEDE==='NORTE';
 
   var cant, pago, cobro, vigHd=0, vigHn=0, esVigFinal=false;
-  if(esVigNorte){
+  var tar=rcTarifa(labId);   // tarifa vigente del código EN LA SEDE del coordinador
+  if(esVig){
     vigHd=parseFloat(document.getElementById('rc-vigD').value)||0;
     vigHn=parseFloat(document.getElementById('rc-vigN').value)||0;
     cant=vigHd+vigHn;
-    pago=0; // se liquida en nómina
-    var tar=TAR.find(function(t){return t.id===labId;});
-    cobro=tar?Math.round(cant*(tar.c||18133)):0;
-    esVigFinal=true;
     if(!labId||!cant){
       msg.style.display='block';msg.style.background='var(--rs)';msg.style.color='var(--r)';
       msg.textContent='⚠ Completa labor y al menos una hora (diurna o nocturna)';return;
+    }
+    if(esVigNorte){
+      // NORTE: el pago se liquida en nómina; el cobro va aparte (cobroVig)
+      pago=0;
+      cobro=tar?Math.round(cant*(tar.c||0)):0;
+      esVigFinal=true;
+    } else {
+      // SUR: se paga y se cobra por hora, como una labor normal (pero se guardan las horas)
+      if(!tar) return;
+      pago=Math.round(cant*(tar.p||0));
+      cobro=Math.round(cant*(tar.c||0));
+      esVigFinal=false;
     }
   } else {
     cant=parseFloat(document.getElementById('rc-cant').value)||0;
@@ -11673,7 +11696,6 @@ async function rcGuardar(){
       msg.style.display='block';msg.style.background='var(--rs)';msg.style.color='var(--r)';
       msg.textContent='⚠ Completa coordinador, empleado, labor y cantidad';return;
     }
-    var tar=TAR.find(function(t){return t.id===labId;});
     if(!tar) return;
     pago=Math.round(tar.p*cant);
     cobro=Math.round(tar.c*cant);
@@ -12438,7 +12460,46 @@ function clConstruirYRender(s1, s2){
   }
 
   // Calcular pago vigilancia desde liquidación nómina (TAR + tarifas configuradas)
-  // (el pago de vigilancia ya se calculó en el paso 1b con la misma lógica de la nómina)
+  // 1c) Si la quincena ya está liquidada, usar el pago de vigilancia REAL de la nómina
+  //     para las semanas de esa quincena. La nómina aplica el tope de horas y el domingo
+  //     de descanso sobre la quincena completa, no sobre el rango que se consulte aquí.
+  var clVigDeNomina=false;
+  if(typeof NOM_ROWS_CACHE!=='undefined' && NOM_ROWS_CACHE && NOM_ROWS_CACHE.length && window.NOM_QNA_OBJ){
+    var qO=window.NOM_QNA_OBJ;
+    var semsQ=(qO.sems||[]).map(function(x){return parseInt(x.s);}).filter(function(k){return k>=s1&&k<=s2;});
+    if(semsQ.length){
+      clVigDeNomina=true;
+      // Horas de vigilancia por trabajador y semana dentro de la quincena liquidada
+      var hCedSem={};
+      getAllRegs().forEach(function(r){
+        if(!r.esVig) return;
+        var k=parseInt(r.sem)||0;
+        if(semsQ.indexOf(k)<0) return;
+        var ven=(typeof jefeVentana==='function')?jefeVentana(qO,String(k)):null;
+        if(ven && !ven(r.dia)) return;
+        hCedSem[String(r.ced)+'|'+k]=(hCedSem[String(r.ced)+'|'+k]||0)+((r.vigHd||0)+(r.vigHn||0));
+      });
+      // Reiniciar esas semanas y repartir el pago liquidado de cada trabajador
+      Object.keys(CL_DATA).forEach(function(k){
+        semsQ.forEach(function(sm){ if(CL_DATA[k].vig[sm]) CL_DATA[k].vig[sm].pago=0; });
+      });
+      NOM_ROWS_CACHE.forEach(function(row){
+        var vigTot=(row.vigN||0)+(row.domVigN||0)+(row.ajDomVigN||0)+(row.auxAlimVig||0);
+        if(!vigTot) return;
+        var hTot=0, hPS={};
+        semsQ.forEach(function(sm){ var h=hCedSem[String(row.ced)+'|'+sm]||0; if(h>0){hPS[sm]=h;hTot+=h;} });
+        if(!hTot) return;
+        var adm=row.admin||(typeof getAdmCo==='function'?getAdmCo(row.coord):'')||'';
+        var key=row.coord+'|'+adm;
+        if(!CL_DATA[key]) return;
+        Object.keys(hPS).forEach(function(sm){
+          if(!CL_DATA[key].vig[sm]) return;
+          CL_DATA[key].vig[sm].pago=(CL_DATA[key].vig[sm].pago||0)+vigTot*(hPS[sm]/hTot);
+        });
+      });
+    }
+  }
+  window.CL_VIG_NOMINA=clVigDeNomina;
 
   clRender();
 }
