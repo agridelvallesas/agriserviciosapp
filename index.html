@@ -1875,6 +1875,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <button class="tab" onclick="swNom('ico',this)">Informe por coordinador</button>
         <button class="tab" onclick="swNom('cnom',this)">🧾 Construcción nómina</button>
         <button class="tab" onclick="swNom('cuadre',this)">🧮 Cuadre</button>
+        <button class="tab" onclick="swNom('jefe',this)">📑 Informe quincena</button>
         <button class="tab" onclick="swNom('cfg',this)">⚙️ Configuración</button>
       </div>
 
@@ -2019,6 +2020,20 @@ tfoot td{background:var(--gf);font-weight:700}
       <div id="nom-cuadre" style="display:none">
         <div style="font-size:12px;color:#166534;margin-bottom:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">🧮 <strong>Cuadre de nómina (v6 · labores + vigilancia cuadradas)</strong> — calcula la nómina en “Liquidación quincena” y verás el pago por semana (labores y vigilancia) con la parte que se liquida aquí y la que va a la quincena vecina.</div>
         <div id="nom-cuadre-cont"></div>
+      </div>
+
+      <!-- INFORME DE QUINCENA (para dirección) -->
+      <div id="nom-jefe" style="display:none">
+        <div style="font-size:12px;color:#1e40af;margin-bottom:10px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">📑 <strong>Informe de quincena por zona</strong> — reporte, cobro y facturación de cada semana, con el desglose de cuánto se pagó de labores y de vigilancia, y en qué quincena se pagó.</div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="fld" style="min-width:230px;margin:0"><label>Quincena</label><select id="jefe-q"></select></div>
+            <button class="btn bn" onclick="jefeGenerar()" style="height:36px">📊 Generar informe</button>
+            <button class="btn bg" onclick="jefeExcel()" style="height:36px">📥 Excel</button>
+          </div>
+          <div style="font-size:11px;color:var(--g3);margin-top:6px">Necesita los registros de las semanas cargados; el detallado de facturación se toma del módulo de Facturación.</div>
+        </div>
+        <div id="jefe-cont"></div>
       </div>
 
       <!-- CONFIGURACIÓN NÓMINA -->
@@ -10566,11 +10581,230 @@ function expCuadre(){
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cuadre_nomina.csv';a.click();URL.revokeObjectURL(a.href);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// INFORME DE QUINCENA POR ZONA (para dirección)
+// Por cada semana de la quincena: reporte (pago a trabajadores), cobro a
+// Riopaila y facturado; y el desglose de en qué quincena se pagó cada
+// semana, separando LABORES de VIGILANCIA. Todo por sede (NORTE / SUR).
+// ══════════════════════════════════════════════════════════════════════
+var JEFE_DATA=null;
+function jefeInit(){
+  var sel=document.getElementById('jefe-q'); if(!sel) return;
+  if(!sel.options.length && typeof QNAS!=='undefined'){
+    QNAS.forEach(function(q){
+      var o=document.createElement('option'); o.value=q.id;
+      var ss=(q.sems||[]).map(function(x){return 'S'+parseInt(x.s)+'('+x.d+'d)';}).join(' ');
+      o.textContent=q.n+(ss?' ['+ss+']':''); sel.appendChild(o);
+    });
+    var actual=document.getElementById('nom-q');
+    if(actual&&actual.value) sel.value=actual.value;
+  }
+}
+// Ventana de días de una semana dentro de una quincena (mismo criterio de la nómina)
+function jefeVentana(qna, semK){
+  var dias={'L':1,'M':2,'MI':3,'J':4,'V':5,'S':6,'D':7};
+  var idx=-1, dQ=7;
+  (qna.sems||[]).forEach(function(sd,i){ if(String(parseInt(sd.s))===String(semK)){ idx=i; dQ=sd.d||7; } });
+  if(idx<0) return null;
+  var esPrimera=(idx===0);
+  return function(dia){ var dn=dias[dia]||7; if(dQ>=7) return true; return esPrimera ? (dn>=(7-dQ+1)) : (dn<=dQ); };
+}
+function jefeGenerar(){
+  var cont=document.getElementById('jefe-cont'); if(!cont) return;
+  var qid=(document.getElementById('jefe-q')||{}).value;
+  var qna=(typeof QNAS!=='undefined')?QNAS.find(function(x){return x.id===qid;}):null;
+  if(!qna){ cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">Elige una quincena</div>'; return; }
+  var sems=(qna.sems||[]).map(function(x){return String(parseInt(x.s));});
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando semanas '+sems.join(', ')+'...</div>';
+  // Cargar los registros de esas semanas y calcular
+  var s1=Math.min.apply(null,sems.map(Number)), s2=Math.max.apply(null,sems.map(Number));
+  var hacer=function(){ jefeCalcular(qna, sems); };
+  if(typeof cargarSemanasMultiples==='function') cargarSemanasMultiples(sems.slice(), hacer);
+  else hacer();
+}
+function jefeCalcular(qna, sems){
+  var T=getCFG();
+  var regs=getAllRegs().filter(function(r){ return sems.indexOf(String(parseInt(r.sem)||0))>=0; });
+  var zonas={NORTE:{}, SUR:{}};
+  function zonaDe(coord){ var sd=(typeof getSedeCo==='function')?String(getSedeCo(coord)||'').toUpperCase():''; return (sd==='SUR')?'SUR':'NORTE'; }
+  // Estructura por zona y semana
+  sems.forEach(function(k){
+    ['NORTE','SUR'].forEach(function(z){
+      zonas[z][k]={reporteLab:0, reporteVig:0, cobro:0, facturado:0,
+                   pagoAquiLab:0, pagoAquiVig:0, pagoVecLab:0, pagoVecVig:0, horasVig:0};
+    });
+  });
+  // ── Reporte y cobro (semana completa) + prorrateo de labores por quincena ──
+  var porSemZonaCed={};
+  regs.forEach(function(r){
+    var k=String(parseInt(r.sem)||0), z=zonaDe(r.coord);
+    var Z=zonas[z][k]; if(!Z) return;
+    Z.cobro+=(r.cobro||0)+(r.cobroVig||0);
+    if(r.esVig){ Z.horasVig+=(r.vigHd||0)+(r.vigHn||0); }
+    else { Z.reporteLab+=(r.pago||0); }
+    var kk=z+'|'+k+'|'+r.ced;
+    if(!porSemZonaCed[kk]) porSemZonaCed[kk]={z:z,k:k,ced:r.ced,totLab:0,dias:{},diasQna:{},vigTodos:[],vigQna:[]};
+    var W=porSemZonaCed[kk];
+    if(r.esVig){ W.vigTodos.push(r); }
+    else { W.totLab+=(r.pago||0); W.dias[r.dia]=1; }
+    var ven=jefeVentana(qna,k);
+    var dentro=(!ven||ven(r.dia));
+    if(!r.esVig && dentro) W.diasQna[r.dia]=1;
+    if(r.esVig && dentro) W.vigQna.push(r);
+  });
+  // Pago de vigilancia: con la misma función de la nómina (tope por quincena)
+  Object.keys(porSemZonaCed).forEach(function(kk){
+    var W=porSemZonaCed[kk], Z=zonas[W.z][W.k]; if(!Z) return;
+    // Labores: prorrateo por días
+    var nd=Object.keys(W.dias).length, nq=Object.keys(W.diasQna).length;
+    if(nd>0){
+      var aqui=W.totLab*(nq/nd);
+      Z.pagoAquiLab+=aqui; Z.pagoVecLab+=(W.totLab-aqui);
+    }
+    // Vigilancia: se paga por fecha; lo de esta quincena vs el resto
+    if(W.vigTodos.length && typeof vigPagoWorker==='function'){
+      var todo=vigPagoWorker(W.vigTodos,T).total||0;
+      var aquiV=W.vigQna.length?(vigPagoWorker(W.vigQna,T).total||0):0;
+      Z.reporteVig+=todo;
+      Z.pagoAquiVig+=aquiV; Z.pagoVecVig+=Math.max(0,todo-aquiV);
+    }
+  });
+  // ── Facturado por semana y zona (detallado de facturación) ──
+  if(typeof DETALLADO_CACHE!=='undefined' && Array.isArray(DETALLADO_CACHE)){
+    DETALLADO_CACHE.forEach(function(d){
+      var k=String(parseInt(d.sem)||0);
+      if(sems.indexOf(k)<0) return;
+      var z=zonaDe(d.coord);
+      if(zonas[z][k]) zonas[z][k].facturado+=(d.val||0);
+    });
+  }
+  JEFE_DATA={qna:qna, sems:sems, zonas:zonas};
+  jefeRender();
+}
+function jefeRender(){
+  var cont=document.getElementById('jefe-cont'); if(!cont||!JEFE_DATA) return;
+  var sems=JEFE_DATA.sems, zonas=JEFE_DATA.zonas, qna=JEFE_DATA.qna;
+  var html='';
+  ['NORTE','SUR'].forEach(function(z){
+    var tiene=sems.some(function(k){ var Z=zonas[z][k]; return Z && (Z.reporteLab||Z.reporteVig||Z.cobro||Z.facturado); });
+    if(!tiene) return;
+    var tR=0,tC=0,tF=0,tAL=0,tAV=0,tVL=0,tVV=0;
+    var filas=sems.map(function(k){
+      var Z=zonas[z][k];
+      var rep=Math.round(Z.reporteLab+Z.reporteVig), cob=Math.round(Z.cobro), fac=Math.round(Z.facturado);
+      var pct=cob>0?((rep/cob)*100):0;
+      tR+=rep; tC+=cob; tF+=fac;
+      tAL+=Z.pagoAquiLab; tAV+=Z.pagoAquiVig; tVL+=Z.pagoVecLab; tVV+=Z.pagoVecVig;
+      return '<tr>'
+        +'<td style="padding:6px 8px;font-weight:700">S'+k+'</td>'
+        +'<td style="padding:6px 8px;text-align:right">$'+cop(rep)+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:#6b7280">$'+cop(Math.round(Z.reporteLab))+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:#1e40af">'+(Z.reporteVig?('$'+cop(Math.round(Z.reporteVig))):'—')+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;font-weight:600">$'+cop(cob)+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:'+(fac?'#166534':'#dc2626')+'">'+(fac?('$'+cop(fac)):'falta')+'</td>'
+        +'<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+(pct>55?'#dc2626':pct>0?'#166534':'#9ca3af')+'">'+(cob>0?pct.toFixed(1)+'%':'—')+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:#166534">$'+cop(Math.round(Z.pagoAquiLab))+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:#1e40af">'+(Z.pagoAquiVig?('$'+cop(Math.round(Z.pagoAquiVig))):'—')+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;font-weight:700">$'+cop(Math.round(Z.pagoAquiLab+Z.pagoAquiVig))+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:#b45309">'+((Z.pagoVecLab+Z.pagoVecVig)>1000?('$'+cop(Math.round(Z.pagoVecLab+Z.pagoVecVig))):'—')+'</td>'
+        +'</tr>';
+    }).join('');
+    var pctT=tC>0?((tR/tC)*100):0;
+    html+='<div class="card" style="margin-bottom:14px">'
+      +'<div class="ct">'+(z==='NORTE'?'🔵':'🟢')+' ZONA '+z+' <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">'+qna.n+'</span></div>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px">'
+      +'<thead>'
+        +'<tr style="background:var(--gf);font-size:10px;text-transform:uppercase">'
+          +'<th style="padding:5px 8px"></th>'
+          +'<th colspan="3" style="padding:5px 8px;text-align:center;border-bottom:2px solid #cbd5e1">Reporte (pago a trabajadores)</th>'
+          +'<th colspan="3" style="padding:5px 8px;text-align:center;border-bottom:2px solid #cbd5e1">Cobro y facturación</th>'
+          +'<th colspan="4" style="padding:5px 8px;text-align:center;border-bottom:2px solid #86efac;color:#166534">Pago de nómina de esta quincena</th>'
+        +'</tr>'
+        +'<tr style="background:var(--gf)">'
+        +'<th style="padding:7px 8px;text-align:left">Sem</th>'
+        +'<th style="padding:7px 8px;text-align:right">Total</th>'
+        +'<th style="padding:7px 8px;text-align:right">Labores</th>'
+        +'<th style="padding:7px 8px;text-align:right">Vigilancia</th>'
+        +'<th style="padding:7px 8px;text-align:right">Cobro</th>'
+        +'<th style="padding:7px 8px;text-align:right">Facturado</th>'
+        +'<th style="padding:7px 8px;text-align:center">% Rep/Cobro</th>'
+        +'<th style="padding:7px 8px;text-align:right">Labores</th>'
+        +'<th style="padding:7px 8px;text-align:right">Vigilancia</th>'
+        +'<th style="padding:7px 8px;text-align:right">Total aquí</th>'
+        +'<th style="padding:7px 8px;text-align:right">Queda para<br>la vecina</th>'
+        +'</tr></thead><tbody>'+filas+'</tbody>'
+      +'<tfoot><tr style="border-top:2px solid var(--bd);font-weight:800">'
+        +'<td style="padding:8px">TOTAL</td>'
+        +'<td style="padding:8px;text-align:right">$'+cop(tR)+'</td>'
+        +'<td style="padding:8px;text-align:right">$'+cop(Math.round(sems.reduce(function(a,k){return a+zonas[z][k].reporteLab;},0)))+'</td>'
+        +'<td style="padding:8px;text-align:right;color:#1e40af">$'+cop(Math.round(sems.reduce(function(a,k){return a+zonas[z][k].reporteVig;},0)))+'</td>'
+        +'<td style="padding:8px;text-align:right">$'+cop(tC)+'</td>'
+        +'<td style="padding:8px;text-align:right">$'+cop(tF)+'</td>'
+        +'<td style="padding:8px;text-align:center">'+(tC>0?pctT.toFixed(1)+'%':'—')+'</td>'
+        +'<td style="padding:8px;text-align:right;color:#166534">$'+cop(Math.round(tAL))+'</td>'
+        +'<td style="padding:8px;text-align:right;color:#1e40af">$'+cop(Math.round(tAV))+'</td>'
+        +'<td style="padding:8px;text-align:right">$'+cop(Math.round(tAL+tAV))+'</td>'
+        +'<td style="padding:8px;text-align:right;color:#b45309">$'+cop(Math.round(tVL+tVV))+'</td>'
+      +'</tr></tfoot></table></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">'
+        +'<div style="flex:1;min-width:190px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 12px">'
+          +'<div style="font-size:10px;text-transform:uppercase;color:#166534;font-weight:800">Pago de nómina '+z+' — esta quincena</div>'
+          +'<div style="font-size:20px;font-weight:800;color:#166534">$'+cop(Math.round(tAL+tAV))+'</div>'
+          +'<div style="font-size:11px;color:#15803d">Labores $'+cop(Math.round(tAL))+'  ·  Vigilancia $'+cop(Math.round(tAV))+'</div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:190px;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:10px 12px">'
+          +'<div style="font-size:10px;text-transform:uppercase;color:#1e40af;font-weight:800">Cobro a Riopaila</div>'
+          +'<div style="font-size:20px;font-weight:800;color:#1e40af">$'+cop(tC)+'</div>'
+          +'<div style="font-size:11px;color:#2563eb">Facturado $'+cop(tF)+(tC-tF>1000?('  ·  falta $'+cop(tC-tF)):'')+'</div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:190px;background:var(--gf);border:1px solid var(--bd);border-radius:10px;padding:10px 12px">'
+          +'<div style="font-size:10px;text-transform:uppercase;color:var(--g3);font-weight:800">Costo laboral</div>'
+          +'<div style="font-size:20px;font-weight:800;color:'+(pctT>55?'#dc2626':'var(--v)')+'">'+(tC>0?pctT.toFixed(1)+'%':'—')+'</div>'
+          +'<div style="font-size:11px;color:var(--g3)">Reporte $'+cop(tR)+' de cobro $'+cop(tC)+'</div>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  });
+  cont.innerHTML=html||'<div class="card" style="text-align:center;padding:24px;color:var(--g3)">Sin datos para esa quincena</div>';
+}
+// Exportar el informe a Excel
+function jefeExcel(){
+  if(!JEFE_DATA){ alert('Primero genera el informe'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel. Revisa la conexión.'); return; }
+    var wb=XLSX.utils.book_new();
+    ['NORTE','SUR'].forEach(function(z){
+      var rows=[['INFORME DE QUINCENA — ZONA '+z, JEFE_DATA.qna.n],[],
+        ['Semana','Reporte total','Reporte labores','Reporte vigilancia','Cobro','Facturado','% Rep/Cobro',
+         'Nómina aquí: labores','Nómina aquí: vigilancia','Nómina aquí: total','Queda para la vecina']];
+      var t=[0,0,0,0,0,0,0,0];
+      JEFE_DATA.sems.forEach(function(k){
+        var Z=JEFE_DATA.zonas[z][k]; if(!Z) return;
+        var rep=Math.round(Z.reporteLab+Z.reporteVig), cob=Math.round(Z.cobro);
+        rows.push(['S'+k, rep, Math.round(Z.reporteLab), Math.round(Z.reporteVig), cob, Math.round(Z.facturado),
+          cob>0?Number(((rep/cob)*100).toFixed(1)):'', Math.round(Z.pagoAquiLab), Math.round(Z.pagoAquiVig),
+          Math.round(Z.pagoAquiLab+Z.pagoAquiVig), Math.round(Z.pagoVecLab+Z.pagoVecVig)]);
+        t[0]+=rep; t[1]+=Z.reporteLab; t[2]+=Z.reporteVig; t[3]+=cob; t[4]+=Z.facturado;
+        t[5]+=Z.pagoAquiLab; t[6]+=Z.pagoAquiVig; t[7]+=(Z.pagoVecLab+Z.pagoVecVig);
+      });
+      rows.push(['TOTAL', Math.round(t[0]), Math.round(t[1]), Math.round(t[2]), Math.round(t[3]), Math.round(t[4]),
+        t[3]>0?Number(((t[0]/t[3])*100).toFixed(1)):'', Math.round(t[5]), Math.round(t[6]),
+        Math.round(t[5]+t[6]), Math.round(t[7])]);
+      var ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:10},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:12},{wch:18},{wch:18},{wch:16},{wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws, z);
+    });
+    XLSX.writeFile(wb, 'Informe_quincena_'+String(JEFE_DATA.qna.n).replace(/[^\w]+/g,'_')+'.xlsx');
+  });
+}
+
 function swNom(s,btn){
-  ['liq','ico','cnom','cfg','cuadre'].forEach(function(x){var el=document.getElementById('nom-'+x);if(el)el.style.display=x===s?'block':'none';});
+  ['liq','ico','cnom','cfg','cuadre','jefe'].forEach(function(x){var el=document.getElementById('nom-'+x);if(el)el.style.display=x===s?'block':'none';});
   if(s==='cfg') cfgCargar();
   if(s==='cnom') cnomInit();
   if(s==='cuadre') cuadreRender();
+  if(s==='jefe') jefeInit();
   document.querySelectorAll('#p-nom .tab').forEach(function(b){b.classList.remove('on');});
   if(btn) btn.classList.add('on');
 }
