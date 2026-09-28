@@ -10357,7 +10357,38 @@ function cuadreRender(){
     vigComp[s]=v; vigAqui[s]=v; vigVec[s]=0; // la vigilancia se liquida por quincena, no cruza
   });
 
-  var t0Pago=0,t0Lab=0,t0Vig=0,t0Aqui=0,t0Vec=0,t0LabAqui=0,t0VigAqui=0,t0LabSal=0,t0LabDom=0;
+  // ── Verificación: prorrateo ESPERADO de labores calculado aparte, desde los registros
+  //    crudos (total de la semana del trabajador ÷ días trabajados × días en esta quincena).
+  //    Sirve para detectar si la liquidación dejó pesos por fuera en semanas de borde.
+  var espLab={};
+  (function(){
+    var porSemCed={};
+    getAllRegs().forEach(function(r){
+      if(r.tipo!=='labor') return;
+      var k=String(parseInt(r.sem)||0);
+      if(qnaSems.indexOf(k)<0) return;
+      if(filtCo && r.coord!==filtCo) return;
+      if(filtSede){ var sd=(typeof getSedeCo==='function'?getSedeCo(r.coord):''); if(sd && sd!==filtSede) return; }
+      if(!porSemCed[k]) porSemCed[k]={};
+      var c=String(r.ced||'');
+      if(!porSemCed[k][c]) porSemCed[k][c]={tot:0, dias:{}, diasQna:{}};
+      porSemCed[k][c].tot+=(r.pago||0);
+      porSemCed[k][c].dias[r.dia]=1;
+      var chk=semWindow[k];
+      if(!chk || chk(r.dia)) porSemCed[k][c].diasQna[r.dia]=1;
+    });
+    Object.keys(porSemCed).forEach(function(k){
+      var suma=0;
+      Object.keys(porSemCed[k]).forEach(function(c){
+        var w=porSemCed[k][c];
+        var nd=Object.keys(w.dias).length, nq=Object.keys(w.diasQna).length;
+        if(nd>0) suma+=w.tot*(nq/nd);
+      });
+      espLab[k]=Math.round(suma);
+    });
+  })();
+
+  var t0Pago=0,t0Lab=0,t0Vig=0,t0Aqui=0,t0Vec=0,t0LabAqui=0,t0VigAqui=0,t0LabSal=0,t0LabDom=0,t0Esp=0,t0Hrs=0;
   var filas0=qnaSems.map(function(s){
     var labComp=(rawSal[s]||0)+(rawDom[s]||0);      // labores semana completa (= Costo Laboral)
     var labAqui=(liqSal[s]||0)+(liqDom[s]||0);      // labores liquidado en esta quincena
@@ -10369,36 +10400,49 @@ function cuadreRender(){
     t0Pago+=totComp; t0Lab+=labComp; t0Vig+=vC; t0Aqui+=aqui; t0Vec+=vec;
     t0LabAqui+=labAqui; t0VigAqui+=vA; t0LabSal+=(liqSal[s]||0); t0LabDom+=(liqDom[s]||0);
     var dias=diasEnQna[s]||7; var esB=borde[s];
+    var esp=espLab[s]||0, dif=labAqui-esp; t0Esp+=esp; t0Hrs+=(vigHrsSem[s]||0);
+    var difTxt=(Math.abs(dif)<1000)?'<span style="color:#16a34a">✓</span>':('<span style="color:#dc2626;font-weight:700">'+(dif>0?'+':'')+cop(dif)+'</span>');
     return '<tr>'
       +'<td style="padding:7px 8px;font-weight:700">S'+s+(esB?' <span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:99px">borde '+dias+'/7</span>':' <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:99px">completa</span>')+'</td>'
-      +'<td style="padding:7px 8px;text-align:right;font-weight:800">$'+cop(totComp)+'</td>'
       +'<td style="padding:7px 8px;text-align:right;color:#6b7280">$'+cop(labComp)+'</td>'
-      +'<td style="padding:7px 8px;text-align:right;color:#6b7280">$'+cop(vC)+'</td>'
-      +'<td style="padding:7px 8px;text-align:right;font-weight:600;color:#166534">$'+cop(aqui)+'</td>'
-      +'<td style="padding:7px 8px;text-align:right;color:#166534">$'+cop(labAqui)+'</td>'
-      +'<td style="padding:7px 8px;text-align:right;color:'+(vec>1000?'#b45309':'#9ca3af')+'">'+(vec>1000?'$'+cop(vec):'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;font-weight:600;color:#166534">$'+cop(labAqui)+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:'+(labVec>1000?'#b45309':'#9ca3af')+'">'+(labVec>1000?'$'+cop(labVec):'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;font-size:11px">'+difTxt+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:#6b7280">'+((vigHrsSem[s]||0)?((vigHrsSem[s]||0)+'h'):'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;font-weight:600;color:#1e40af">'+(vC?('$'+cop(vC)):'—')+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;font-weight:800">$'+cop(aqui)+'</td>'
       +'</tr>';
   }).join('');
+  var difTot=t0LabAqui-t0Esp;
   var totRow0='<tr style="border-top:2px solid var(--bd);font-weight:800">'
     +'<td style="padding:8px">TOTAL</td>'
-    +'<td style="padding:8px;text-align:right">$'+cop(t0Pago)+'</td>'
     +'<td style="padding:8px;text-align:right">$'+cop(t0Lab)+'</td>'
-    +'<td style="padding:8px;text-align:right">$'+cop(t0Vig)+'</td>'
-    +'<td style="padding:8px;text-align:right;color:#166534">$'+cop(t0Aqui)+'</td>'
     +'<td style="padding:8px;text-align:right;color:#166534">$'+cop(t0LabAqui)+'</td>'
     +'<td style="padding:8px;text-align:right;color:#b45309">$'+cop(t0Vec)+'</td>'
+    +'<td style="padding:8px;text-align:center;font-size:11px">'+((Math.abs(difTot)<1000)?'<span style="color:#16a34a">✓</span>':('<span style="color:#dc2626">'+(difTot>0?'+':'')+cop(difTot)+'</span>'))+'</td>'
+    +'<td style="padding:8px;text-align:right">'+t0Hrs+'h</td>'
+    +'<td style="padding:8px;text-align:right;color:#1e40af">$'+cop(t0VigAqui)+'</td>'
+    +'<td style="padding:8px;text-align:right">$'+cop(t0Aqui)+'</td>'
     +'</tr>';
   var caja0='<div class="card" style="margin-bottom:12px">'
     +'<div class="ct">📊 Pago a trabajadores por semana — cómo se refleja en la nómina</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">'
-    +'<thead><tr style="background:var(--gf)">'
+    +'<thead>'
+    +'<tr style="background:var(--gf);font-size:10px;text-transform:uppercase;letter-spacing:.3px">'
+      +'<th style="padding:6px 8px"></th>'
+      +'<th colspan="4" style="padding:6px 8px;text-align:center;color:#166534;border-bottom:2px solid #86efac">LABORES (se prorratean entre quincenas)</th>'
+      +'<th colspan="2" style="padding:6px 8px;text-align:center;color:#1e40af;border-bottom:2px solid #93c5fd">VIGILANCIA (se paga por fecha, no cruza)</th>'
+      +'<th style="padding:6px 8px"></th>'
+    +'</tr>'
+    +'<tr style="background:var(--gf)">'
     +'<th style="padding:8px;text-align:left">Semana</th>'
-    +'<th style="padding:8px;text-align:right">Pago trabajadores<br>(semana completa)</th>'
-    +'<th style="padding:8px;text-align:right">· Labores</th>'
-    +'<th style="padding:8px;text-align:right">· Vigilancia</th>'
-    +'<th style="padding:8px;text-align:right">Liquidado en<br>ESTA quincena</th>'
-    +'<th style="padding:8px;text-align:right;color:#166534">de eso:<br>solo LABORES</th>'
-    +'<th style="padding:8px;text-align:right">En quincena<br>vecina</th>'
+    +'<th style="padding:8px;text-align:right">Reportado<br>(semana completa)</th>'
+    +'<th style="padding:8px;text-align:right;color:#166534">Liquidado<br>AQUÍ</th>'
+    +'<th style="padding:8px;text-align:right">Va a quincena<br>vecina</th>'
+    +'<th style="padding:8px;text-align:center" title="Compara lo liquidado contra el prorrateo esperado (total semana ÷ días trabajados × días en esta quincena)">Chequeo</th>'
+    +'<th style="padding:8px;text-align:right">Horas<br>en esta qna</th>'
+    +'<th style="padding:8px;text-align:right;color:#1e40af">Liquidado<br>AQUÍ</th>'
+    +'<th style="padding:8px;text-align:right">TOTAL liquidado<br>en esta quincena</th>'
     +'</tr></thead><tbody>'+filas0+'</tbody><tfoot>'+totRow0+'</tfoot></table></div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
       +'<div style="flex:1;min-width:210px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px">'
@@ -10417,7 +10461,7 @@ function cuadreRender(){
         +'<div style="font-size:11px;color:var(--g3)">Labores + Vigilancia (base, sin ajustes ni auxilios)</div>'
       +'</div>'
     +'</div>'
-    +'<div style="margin-top:10px;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e40af">📌 <strong>“Pago trabajadores (semana completa)”</strong> = el MISMO número que ves en <strong>Costo Laboral</strong> (Labores + Vigilancia). La nómina liquida por <strong>quincena</strong>: la columna <strong>“Liquidado en esta quincena”</strong> (labores + vigilancia) es lo que se paga aquí; lo de <strong>“quincena vecina”</strong> se paga en el otro período. <strong>Completa = Aquí + Vecina</strong>, no se pierde ni se infla nada.</div>'
+    +'<div style="margin-top:10px;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e40af">📌 <strong>Labores</strong>: el reportado es la semana completa y se reparte entre las dos quincenas (prorrateo: total de la semana ÷ días trabajados × días que caen aquí). <strong>Aquí + Vecina = Reportado.</strong><br>📌 <strong>Vigilancia</strong>: no se prorratea. Cada turno se paga en la quincena donde cayó su fecha y con el tope de horas de esa quincena, por eso solo se muestra lo liquidado aquí (y sus horas). La vigilancia de una semana de borde queda repartida entre las dos quincenas <em>por fecha</em>, no por prorrateo.<br>📌 <strong>Chequeo</strong>: compara lo liquidado contra el prorrateo calculado aparte desde los reportes. Si sale un valor en rojo, hay pesos que no se están liquidando en ninguna de las dos quincenas. Los ajustes (dominical mínimo, etc.) no entran en estas columnas.</div>'
     +'<div style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534">✅ La vigilancia aquí es el <strong>valor EXACTO liquidado en la nómina</strong> ($'+cop(vigExactoTot)+' = sal.vig + dom.vig + aj.dom.vig + aux.alim.vig), repartido por semana según las horas reportadas. Por eso el Cuadre <strong>coincide exacto</strong> con la liquidación. Nota: la vigilancia se liquida por quincena (cada turno en su período, con el tope de 110h), por eso no aparece en la columna “quincena vecina” como sí lo hacen las labores.</div>'
     +'</div>';
 
@@ -13890,6 +13934,7 @@ function vacAbrirModal(v){
     '<div style="padding:18px">'+
       '<div class="fld" style="margin-bottom:12px"><label>Trabajador *</label>'+
 '<div style="position:relative"><input type="text" id="vac-f-ced-q" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>'+'<input type="hidden" id="vac-f-cedula"/>'+'<div id="vac-f-ced-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'+
+    '<div id="vac-f-resumen" style="display:none;margin-top:8px"></div>'+
       '</div>'+
 
       // Hint dinámico de sugerencia (se llena al elegir trabajador)
@@ -13912,14 +13957,16 @@ function vacAbrirModal(v){
     acEmpInit('vac-f-ced-q','vac-f-ced-drop', function(ced,nom){
       document.getElementById('vac-f-ced-q').value=nom+' · '+ced;
       document.getElementById('vac-f-cedula').value=ced;
-      // Al elegir el trabajador, sugerir automáticamente su siguiente periodo pendiente
+      // Al elegir el trabajador, sugerir su siguiente periodo y mostrar su saldo
       if(typeof vacSugerirPeriodo==='function') vacSugerirPeriodo(ced);
+      vacResumenTrab(ced);
     }, acTrabFuente);
     // Al EDITAR, mostrar el trabajador que ya tenía el periodo
     if(v && v.CEDULA){
       var hid=document.getElementById('vac-f-cedula'); if(hid) hid.value=String(v.CEDULA);
       var q=document.getElementById('vac-f-ced-q');
       if(q){ q.value=String(v.NOMBRES||'')+' · '+String(v.CEDULA); if(es_edit){ q.readOnly=true; q.style.background='#f1f5f9'; } }
+      vacResumenTrab(v.CEDULA);
     }
   });
 
@@ -14041,6 +14088,44 @@ function vacRemoverBloque(idx){
 }
 
 // Calcula y muestra sugerencia del próximo periodo pendiente
+// Resumen compacto del trabajador dentro de "Agregar periodo": ingreso, causados,
+// tomados, pendientes y el siguiente sugerido. Usa el mismo cálculo de Consultar saldo.
+function vacResumenTrab(ced){
+  var cont=document.getElementById('vac-f-resumen'); if(!cont) return;
+  if(!ced){ cont.style.display='none'; return; }
+  var trab=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(t){return String(t.CEDULA)===String(ced);}):null;
+  if(!trab){ cont.style.display='none'; return; }
+  cont.style.display='block';
+  if(!trab.FECHA_INGRESO){
+    cont.innerHTML='<div style="background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;padding:8px 10px;font-size:11.5px;color:#92400e">⚠️ Sin fecha de ingreso registrada: no se puede calcular el saldo.</div>';
+    return;
+  }
+  var calc=vacCalcCausados(trab.FECHA_INGRESO);
+  var causados=calc.periodos.length;
+  var unicos=new Set();
+  if(typeof VAC_DATA!=='undefined'){
+    VAC_DATA.filter(function(v){return String(v.CEDULA)===String(ced);}).forEach(function(v){
+      var pn=vacNormPeriodo(v.PERIODO_CAUSADO); if(pn) unicos.add(pn);
+    });
+  }
+  var tomados=unicos.size, pend=causados-tomados;
+  var sug=(typeof vacObtenerSugerenciaIdx==='function')?vacObtenerSugerenciaIdx(ced,0):null;
+  function dato(lbl,val,col){
+    return '<div style="text-align:center;padding:0 8px"><div style="font-size:9px;color:var(--g3);text-transform:uppercase;letter-spacing:.03em">'+lbl+'</div>'
+      +'<div style="font-size:14px;font-weight:800;color:'+(col||'var(--g1)')+'">'+val+'</div></div>';
+  }
+  var f=String(trab.FECHA_INGRESO).slice(0,10).split('-');
+  cont.innerHTML='<div style="background:var(--vs);border-radius:8px;padding:8px 10px">'
+    +'<div style="display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:4px">'
+      +dato('Ingreso', (f.length===3?(f[2]+'/'+f[1]+'/'+f[0]):'—'))
+      +dato('Causados', causados)
+      +dato('Tomados', tomados)
+      +dato('Pendientes', pend, pend>0?'var(--a)':'var(--v)')
+    +'</div>'
+    +(sug?('<div style="text-align:center;font-size:11px;color:var(--g2);margin-top:5px;border-top:1px dashed var(--bd);padding-top:5px">Siguiente periodo sugerido: <strong style="color:var(--v)">'+sug.label+'</strong></div>'):'')
+  +'</div>';
+}
+
 function vacSugerirPeriodo(ced){
   var hint=document.getElementById('vac-sugerencia');
   if(!hint || !ced){
