@@ -10737,11 +10737,24 @@ function jefeCalcular(qna, sems){
         }); }
       }
     });
-    // Lo que queda para la quincena vecina = reportado − lo pagado aquí
+    // Vigilancia que queda para la vecina: los turnos de la semana que caen FUERA de
+    // esta quincena, calculados con la misma función de la nómina.
+    sems.forEach(function(k){ ['NORTE','SUR'].forEach(function(z){ zonas[z][k].pagoVecVig=0; }); });
+    Object.keys(porSemZonaCed).forEach(function(kk){
+      var W=porSemZonaCed[kk], Z=zonas[W.z][W.k]; if(!Z) return;
+      if(!W.vigTodos.length) return;
+      var ven=jefeVentana(qna, W.k);
+      var fuera=W.vigTodos.filter(function(r){ return ven && !ven(r.dia); });
+      if(fuera.length && typeof vigPagoWorker==='function'){
+        Z.pagoVecVig+=(vigPagoWorker(fuera,T).total||0);
+      }
+    });
+    // Lo reportado en la semana = lo pagado aquí + lo que paga la vecina (así no sobra ni falta)
     sems.forEach(function(k){ ['NORTE','SUR'].forEach(function(z){
       var Z=zonas[z][k];
+      Z.reporteVig=Z.pagoAquiVig+Z.pagoVecVig;
       Z.pagoVecLab=Math.max(0, Z.reporteLab-Z.pagoAquiLab);
-      Z.pagoVecVig=Math.max(0, Z.reporteVig-Z.pagoAquiVig);
+      if(Z.pagoVecLab<1000) Z.pagoVecLab=0;   // diferencias de redondeo
     }); });
   }
 
