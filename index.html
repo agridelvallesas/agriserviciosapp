@@ -4718,7 +4718,7 @@ function calcT(n){
       // NORTE: pago se liquida en nómina
       if(info) info.textContent=ht>0?(ht>96?'⚠️ Supera 96h — habrá horas extras':'✅ Dentro de las 96h ordinarias por quincena'):'';
       var s=document.getElementById('s'+n);
-      var cobroVigN=Math.round(ht*((cobroH||0)||vigCobroTarifaVigente()));
+      var cobroVigN=Math.round(ht*((parseFloat(o.dataset.c)||0)||vigCobroTarifaVigente()));
       if(s) s.textContent=ht>0?(ht+'h · Cobro '+cop(cobroVigN)+' (pago en nómina)'):'$0';
     }
   } else {
@@ -4803,6 +4803,7 @@ async function agregarAlLote(){
       var esVig=o.dataset.vig==='1';
       var vigSur=esVig&&S.sede==='SUR';
       if(esVig){
+        var obsVal=(document.getElementById('obs'+i)&&document.getElementById('obs'+i).value||'').trim();
         var hd=parseFloat(document.getElementById('vhd'+i).value)||0;
         var hn=parseFloat(document.getElementById('vhn'+i).value)||0;
         if(hd+hn<=0){msgR('⚠ Ingresa al menos una hora en la tarea '+i+' (Vigilancia Maquinaria)','r');return;}
@@ -15814,7 +15815,7 @@ var PLT_DATA=[];
 var PLT_CURRENT=null;
 
 // Lista canónica de variables disponibles según tipo de plantilla
-var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','DIAS','DIAS_LETRAS','VALOR','VALOR_LETRAS','SALARIO','SALARIO_LETRAS','PROMEDIO','PROMEDIO_LETRAS','FECHA_RETIRO','FECHA_RETIRO_LARGA','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
+var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','FECHA_INICIO_DIA','FECHA_FIN_DIA','FECHA_REINTEGRO_DIA','DIAS','DIAS_LETRAS','DIAS_HABILES','DIAS_CALENDARIO','VALOR','VALOR_LETRAS','SALARIO','SALARIO_LETRAS','PROMEDIO','PROMEDIO_LETRAS','FECHA_RETIRO','FECHA_RETIRO_LARGA','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
 
 function pltInit(){
   pltCargar();
@@ -15863,7 +15864,15 @@ function pltNueva(){
   document.getElementById('plt-clave').disabled=false;
   document.getElementById('plt-nombre').value='';
   document.getElementById('plt-tipo').value='vacaciones';
-  pltSetContenido('<p>Escribe aquí el contenido de la carta. Usa los botones de variables ({NOMBRES}, {CEDULA}...) para insertar los datos.</p>');
+  pltSetContenido(
+     '<p style="text-align:right">La Paila, {FECHA_CARTA_LARGA}</p>'
+    +'<p>Señor(a)<br><b>{NOMBRES}</b><br>C.C. {CEDULA}</p>'
+    +'<p><b>ASUNTO:</b> (escribe aquí el asunto)</p>'
+    +'<p>Cordial saludo,</p>'
+    +'<p>Escribe aquí el cuerpo de la carta. Usa los botones de variables de arriba para insertar datos del trabajador, por ejemplo {CARGO} o {FECHA_INGRESO_LARGA}.</p>'
+    +'<p>Atentamente,</p>'
+    +'<p>{FIRMA}</p>'
+    +'<p><b>{REPRESENTANTE}</b><br>Representante Legal</p>');
   document.getElementById('plt-preview-card').style.display='none';
   pltRenderVarsBoton();
 }
@@ -15909,6 +15918,10 @@ function pltVistaPrevia(){
     FECHA_INGRESO:'2020-03-15',
     FECHA_INGRESO_LARGA:'15 de marzo de 2020',
     FECHA_CARTA_LARGA:'29 de mayo de 2026',
+    FECHA_INICIO_DIA:'lunes 7 de septiembre de 2026',
+    FECHA_FIN_DIA:'miércoles 23 de septiembre de 2026',
+    FECHA_REINTEGRO_DIA:'jueves 24 de septiembre de 2026',
+    DIAS_HABILES:'15', DIAS_CALENDARIO:'17',
     SALARIO:'$1.300.000',PROMEDIO:'$1.450.000',FECHA_RETIRO:'2024-11-13',
     REPRESENTANTE:CONFIG_EMPRESA.representante
   };
@@ -17322,6 +17335,38 @@ function acumGuardarConcepto(ix){
 // Edita la tabla conceptos_acumulados (el mapa que usa el IMPORTADOR).
 // Nota: afecta futuras importaciones, no reclasifica lo ya cargado.
 // ═══════════════════════════════════════════════════════════════
+// Catálogo BASE de conceptos de acumulados (el que trae la app de fábrica).
+// Los que el usuario clasifica en RH → Configuración se guardan en la base y mandan sobre estos.
+var CONCEPTOS_ACUM_BASE={
+      'SALARIO':['DEVENGO','Sueldo'],'SALARIO SUR TOTAL':['DEVENGO','Sueldo'],
+      'AJUSTE SAL NORTE':['DEVENGO','Sueldo'],'AJUSTE SUR':['DEVENGO','Sueldo'],
+      'SAL MOTOB':['DEVENGO','Sueldo'],
+      'DOMINICAL  Y FESTIVO SALARIO':['DEVENGO','Dominical/Festivo'],
+      'DOMINICAL Y FEST MOT/VIG':['DEVENGO','Dominical/Festivo'],
+      'DOMINICAL SUR':['DEVENGO','Dominical/Festivo'],
+      'AUX TRAN':['DEVENGO','Aux. transporte'],'AUX TRAN SUR':['DEVENGO','Aux. transporte'],
+      'ART 128 AUX. ALIMENT':['DEVENGO','Aux. art 128'],'ART 128 MOT/VIG':['DEVENGO','Aux. art 128'],
+      'ART 128 SUR':['DEVENGO','Aux. art 128'],'ART 128 RODAM':['DEVENGO','Aux. art 128'],
+      'INT CESANTIAS':['DEVENGO','Cesantías'],'VACACIONES':['DEVENGO','Vacaciones'],
+      'ANTIC VACAC':['DEVENGO','Vacaciones'],'RECON IND-BASIC':['DEVENGO','Reconocimiento'],
+      'GTOS REP':['DEVENGO','Reconocimiento'],'LIC LUTO':['DEVENGO','Aux. especial'],
+      'AUX CALAMIDAD':['DEVENGO','Aux. especial'],'DIA DE LA FLIA':['DEVENGO','Aux. especial'],
+      'E.G.':['DEVENGO','Incapacidad'],'E.G. EMP':['DEVENGO','Incapacidad'],
+      'E.G EMP SUR':['DEVENGO','Incapacidad'],'EG EMP':['DEVENGO','Incapacidad'],
+      'A.T.':['DEVENGO','Incapacidad'],'A.T. EMP':['DEVENGO','Incapacidad'],
+      'CTA X PAGAR INCAP':['DEVENGO','Incapacidad'],
+      'DEVENGO':['SUBTOTAL','Subtotal'],'TOTAL DEVENGO':['SUBTOTAL','Subtotal'],
+      'SALUD':['DEDUCIDO','Seguridad social'],'PENSION':['DEDUCIDO','Seguridad social'],
+      'OLIVOS':['DEDUCIDO','Cooperativa'],'COOPETRAFES':['DEDUCIDO','Cooperativa'],
+      'CORPORATIVO':['DEDUCIDO','Cooperativa'],'POLIZA SURA':['DEDUCIDO','Aseguradora'],
+      'SEGUROS BOLIVAR':['DEDUCIDO','Aseguradora'],'ACE SEGURO':['DEDUCIDO','Aseguradora'],
+      'SUR FUNERARIAS':['DEDUCIDO','Funeraria'],'DCTO ANT SALARIO':['DEDUCIDO','Anticipo'],
+      'DCTO PRESTAMO':['DEDUCIDO','Préstamo'],'PRESTAMO':['DEDUCIDO','Préstamo'],
+      'PTMO':['DEDUCIDO','Préstamo'],'DCTO EMBARGO':['DEDUCIDO','Embargo'],
+      'DESC LIBRANZA':['DEDUCIDO','Libranza'],'DESC M/CIA':['DEDUCIDO','Libranza'],
+      'TOTAL DEDUCCIONES':['SUBTOTAL','Subtotal'],'NETO A PAGAR':['RESUMEN','Neto']
+    };
+
 var GC_DATA=[]; // [{concepto,tipo,categoria}]
 // Cierra una ventana modal al hacer clic en el fondo, pero NO cuando el clic empezó
 // dentro (p. ej. al seleccionar texto y soltar el mouse fuera del formulario).
@@ -17455,7 +17500,18 @@ function acumGCCerrar(){ var m=document.getElementById('gc-modal'); if(m) m.remo
 function acumGCRecargar(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getConceptosAcum'})})
   .then(function(r){return r.json();}).then(function(d){
-    GC_DATA=(d&&d.ok&&d.data)?d.data:[];
+    var guardados=(d&&d.ok&&d.data)?d.data:[];
+    var porConcepto={};
+    // Primero los de fábrica, luego los guardados (que mandan sobre los de fábrica)
+    Object.keys(CONCEPTOS_ACUM_BASE||{}).forEach(function(k){
+      porConcepto[k]={concepto:k, tipo:CONCEPTOS_ACUM_BASE[k][0], categoria:CONCEPTOS_ACUM_BASE[k][1], base:true};
+    });
+    guardados.forEach(function(c){
+      var k=String(c.concepto||'').toUpperCase();
+      porConcepto[k]={concepto:c.concepto, tipo:c.tipo, categoria:c.categoria, id:c.id,
+                      base:false, modificado:!!porConcepto[k]};
+    });
+    GC_DATA=Object.keys(porConcepto).sort().map(function(k){ return porConcepto[k]; });
     acumGCRender();
   }).catch(function(e){ var b=document.getElementById('gc-body'); if(b) b.innerHTML='<div style="color:var(--r);padding:20px;text-align:center">Error de red: '+e.message+'</div>'; });
 }
@@ -17468,7 +17524,7 @@ function acumGCRender(){
       '<div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:8px" id="gc-form-tit">➕ Agregar o corregir concepto</div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+
         '<div class="fld" style="flex:2;min-width:180px;margin:0"><label style="font-size:10px">Concepto</label><input type="text" id="gc-concepto" placeholder="Ej. DCTO ANTICIPO" style="text-transform:uppercase"/></div>'+
-        '<div class="fld" style="flex:1;min-width:130px;margin:0"><label style="font-size:10px">Tipo</label><input type="text" id="gc-tipo" list="gc-tipos" placeholder="DEVENGO"/><datalist id="gc-tipos">'+tiposStd.map(function(t){return '<option value="'+t+'">';}).join('')+'</datalist></div>'+
+        '<div class="fld" style="flex:1;min-width:150px;margin:0"><label style="font-size:10px">Tipo</label><select id="gc-tipo">'+tiposStd.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')+'</select></div>'+
         '<div class="fld" style="flex:1;min-width:130px;margin:0"><label style="font-size:10px">Categoría</label><input type="text" id="gc-categoria" placeholder="Ej. Anticipo"/></div>'+
         '<button class="btn bv" onclick="acumGCGuardar()" style="height:34px;white-space:nowrap">💾 Guardar</button>'+
         '<button class="btn bg" onclick="acumGCLimpiarForm()" style="height:34px" title="Limpiar el formulario">↺</button>'+
@@ -17496,6 +17552,7 @@ function acumGCTabla(){
           '<th style="text-align:left;padding:8px 10px">Concepto</th>'+
           '<th style="text-align:left;padding:8px 10px">Tipo</th>'+
           '<th style="text-align:left;padding:8px 10px">Categoría</th>'+
+          '<th style="text-align:center;padding:8px 10px;width:90px">Origen</th>'+
           '<th style="text-align:right;padding:8px 10px;width:90px">Acción</th>'+
         '</tr></thead><tbody>'+
         (lista.length? lista.map(function(c){
@@ -17505,12 +17562,17 @@ function acumGCTabla(){
             '<td style="padding:7px 10px;font-weight:600">'+gcEsc(c.concepto)+'</td>'+
             '<td style="padding:7px 10px"><span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">'+gcEsc(c.tipo)+'</span></td>'+
             '<td style="padding:7px 10px;color:var(--g2)">'+gcEsc(c.categoria||'—')+'</td>'+
+            '<td style="padding:7px 10px;text-align:center">'+
+              (c.base?'<span style="font-size:9px;background:var(--gf);color:var(--g3);padding:2px 7px;border-radius:99px">de fábrica</span>'
+                     :(c.modificado?'<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px">modificado</span>'
+                                   :'<span style="font-size:9px;background:var(--vs);color:var(--v);padding:2px 7px;border-radius:99px">propio</span>'))+
+            '</td>'+
             '<td style="padding:7px 10px;text-align:right;white-space:nowrap">'+
-              '<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="acumGCEditar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="Editar">✏️</button> '+
-              '<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="acumGCBorrar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="Borrar">🗑️</button>'+
+              '<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="acumGCEditar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="Cambiar tipo o categoría">✏️</button> '+
+              (c.base?'':'<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="acumGCBorrar('+JSON.stringify(c.concepto).replace(/"/g,'&quot;')+')" title="'+(c.modificado?'Volver al valor de fábrica':'Borrar')+'">'+(c.modificado?'↩️':'🗑️')+'</button>')+
             '</td>'+
           '</tr>';
-        }).join('') : '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--g3)">Sin conceptos'+(filtro?' que coincidan':' guardados aún')+'</td></tr>')+
+        }).join('') : '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--g3)">Sin conceptos'+(filtro?' que coincidan':' guardados aún')+'</td></tr>')+
         '</tbody></table>';
 }
 function acumGCLimpiarForm(){
@@ -17539,7 +17601,11 @@ function acumGCGuardar(){
   }).catch(function(e){alert('Error de red: '+e.message);});
 }
 function acumGCBorrar(concepto){
-  if(!confirm('¿Borrar la clasificación del concepto "'+concepto+'"?\n\nEn próximas importaciones entrará como OTRO hasta que lo vuelvas a clasificar. No afecta los datos ya cargados.')) return;
+  var c=GC_DATA.filter(function(x){return String(x.concepto)===String(concepto);})[0];
+  var msg=(c&&c.modificado)
+    ? '¿Volver "'+concepto+'" a su clasificación de fábrica?'
+    : '¿Borrar la clasificación del concepto "'+concepto+'"?\n\nEn próximas importaciones entrará como OTRO hasta que lo vuelvas a clasificar. No afecta los datos ya cargados.';
+  if(!confirm(msg)) return;
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarConceptoAcum',concepto:concepto})})
   .then(function(r){return r.json();}).then(function(d){
     if(d&&d.ok){ acumGCRecargar(); }
@@ -17614,36 +17680,8 @@ function acumImpPreview(){
     var rows=acumParseCSV(text);
     if(!rows.length){alert('El archivo está vacío o mal formado');return;}
 
-    // Catálogo de mapeo automático de conceptos a TIPO/CATEGORIA
-    var CAT={
-      'SALARIO':['DEVENGO','Sueldo'],'SALARIO SUR TOTAL':['DEVENGO','Sueldo'],
-      'AJUSTE SAL NORTE':['DEVENGO','Sueldo'],'AJUSTE SUR':['DEVENGO','Sueldo'],
-      'SAL MOTOB':['DEVENGO','Sueldo'],
-      'DOMINICAL  Y FESTIVO SALARIO':['DEVENGO','Dominical/Festivo'],
-      'DOMINICAL Y FEST MOT/VIG':['DEVENGO','Dominical/Festivo'],
-      'DOMINICAL SUR':['DEVENGO','Dominical/Festivo'],
-      'AUX TRAN':['DEVENGO','Aux. transporte'],'AUX TRAN SUR':['DEVENGO','Aux. transporte'],
-      'ART 128 AUX. ALIMENT':['DEVENGO','Aux. art 128'],'ART 128 MOT/VIG':['DEVENGO','Aux. art 128'],
-      'ART 128 SUR':['DEVENGO','Aux. art 128'],'ART 128 RODAM':['DEVENGO','Aux. art 128'],
-      'INT CESANTIAS':['DEVENGO','Cesantías'],'VACACIONES':['DEVENGO','Vacaciones'],
-      'ANTIC VACAC':['DEVENGO','Vacaciones'],'RECON IND-BASIC':['DEVENGO','Reconocimiento'],
-      'GTOS REP':['DEVENGO','Reconocimiento'],'LIC LUTO':['DEVENGO','Aux. especial'],
-      'AUX CALAMIDAD':['DEVENGO','Aux. especial'],'DIA DE LA FLIA':['DEVENGO','Aux. especial'],
-      'E.G.':['DEVENGO','Incapacidad'],'E.G. EMP':['DEVENGO','Incapacidad'],
-      'E.G EMP SUR':['DEVENGO','Incapacidad'],'EG EMP':['DEVENGO','Incapacidad'],
-      'A.T.':['DEVENGO','Incapacidad'],'A.T. EMP':['DEVENGO','Incapacidad'],
-      'CTA X PAGAR INCAP':['DEVENGO','Incapacidad'],
-      'DEVENGO':['SUBTOTAL','Subtotal'],'TOTAL DEVENGO':['SUBTOTAL','Subtotal'],
-      'SALUD':['DEDUCIDO','Seguridad social'],'PENSION':['DEDUCIDO','Seguridad social'],
-      'OLIVOS':['DEDUCIDO','Cooperativa'],'COOPETRAFES':['DEDUCIDO','Cooperativa'],
-      'CORPORATIVO':['DEDUCIDO','Cooperativa'],'POLIZA SURA':['DEDUCIDO','Aseguradora'],
-      'SEGUROS BOLIVAR':['DEDUCIDO','Aseguradora'],'ACE SEGURO':['DEDUCIDO','Aseguradora'],
-      'SUR FUNERARIAS':['DEDUCIDO','Funeraria'],'DCTO ANT SALARIO':['DEDUCIDO','Anticipo'],
-      'DCTO PRESTAMO':['DEDUCIDO','Préstamo'],'PRESTAMO':['DEDUCIDO','Préstamo'],
-      'PTMO':['DEDUCIDO','Préstamo'],'DCTO EMBARGO':['DEDUCIDO','Embargo'],
-      'DESC LIBRANZA':['DEDUCIDO','Libranza'],'DESC M/CIA':['DEDUCIDO','Libranza'],
-      'TOTAL DEDUCCIONES':['SUBTOTAL','Subtotal'],'NETO A PAGAR':['RESUMEN','Neto']
-    };
+    // Catálogo base de conceptos (global) + los que el usuario haya clasificado
+    var CAT=Object.assign({}, CONCEPTOS_ACUM_BASE);
     Object.keys(CONCEPTOS_ACUM_CUSTOM||{}).forEach(function(k){ CAT[k]=CONCEPTOS_ACUM_CUSTOM[k]; });
 
     // Normalizar
