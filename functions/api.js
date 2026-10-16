@@ -54,6 +54,7 @@ const PORTADAS = new Set([
   'getRhCatalogos', 'guardarRhCatalogo', 'eliminarRhCatalogo',
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
+  'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
 ]);
 
 export async function onRequestPost({ request, env }) {
@@ -158,6 +159,10 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarFotoTrabajador') r = await accionGuardarFotoTrabajador(body, env);
     else if (accion === 'getRhConfig')          r = await accionGetRhConfig(body, env);
     else if (accion === 'guardarRhConfig')      r = await accionGuardarRhConfig(body, env);
+    else if (accion === 'facArchivoSubirUrl')   r = await accionFacArchivoSubirUrl(body, env);
+    else if (accion === 'facArchivoRegistrar')  r = await accionFacArchivoRegistrar(body, env);
+    else if (accion === 'facArchivos')          r = await accionFacArchivos(body, env);
+    else if (accion === 'facArchivoEliminar')   r = await accionFacArchivoEliminar(body, env);
     else r = { ok: false, error: 'Acción desconocida: ' + accion };
 
     return json(r);
@@ -1976,5 +1981,93 @@ async function accionGuardarRhConfig(body, env) {
   const ex = await sb(env, "rh_config?select=clave&clave=eq.hoja_datos&limit=1");
   if (ex.length) await sbWrite(env, 'PATCH', "rh_config?clave=eq.hoja_datos", { valor });
   else await sbWrite(env, 'POST', 'rh_config', { clave: 'hoja_datos', valor });
+  return { ok: true };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ARCHIVOS DE FACTURACIÓN (PDF de factura y de acta) — Supabase Storage
+//  Los PDF no pasan por aquí: el navegador los sube DIRECTO al bucket con un
+//  enlace firmado, y los ve con otro enlace firmado temporal.
+// ═══════════════════════════════════════════════════════════════════════════
+const FAC_BUCKET = 'facturas';
+
+function rutaSegura(txt) {
+  return String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/_+/g, '_').slice(0, 80);
+}
+async function storageFetch(env, metodo, ruta, bodyObj) {
+  const url = `${baseUrl(env)}/storage/v1/${ruta}`;
+  const res = await fetch(url, {
+    method: metodo,
+    headers: { ...headers(env), 'Content-Type': 'application/json' },
+    body: bodyObj ? JSON.stringify(bodyObj) : undefined,
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error('Storage ' + res.status + ': ' + txt);
+  try { return JSON.parse(txt); } catch (e) { return {}; }
+}
+
+// 1) Enlace firmado para SUBIR (el navegador sube el archivo directo al bucket)
+async function accionFacArchivoSubirUrl(body, env) {
+  const idFac = String(body.idFac || '').trim();
+  const tipo = String(body.tipo || 'factura').trim().toLowerCase();
+  const nombre = rutaSegura(body.nombre || (tipo + '.pdf'));
+  if (!idFac) return { ok: false, error: 'Falta la factura' };
+  const ruta = `${rutaSegura(idFac)}/${tipo}_${Date.now()}_${nombre}`;
+  const r = await storageFetch(env, 'POST', `object/upload/sign/${FAC_BUCKET}/${ruta}`, {});
+  // r.url viene como "/object/upload/sign/bucket/ruta?token=..."
+  return { ok: true, ruta, url: `${baseUrl(env)}/storage/v1${r.url}` };
+}
+
+// 2) Registrar el archivo ya subido
+async function accionFacArchivoRegistrar(body, env) {
+  const idFac = String(body.idFac || '').trim();
+  const ruta = String(body.ruta || '').trim();
+  if (!idFac || !ruta) return { ok: false, error: 'Faltan datos del archivo' };
+  await sbWrite(env, 'POST', 'factura_archivos', {
+    id_factura: idFac,
+    tipo: String(body.tipo || 'factura').toLowerCase(),
+    ruta,
+    nombre: String(body.nombre || ''),
+    tamano: parseInt(body.tamano) || 0,
+    content_type: String(body.contentType || ''),
+    subido_por: String(body.usuario || ''),
+  });
+  return { ok: true };
+}
+
+// 3) Listar los archivos de una factura (o de varias) con enlace firmado para verlos
+async function accionFacArchivos(body, env) {
+  const ids = Array.isArray(body.ids) ? body.ids : (body.idFac ? [body.idFac] : []);
+  if (!ids.length) return { ok: true, data: [] };
+  const lista = ids.map((x) => `"${String(x).replace(/"/g, '')}"`).join(',');
+  const rows = await sbAll(env, `factura_archivos?select=id,id_factura,tipo,ruta,nombre,tamano,fecha_carga&id_factura=in.(${lista})&order=fecha_carga.desc`);
+  const conUrl = [];
+  for (const f of rows) {
+    let url = '';
+    if (body.conUrl !== false) {
+      try {
+        const sg = await storageFetch(env, 'POST', `object/sign/${FAC_BUCKET}/${f.ruta}`, { expiresIn: 3600 });
+        if (sg && sg.signedURL) url = `${baseUrl(env)}/storage/v1${sg.signedURL}`;
+      } catch (e) { /* si falla la firma, se devuelve sin url */ }
+    }
+    conUrl.push({
+      id: f.id, idFac: f.id_factura, tipo: f.tipo, nombre: f.nombre || f.ruta.split('/').pop(),
+      tamano: Number(f.tamano || 0), fecha: f.fecha_carga, url,
+    });
+  }
+  return { ok: true, data: conUrl };
+}
+
+// 4) Eliminar un archivo (del bucket y del registro)
+async function accionFacArchivoEliminar(body, env) {
+  const id = body.id;
+  if (!id) return { ok: false, error: 'Falta id' };
+  const rows = await sb(env, `factura_archivos?select=ruta&id=eq.${encodeURIComponent(id)}&limit=1`);
+  if (rows.length) {
+    try { await storageFetch(env, 'DELETE', `object/${FAC_BUCKET}/${rows[0].ruta}`); } catch (e) { /* ya no existe */ }
+  }
+  await sbWrite(env, 'DELETE', `factura_archivos?id=eq.${encodeURIComponent(id)}`);
   return { ok: true };
 }
