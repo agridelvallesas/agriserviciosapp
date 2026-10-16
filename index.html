@@ -8988,7 +8988,9 @@ function guardarAddDet(uid, nacta, resp){
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.ok) throw new Error(data.error||'Error desconocido');
-    DETALLADO_CACHE.push({coord:coord,admin:admin,sem:sem,val:val,nacta:nacta,resp:resp,id:''});
+    // Usar el id que devolvió el servidor para poder editar/eliminar sin recargar
+    DETALLADO_CACHE.push({coord:coord,admin:admin,sem:sem,val:val,nacta:nacta,resp:resp,
+                          id:(data.ids&&data.ids[0])||''});
     renderDetAll(DETALLADO_CACHE);
     showSync('✅ Coordinador agregado al grupo '+nacta,'v');
   }).catch(function(e){if(msg){msg.style.color='var(--r)';msg.textContent='⚠ Error: '+e.message;}});
@@ -9059,8 +9061,11 @@ function guardarDetallado(){
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.ok) throw new Error(data.error||'Error');
-    // Actualizar cache sin romper referencia
-    detalles.forEach(function(d){DETALLADO_CACHE.push(d);});
+    // Actualizar cache con los ids que devolvió el servidor (para editar sin recargar)
+    detalles.forEach(function(d,ix){
+      if(data.ids&&data.ids[ix]) d.id=data.ids[ix];
+      DETALLADO_CACHE.push(d);
+    });
     DET_FILAS=[];
     DET_FACS_SEL=[];
     renderDetLista();
