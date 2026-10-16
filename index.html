@@ -2419,6 +2419,13 @@ tfoot td{background:var(--gf);font-weight:700}
               <div class="fld" style="min-width:110px;margin:0"><label>Semana</label>
                 <input type="text" id="det-sem-fil" placeholder="Ej: 16 o 16-17" oninput="filtrarFacturasDet()"/>
               </div>
+              <div class="fld" style="min-width:190px">
+                <label>Ordenar por N.º de factura</label>
+                <select id="det-orden" onchange="filtrarFacturasDet()">
+                  <option value="desc" selected>↓ Mayor a menor (más nuevas)</option>
+                  <option value="asc">↑ Menor a mayor (más antiguas)</option>
+                </select>
+              </div>
             </div>
             <!-- Lista de facturas con checkbox -->
             <div id="det-fac-lista" style="display:none">
@@ -8667,6 +8674,20 @@ function filtrarFacturasDet(){
     var semsFac=f.sems.replace(/-/g,',').split(',').map(function(s){return s.trim();});
     var semsQuery=semFil.replace(/-/g,',').split(',').map(function(s){return s.trim();});
     return semsQuery.some(function(q){return semsFac.includes(q);});
+  });
+
+  // Ordenar por número de factura (la parte numérica: FE2113 → 2113). Por defecto, de mayor a menor.
+  var ordDesc=((document.getElementById('det-orden')||{}).value||'desc')!=='asc';
+  function numFac(f){
+    var m=String(f.nfac||'').match(/(\d+)/);
+    return m?parseInt(m[1]):0;
+  }
+  function prefFac(f){ return (String(f.nfac||'').match(/^[A-Za-z]+/)||[''])[0].toUpperCase(); }
+  facs.sort(function(a,b){
+    var pa=prefFac(a), pb=prefFac(b);
+    if(pa!==pb) return pa<pb?-1:1;                 // agrupa por prefijo (FE, XC...)
+    var d=numFac(a)-numFac(b);
+    return ordDesc?-d:d;
   });
 
   if(!facs.length){
