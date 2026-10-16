@@ -804,7 +804,8 @@ async function accionGuardarDetallado(body, env) {
     resp: d.resp || '',
   }));
   await sbWrite(env, 'POST', 'detallado_factura', filas);
-  return { ok: true, guardados: filas.length };
+  // Devolver los ids generados para que la pantalla pueda editar sin recargar
+  return { ok: true, guardados: filas.length, ids: filas.map((f) => f.id) };
 }
 
 async function accionGetDetallado(body, env) {
