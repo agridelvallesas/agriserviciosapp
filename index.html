@@ -2298,6 +2298,16 @@ tfoot td{background:var(--gf);font-weight:700}
             </div>
             <div class="fld" style="margin:0;grid-column:1/-1"><label>Nota / Observación</label><input type="text" id="fac-nota" placeholder="Observación adicional..."/></div>
           </div>
+          <div style="margin-top:12px;padding:10px 12px;background:var(--gf);border-radius:var(--rads)">
+            <div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:8px">📎 Documentos (opcional)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="fld" style="margin:0"><label style="font-size:11px">PDF de la factura</label>
+                <input type="file" id="fac-pdf-factura" accept="application/pdf,image/*,.xlsx,.xls" style="font-size:12px"/></div>
+              <div class="fld" style="margin:0"><label style="font-size:11px">PDF del acta</label>
+                <input type="file" id="fac-pdf-acta" accept="application/pdf,image/*,.xlsx,.xls" style="font-size:12px"/></div>
+            </div>
+            <div id="fac-adj-estado" style="font-size:11px;color:var(--g3);margin-top:6px">Se suben al guardar la factura. También puedes adjuntarlos después con el botón 📎 de la lista.</div>
+          </div>
           <div id="fac-msg" style="display:none;margin-top:8px;font-size:12px;padding:8px 12px;border-radius:var(--rads)"></div>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button class="btn bf" id="fac-guardar-btn" onclick="guardarFactura()">💾 Guardar factura</button>
@@ -8408,6 +8418,8 @@ function guardarFactura(){
     if(!data.ok) throw new Error(data.error||'Error');
     if(editId){ var ix=FACTURAS_CACHE.findIndex(function(f){return f.id===editId;}); if(ix>=0) FACTURAS_CACHE[ix]=fac; else FACTURAS_CACHE.unshift(fac); }
     else FACTURAS_CACHE.unshift(fac);
+    // Subir los documentos elegidos en el formulario (si los hay)
+    if(typeof facSubirAdjuntosForm==='function') facSubirAdjuntosForm(fac.id);
     renderFacturas();
     limpiarFactura();
     document.getElementById('fac-guardar-btn').textContent='💾 Guardar factura';
@@ -8441,6 +8453,136 @@ function carFacturas(cb){
     }
     if(cb) cb();
   }).catch(function(){renderFacturas();if(cb)cb();});
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+// DOCUMENTOS ADJUNTOS DE FACTURAS (PDF de factura y de acta)
+// Se suben DIRECTO a Supabase Storage con un enlace firmado y se ven con
+// otro enlace temporal; no pasan por el servidor de la app.
+// ══════════════════════════════════════════════════════════════════════
+var FAC_ADJ_ID=null;
+function facFmtPeso(b){
+  b=Number(b||0);
+  if(b>=1048576) return (b/1048576).toFixed(1)+' MB';
+  if(b>=1024) return Math.round(b/1024)+' KB';
+  return b+' B';
+}
+function facSubirArchivo(idFac, tipo, file, cb){
+  if(!file){ cb(true); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'facArchivoSubirUrl', idFac:idFac, tipo:tipo, nombre:file.name})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(!d||!d.ok) throw new Error((d&&d.error)||'No se pudo preparar la subida');
+    return fetch(d.url,{method:'PUT', headers:{'Content-Type':file.type||'application/octet-stream'}, body:file})
+      .then(function(up){
+        if(!up.ok) throw new Error('Falló la subida ('+up.status+')');
+        return fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+          body:JSON.stringify({accion:'facArchivoRegistrar', idFac:idFac, tipo:tipo, ruta:d.ruta,
+            nombre:file.name, tamano:file.size, contentType:file.type, usuario:(typeof S!=='undefined'&&S.u)||''})});
+      });
+  })
+  .then(function(){ cb(true); })
+  .catch(function(e){ cb(false, e.message); });
+}
+function facSubirAdjuntosForm(idFac, cb){
+  var i1=document.getElementById('fac-pdf-factura'), i2=document.getElementById('fac-pdf-acta');
+  var a=(i1&&i1.files&&i1.files[0])||null, b=(i2&&i2.files&&i2.files[0])||null;
+  if(!a&&!b){ if(cb)cb(); return; }
+  var est=document.getElementById('fac-adj-estado');
+  if(est){ est.textContent='⏳ Subiendo documentos...'; est.style.color='var(--a)'; }
+  facSubirArchivo(idFac,'factura',a,function(ok1,e1){
+    facSubirArchivo(idFac,'acta',b,function(ok2,e2){
+      if(est){
+        if(ok1&&ok2){ est.textContent='✅ Documentos subidos'; est.style.color='var(--v)'; }
+        else { est.textContent='⚠️ No se pudo subir: '+(e1||e2||''); est.style.color='var(--r)'; }
+      }
+      if(i1) i1.value=''; if(i2) i2.value='';
+      if(cb) cb();
+    });
+  });
+}
+function facAdjAbrir(idFac, nfac){
+  FAC_ADJ_ID=idFac;
+  var m=document.getElementById('facadj-modal'); if(m) m.remove();
+  m=document.createElement('div');
+  m.id='facadj-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:92vh;display:flex;flex-direction:column">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--f)">📎 Documentos de la factura '+gcEsc(nfac||'')+'</div>'
+      +'<div style="font-size:11px;color:var(--g3)">PDF de la factura, del acta y otros soportes</div></div>'
+      +'<button onclick="document.getElementById(\'facadj-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px;overflow:auto">'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--gf);border-radius:8px;padding:10px;margin-bottom:12px">'
+        +'<div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Tipo</label>'
+          +'<select id="facadj-tipo"><option value="factura">Factura</option><option value="acta">Acta</option><option value="otro">Otro soporte</option></select></div>'
+        +'<div class="fld" style="flex:2;min-width:200px;margin:0"><label style="font-size:10px">Archivo</label>'
+          +'<input type="file" id="facadj-file" accept="application/pdf,image/*,.xlsx,.xls" style="font-size:12px"/></div>'
+        +'<button class="btn bf" onclick="facAdjSubir()" style="height:36px">⬆️ Subir</button>'
+      +'</div>'
+      +'<div id="facadj-lista"><div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando...</div></div>'
+      +'<div id="facadj-visor" style="margin-top:12px"></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  facAdjCargar();
+}
+function facAdjCargar(){
+  var cont=document.getElementById('facadj-lista'); if(!cont) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'facArchivos', idFac:FAC_ADJ_ID})})
+  .then(function(r){return r.json();}).then(function(d){
+    var arch=(d&&d.ok&&d.data)?d.data:[];
+    if(!arch.length){ cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">Esta factura aún no tiene documentos adjuntos.</div>'; return; }
+    var ico={factura:'🧾', acta:'📄', otro:'📎'};
+    cont.innerHTML='<div style="display:flex;flex-direction:column;gap:6px">'+arch.map(function(a){
+      var nom=gcEsc(a.nombre);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--bd);border-radius:8px">'
+        +'<span style="font-size:20px">'+(ico[a.tipo]||'📎')+'</span>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nom+'</div>'
+          +'<div style="font-size:10px;color:var(--g3)">'+String(a.tipo).toUpperCase()+' · '+facFmtPeso(a.tamano)+' · '+fmtFechaHoraCO(a.fecha)+'</div>'
+        +'</div>'
+        +(a.url?('<button class="btn bf" style="padding:4px 10px;font-size:11px" onclick="facAdjVer(this.getAttribute(\'data-u\'), this.getAttribute(\'data-n\'))" data-u="'+a.url+'" data-n="'+nom+'">👁️ Ver</button>'
+                +'<a class="btn bg" style="padding:4px 10px;font-size:11px;text-decoration:none" href="'+a.url+'" target="_blank">⬇️</a>'):'')
+        +'<button class="btn br" style="padding:4px 10px;font-size:11px" onclick="facAdjEliminar('+a.id+')">🗑️</button>'
+      +'</div>';
+    }).join('')+'</div>';
+  }).catch(function(){ cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--r)">Error al cargar los documentos</div>'; });
+}
+function facAdjVer(url, nombre){
+  var v=document.getElementById('facadj-visor'); if(!v) return;
+  v.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--g2)">👁️ '+gcEsc(nombre||'')+'</div>'
+      +'<div style="display:flex;gap:6px">'
+        +'<a class="btn bg" style="padding:3px 10px;font-size:11px;text-decoration:none" href="'+url+'" target="_blank">↗️ Abrir aparte</a>'
+        +'<button class="btn bg" style="padding:3px 10px;font-size:11px" onclick="document.getElementById(\'facadj-visor\').innerHTML=\'\'">✕ Cerrar</button>'
+      +'</div></div>'
+    +'<iframe src="'+url+'" style="width:100%;height:60vh;border:1px solid var(--bd);border-radius:8px"></iframe>';
+}
+function facAdjSubir(){
+  var tipo=(document.getElementById('facadj-tipo')||{}).value||'factura';
+  var inp=document.getElementById('facadj-file');
+  var file=inp&&inp.files&&inp.files[0];
+  if(!file){ alert('Elige un archivo'); return; }
+  var cont=document.getElementById('facadj-lista');
+  if(cont) cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Subiendo '+gcEsc(file.name)+' ('+facFmtPeso(file.size)+')...</div>';
+  facSubirArchivo(FAC_ADJ_ID, tipo, file, function(ok, err){
+    if(!ok) alert('No se pudo subir: '+(err||''));
+    if(inp) inp.value='';
+    facAdjCargar();
+  });
+}
+function facAdjEliminar(id){
+  if(!confirm('¿Eliminar este documento? No se puede deshacer.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'facArchivoEliminar', id:id})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok) facAdjCargar(); else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
 }
 
 function renderFacturas(){
@@ -8480,7 +8622,7 @@ function renderFacturas(){
     return'<tr>'
       +'<td>'+detBdg+'</td>'
       +'<td>'+fmtFechaCorta(f.ffac)+'</td><td>'+fmtFechaCorta(f.fven)+'</td>'
-      +'<td><strong>'+f.nfac+'</strong></td>'
+      +'<td><strong>'+f.nfac+'</strong> <button class="btn bg" style="padding:1px 6px;font-size:11px" onclick="facAdjAbrir(\''+f.id+'\',\''+String(f.nfac).replace(/'/g,"")+'\')" title="Documentos adjuntos">📎</button></td>'
       +'<td><span class="bdg ba2">'+f.nacta+'</span></td>'
       +'<td>'+f.sems+'</td>'
       +'<td><span class="bdg bv2">'+f.contrato+'</span></td>'
