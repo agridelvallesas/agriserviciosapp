@@ -19689,7 +19689,7 @@ function invEliminarActa(id){
 function invVerActa(id){
   var a=INV_HIST.filter(function(x){return String(x.id_regn)===String(id);})[0];
   if(!a){ alert('No se encontró el acta'); return; }
-  if(!a.tiene_firma){ invVerActaRender(a,''); return; }
+  // Siempre se consulta la firma: si no hay, el servidor devuelve vacío
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'invGetFirma',id_regn:id})})
   .then(function(r){return r.json();}).then(function(d){ invVerActaRender(a,(d&&d.firma)||''); })
   .catch(function(){ invVerActaRender(a,''); });
@@ -19701,7 +19701,8 @@ function invVerActaRender(a, firma){
       '<td style="border:1px solid #999;padding:6px">'+gcEsc(i.producto)+'</td>'+
       '<td style="border:1px solid #999;padding:6px;text-align:center">'+i.cantidad+'</td></tr>';
   }).join('');
-  var firmaImg=firma&&firma.length>20?'<img src="'+firma+'" style="max-height:90px"/>':'<div style="height:70px"></div>';
+  // width/height explícitos: así el PDF respeta el tamaño de la firma
+  var firmaImg=firma&&firma.length>20?'<img src="'+firma+'" width="160" height="60" style="max-height:60px"/>':'<div style="height:60px"></div>';
   var cuerpo=
     '<div class="body">'+
     '<h2 style="text-align:center;margin:0 0 4px;font-size:15px">ACTA DE ENTREGA DE ELEMENTOS</h2>'+
@@ -19817,7 +19818,9 @@ function invVerActaId(id){
   // reconstruir desde el resumen + items ya cargados
   var res=EMP_RESUMEN.filter(function(x){return String(x.id_regn)===String(id);})[0];
   var items=(EMP_ITEMS[id]||[]).map(function(i){return {producto:i.producto,item:i.item,cantidad:i.cantidad};});
-  INV_HIST.push({id_regn:id,empleado_proveedor:res?res.empleado_proveedor:'',id_factura:res?res.id_factura:'',fecha:res?res.fecha:null,auxiliar:res?res.auxiliar:'',firma:'',tiene_firma:false,items:items});
+  INV_HIST.push({id_regn:id,empleado_proveedor:res?res.empleado_proveedor:'',id_factura:res?res.id_factura:'',
+                 fecha:res?res.fecha:null,auxiliar:res?res.auxiliar:'',firma:'',
+                 tiene_firma:!!(res&&res.tiene_firma),items:items});
   invVerActa(id);
 }
 
