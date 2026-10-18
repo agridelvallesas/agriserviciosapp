@@ -42,7 +42,7 @@ const PORTADAS = new Set([
   'invAjustarStock', 'invActivarProducto',
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
   'invGetActas', 'invEliminarActa', 'invEditarActa',
-  'invEntregasResumen', 'invItemsActas',
+  'invEntregasResumen', 'invItemsActas', 'invRegistrarCambio',
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
   'invGetFirma',
   'getConfigEmpresa', 'guardarConfigEmpresa',
@@ -139,6 +139,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invEditarActa')        r = await accionInvEditarActa(body, env);
     else if (accion === 'invEntregasResumen')   r = await accionInvEntregasResumen(body, env);
     else if (accion === 'invItemsActas')        r = await accionInvItemsActas(body, env);
+    else if (accion === 'invRegistrarCambio')   r = await accionInvRegistrarCambio(body, env);
     else if (accion === 'getInvConfig')         r = await accionGetInvConfig(body, env);
     else if (accion === 'guardarInvConfig')     r = await accionGuardarInvConfig(body, env);
     else if (accion === 'eliminarInvConfig')    r = await accionEliminarInvConfig(body, env);
@@ -1660,7 +1661,7 @@ async function accionInvEliminarActa(body, env) {
 
 // Resumen de TODAS las entregas (cabeceras, sin items) para agrupar por empleado
 async function accionInvEntregasResumen(body, env) {
-  const actas = await sbAll(env, 'inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,auxiliar&order=fecha.desc');
+  const actas = await sbAll(env, 'inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,auxiliar,tipo,ref_regn,motivo&order=fecha.desc');
   const firmadas = {};
   try { (await sbAll(env, 'inv_firmas?select=id_regn')).forEach((f) => { firmadas[f.id_regn] = true; }); } catch (e) { /* tabla puede no existir aún */ }
   const data = actas.map((a) => ({
@@ -1669,6 +1670,9 @@ async function accionInvEntregasResumen(body, env) {
     id_factura: String(a.id_factura || ''),
     fecha: a.fecha,
     auxiliar: String(a.auxiliar || ''),
+    tipo: String(a.tipo || 'ENTREGA'),
+    ref_regn: String(a.ref_regn || ''),
+    motivo: String(a.motivo || ''),
     tiene_firma: !!firmadas[a.id_regn],
   }));
   return { ok: true, data };
@@ -1685,6 +1689,7 @@ async function accionInvItemsActas(body, env) {
     part.forEach((it) => out.push({
       id_regn: it.id_regn, item: String(it.item || ''), producto: String(it.producto || ''),
       cantidad: Number(it.salidas || 0) || Number(it.entradas || 0),
+      devuelto: Number(it.entradas || 0) > 0,
     }));
   }
   return { ok: true, data: out };
@@ -2070,4 +2075,60 @@ async function accionFacArchivoEliminar(body, env) {
   }
   await sbWrite(env, 'DELETE', `factura_archivos?id=eq.${encodeURIComponent(id)}`);
   return { ok: true };
+}
+
+
+// ── Devolución o cambio de elementos (SST) ──────────────────────────────────
+// Lo devuelto vuelve al stock (entrada) y lo entregado sale (salida). Todo
+// queda enlazado a la entrega original para ver la historia del trabajador.
+async function accionInvRegistrarCambio(body, env) {
+  const devueltos = Array.isArray(body.devueltos) ? body.devueltos : [];
+  const entregados = Array.isArray(body.entregados) ? body.entregados : [];
+  if (!devueltos.length && !entregados.length) return { ok: false, error: 'No hay elementos para registrar' };
+  const empleado = String(body.empleado_proveedor || '').trim();
+  if (!empleado) return { ok: false, error: 'Falta el trabajador' };
+  const fecha = String(body.fecha || '').trim() || isoDate(new Date());
+  const tipo = entregados.length ? 'CAMBIO' : 'DEVOLUCION';
+  const idRegn = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  await sbWrite(env, 'POST', 'inv_registros', {
+    id_regn: idRegn,
+    auxiliar: String(body.auxiliar || '').trim(),
+    empleado_proveedor: empleado,
+    id_factura: String(body.id_factura || '').trim(),
+    fecha,
+    firma: '',
+    sede: 'NORTE',
+    tipo,
+    ref_regn: String(body.ref_regn || '').trim(),
+    motivo: String(body.motivo || '').trim(),
+  });
+  if (body.firma && String(body.firma).length > 20) {
+    await sbWrite(env, 'POST', 'inv_firmas', { id_regn: idRegn, firma: String(body.firma) });
+  }
+
+  let nid = Date.now();
+  const filas = [];
+  devueltos.filter((it) => String(it.item || '').trim() && parseFloat(it.cantidad) > 0).forEach((it) => {
+    filas.push({
+      id_movimiento: 'DEV' + (nid++).toString(36).toUpperCase() + Math.random().toString(36).slice(2, 4).toUpperCase(),
+      id_regn: idRegn, item: String(it.item).trim(), categoria: String(it.categoria || '').toUpperCase(),
+      fecha, factura_id: '', producto: String(it.producto || '').trim(),
+      entradas: parseFloat(it.cantidad) || 0, salidas: 0, precio_un: parseFloat(it.precio) || 0,
+      novedad: 'DEVOLUCIÓN' + (body.motivo ? (' — ' + String(body.motivo).trim()) : ''),
+      empleado,
+    });
+  });
+  entregados.filter((it) => String(it.item || '').trim() && parseFloat(it.cantidad) > 0).forEach((it) => {
+    filas.push({
+      id_movimiento: 'CAM' + (nid++).toString(36).toUpperCase() + Math.random().toString(36).slice(2, 4).toUpperCase(),
+      id_regn: idRegn, item: String(it.item).trim(), categoria: String(it.categoria || '').toUpperCase(),
+      fecha, factura_id: '', producto: String(it.producto || '').trim(),
+      entradas: 0, salidas: parseFloat(it.cantidad) || 0, precio_un: parseFloat(it.precio) || 0,
+      novedad: 'CAMBIO' + (body.motivo ? (' — ' + String(body.motivo).trim()) : ''),
+      empleado,
+    });
+  });
+  if (filas.length) await sbWrite(env, 'POST', 'inv_movimientos', filas);
+  return { ok: true, id_regn: idRegn, tipo };
 }
