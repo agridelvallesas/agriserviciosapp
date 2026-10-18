@@ -2256,8 +2256,16 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <!-- ── FACTURAS ── -->
       <div id="fac-fac">
-        <div class="card">
-          <div class="ct">Ingresar factura</div>
+        <div class="card" style="padding:0;overflow:hidden;border:1px solid #fcd34d;background:#fffdf7;box-shadow:0 4px 14px rgba(180,83,9,.10);margin-bottom:22px">
+          <div style="background:linear-gradient(135deg,#b45309 0%,#d97706 100%);padding:12px 18px;display:flex;align-items:center;gap:11px">
+            <div style="background:rgba(255,255,255,.22);width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px">🧾</div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:800;color:#fff;line-height:1.2">Ingresar factura</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.85)">Registra una factura nueva y adjunta sus documentos</div>
+            </div>
+            <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:99px">Nueva</span>
+          </div>
+          <div style="padding:16px 18px 18px">
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end">
             <div class="fld" style="margin:0"><label>Fecha facturación</label><input type="date" id="fac-ffac"/></div>
             <div class="fld" style="margin:0"><label>Fecha vencimiento</label><input type="date" id="fac-fven"/></div>
@@ -2313,15 +2321,22 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bf" id="fac-guardar-btn" onclick="guardarFactura()">💾 Guardar factura</button>
             <button class="btn bg" onclick="limpiarFactura()">Limpiar</button>
           </div>
+          </div>
         </div>
 
         <!-- Lista de facturas -->
-        <div class="card">
-          <div class="ct">Facturas registradas
+        <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--bd)">
+          <div style="background:#f1f5f9;border-bottom:2px solid #e2e8f0;padding:11px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="background:#475569;color:#fff;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px">📋</div>
+            <div style="flex:1;min-width:150px">
+              <div style="font-size:15px;font-weight:800;color:#334155;line-height:1.2">Facturas registradas</div>
+              <div style="font-size:11px;color:#64748b">Consulta, detalle y documentos de las facturas ya creadas</div>
+            </div>
             <button class="btn bg no-print" style="font-size:11px;padding:3px 10px" onclick="carFacturas()">🔄 Actualizar</button>
             <button class="btn bg no-print" style="font-size:11px;padding:3px 10px" onclick="expCSV('fac-lista-t','facturas')">📥 Excel</button>
           </div>
 
+          <div style="padding:16px 18px 18px">
           <!-- KPIs de detallado -->
           <div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
             <div class="st" style="background:#dcfce7;border-color:#16a34a">
@@ -2400,6 +2415,7 @@ tfoot td{background:var(--gf);font-weight:700}
           </tr></thead><tbody id="fac-lista-tb">
             <tr><td colspan="14" style="text-align:center;padding:20px;color:var(--g3)">Cargando facturas...</td></tr>
           </tbody></table></div>
+          </div>
         </div>
       </div>
 
@@ -19778,13 +19794,14 @@ function invEmpDetRender(g,body){
     var f=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'—';
     var items=EMP_ITEMS[e.id_regn]||[];
     var filas=items.length?items.map(function(i){
-      return '<tr><td style="padding:3px 8px;border-top:1px solid var(--bd)">'+invEmpEsc(i.producto)+'</td>'+
-        '<td style="padding:3px 8px;border-top:1px solid var(--bd);text-align:center;width:70px;font-weight:600">'+i.cantidad+'</td></tr>';
+      var dev=!!i.devuelto;
+      return '<tr><td style="padding:3px 8px;border-top:1px solid var(--bd)'+(dev?';color:#b45309':'')+'">'+(dev?'↩️ ':'')+invEmpEsc(i.producto)+(dev?' <span style="font-size:9px">(vuelve al stock)</span>':'')+'</td>'+
+        '<td style="padding:3px 8px;border-top:1px solid var(--bd);text-align:center;width:70px;font-weight:600'+(dev?';color:#b45309':'')+'">'+(dev?'+':'')+i.cantidad+'</td></tr>';
     }).join(''):'<tr><td colspan="2" style="padding:6px 8px;color:var(--g3)">sin elementos</td></tr>';
     return '<div style="margin-bottom:10px;background:#fff;border:1px solid var(--bd);border-radius:6px;overflow:hidden">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--vs)">'+
-        '<span style="font-weight:700;color:var(--v)">📅 '+f+'</span>'+
-        '<span style="display:flex;gap:6px"><button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEditar(\''+e.id_regn+'\')">✏️ Editar</button><button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button></span>'+
+        '<span style="font-weight:700;color:'+((e.tipo==='DEVOLUCION'||e.tipo==='CAMBIO')?'#b45309':'var(--v)')+'">'+((e.tipo==='CAMBIO')?'🔄 Cambio · ':(e.tipo==='DEVOLUCION')?'↩️ Devolución · ':'📅 ')+f+((e.motivo)?(' <span style="font-weight:400;font-size:10px;color:var(--g3)">('+invEmpEsc(e.motivo)+')</span>'):'')+'</span>'+
+        '<span style="display:flex;gap:6px">'+((e.tipo&&e.tipo!=='ENTREGA')?'':'<button class="btn ba" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invCambioAbrir(\''+e.id_regn+'\')" title="Cambiar o devolver un elemento">🔄 Cambio</button>')+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEditar(\''+e.id_regn+'\')">✏️ Editar</button>'+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button></span>'+
       '</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--g3);font-size:10px"><th style="text-align:left;padding:3px 8px">PRODUCTO</th><th style="text-align:center;padding:3px 8px;width:70px">CANT.</th></tr></thead>'+
@@ -19806,6 +19823,122 @@ function invVerActaId(id){
 
 // ── Editar una entrega desde "Entregas por empleado" ──
 var EMP_EDIT_ID=null, EMP_EDIT_N=0;
+
+// ══════════════════════════════════════════════════════════════════════
+// CAMBIO Y DEVOLUCIÓN DE ELEMENTOS (SST)
+// Lo devuelto vuelve al stock y lo nuevo sale; queda enlazado a la entrega
+// original para ver la historia completa en la ficha del trabajador.
+// ══════════════════════════════════════════════════════════════════════
+var CAMB_ENTREGA=null, CAMB_N=0;
+function invCambioAbrir(idRegn){
+  var g=EMP_GRUPOS.filter(function(gr){return gr.entregas.some(function(e){return String(e.id_regn)===String(idRegn);});})[0];
+  var e=g?g.entregas.filter(function(x){return String(x.id_regn)===String(idRegn);})[0]:null;
+  if(!g||!e){ alert('No se encontró la entrega'); return; }
+  var items=(EMP_ITEMS[idRegn]||[]).filter(function(i){ return !i.devuelto; });
+  if(!items.length){ alert('Esta entrega no tiene elementos para devolver'); return; }
+  CAMB_ENTREGA={id:idRegn, g:g, e:e, items:items};
+  invAsegurarDatos(function(){
+    var m=document.createElement('div');
+    m.id='camb-modal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    modalCerrarAlFondo(m, function(){ m.remove(); });
+    var f=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'';
+    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:620px;width:100%;max-height:92vh;overflow:auto">'
+      +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+        +'<div><div style="font-size:16px;font-weight:800;color:#b45309">🔄 Cambio o devolución</div>'
+        +'<div style="font-size:11px;color:var(--g3)">'+invEmpEsc(g.nombre||'')+' · entrega del '+f+'</div></div>'
+        +'<button onclick="document.getElementById(\'camb-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+      +'</div>'
+      +'<div style="padding:16px">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:6px">1. ¿Qué devuelve?</div>'
+        +'<div style="border:1px solid var(--bd);border-radius:8px;padding:8px;margin-bottom:14px">'
+        +items.map(function(it,ix){
+          return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;cursor:pointer">'
+            +'<input type="checkbox" class="camb-dev" data-ix="'+ix+'" onchange="invCambioTotales()"/>'
+            +'<span style="flex:1">'+invEmpEsc(it.producto)+'</span>'
+            +'<input type="number" id="camb-c-'+ix+'" value="'+it.cantidad+'" min="1" max="'+it.cantidad+'" step="1" style="width:70px;padding:3px 6px;font-size:12px" title="Cantidad a devolver"/>'
+            +'<span style="font-size:10px;color:var(--g3)">de '+it.cantidad+'</span></label>';
+        }).join('')
+        +'</div>'
+        +'<div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:6px">2. ¿Qué se le entrega a cambio? <span style="font-weight:400;color:var(--g3)">(vacío = solo devolución)</span></div>'
+        +'<div id="camb-nuevos"></div>'
+        +'<button class="btn bg" onclick="invCambioAddItem()" style="margin-top:6px;font-size:12px">➕ Agregar elemento</button>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha</label><input type="date" id="camb-fecha" value="'+(new Date().toISOString().slice(0,10))+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Auxiliar que atiende</label><select id="camb-aux"><option value="">— Auxiliar —</option>'
+            +((typeof INV_AUX!=='undefined'?INV_AUX:[])||[]).map(function(a){return '<option value="'+invEmpEsc(a.nombre)+'">'+invEmpEsc(a.nombre)+'</option>';}).join('')+'</select></div>'
+          +'<div class="fld" style="margin:0;grid-column:1/-1"><label style="font-size:10px">Motivo</label>'
+            +'<input type="text" id="camb-motivo" list="camb-motivos" placeholder="Ej: cambio de talla"/>'
+            +'<datalist id="camb-motivos"><option value="Cambio de talla"></option><option value="Elemento defectuoso"></option><option value="No le quedó"></option><option value="Devolución por retiro"></option></datalist></div>'
+        +'</div>'
+        +'<div id="camb-resumen" style="font-size:11px;color:var(--g3);margin-top:10px"></div>'
+        +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+          +'<button class="btn bg" onclick="document.getElementById(\'camb-modal\').remove()">Cancelar</button>'
+          +'<button class="btn bv" onclick="invCambioGuardar()">💾 Registrar</button>'
+        +'</div>'
+      +'</div></div>';
+    document.body.appendChild(m);
+    CAMB_N=0;
+    invCambioTotales();
+  });
+}
+function invCambioAddItem(){
+  var c=document.getElementById('camb-nuevos'); if(!c) return;
+  var i=(++CAMB_N);
+  var d=document.createElement('div');
+  d.className='camb-item'; d.id='camb-item-'+i;
+  d.style.cssText='display:flex;gap:6px;align-items:flex-end;margin-top:6px';
+  d.innerHTML='<div class="fld" style="flex:2;min-width:180px;margin:0"><input type="text" id="camb-el-'+i+'" list="inv-prod-dl" placeholder="Escribe o elige el elemento..." autocomplete="off"/></div>'
+    +'<div class="fld" style="min-width:75px;margin:0"><input type="number" id="camb-q-'+i+'" min="1" step="1" value="1" placeholder="Cant."/></div>'
+    +'<button class="btn br" style="height:34px;padding:0 10px" onclick="var d=document.getElementById(\'camb-item-'+i+'\');if(d)d.remove();invCambioTotales()">🗑️</button>';
+  c.appendChild(d);
+  invCambioTotales();
+}
+function invCambioTotales(){
+  var r=document.getElementById('camb-resumen'); if(!r||!CAMB_ENTREGA) return;
+  var nDev=document.querySelectorAll('#camb-modal .camb-dev:checked').length;
+  var nNue=document.querySelectorAll('#camb-modal .camb-item').length;
+  r.textContent=nDev?('Se devolverán '+nDev+' elemento(s) al stock'+(nNue?(' y se entregarán '+nNue+' nuevo(s).'):' (devolución sin reemplazo).')):'Marca al menos un elemento a devolver.';
+}
+function invCambioGuardar(){
+  if(!CAMB_ENTREGA) return;
+  var devueltos=[];
+  document.querySelectorAll('#camb-modal .camb-dev:checked').forEach(function(ch){
+    var ix=parseInt(ch.getAttribute('data-ix'));
+    var it=CAMB_ENTREGA.items[ix]; if(!it) return;
+    var cant=parseFloat((document.getElementById('camb-c-'+ix)||{}).value)||0;
+    if(cant<=0) return;
+    var p=INV_DATA.filter(function(x){return x.item===it.item;})[0]||{};
+    devueltos.push({item:it.item, producto:it.producto||p.producto||'', categoria:p.categoria||'', precio:p.precio||0, cantidad:cant});
+  });
+  if(!devueltos.length){ alert('Marca al menos un elemento a devolver'); return; }
+  var entregados=[];
+  document.querySelectorAll('#camb-modal .camb-item').forEach(function(div){
+    var i=div.id.replace('camb-item-','');
+    var it=invResolverItem((document.getElementById('camb-el-'+i)||{}).value||'');
+    if(!it) return;
+    var p=INV_DATA.filter(function(x){return x.item===it;})[0]||{};
+    entregados.push({item:it, producto:p.producto||'', categoria:p.categoria||'', precio:p.precio||0,
+                     cantidad:parseFloat((document.getElementById('camb-q-'+i)||{}).value)||1});
+  });
+  var body={accion:'invRegistrarCambio',
+    ref_regn:CAMB_ENTREGA.id,
+    empleado_proveedor:CAMB_ENTREGA.g.nombre||'',
+    id_factura:CAMB_ENTREGA.g.cedula||'',
+    fecha:(document.getElementById('camb-fecha')||{}).value||'',
+    auxiliar:(document.getElementById('camb-aux')||{}).value||'',
+    motivo:((document.getElementById('camb-motivo')||{}).value||'').trim(),
+    devueltos:devueltos, entregados:entregados};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){
+      alert('✓ '+(d.tipo==='CAMBIO'?'Cambio':'Devolución')+' registrado. El stock quedó actualizado.');
+      var m=document.getElementById('camb-modal'); if(m) m.remove();
+      EMP_ITEMS={}; INV_DATA=[]; invEmpInit();
+    } else alert('Error: '+((d&&d.error)||'no se pudo registrar'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
 function invEmpEditar(idRegn){
   var g=EMP_GRUPOS.filter(function(gr){return gr.entregas.some(function(e){return String(e.id_regn)===String(idRegn);});})[0];
   var e=g?g.entregas.filter(function(x){return String(x.id_regn)===String(idRegn);})[0]:null;
