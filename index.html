@@ -15615,7 +15615,7 @@ function cartasPromedioRender(t){
   var porMes={};
   CPM_ACUM.forEach(function(a){
     // Tomar el SUBTOTAL ya calculado del devengo (no sumar conceptos sueltos)
-    if(a.TIPO!=='SUBTOTAL') return;
+    if(!acumEsResumen(a.TIPO)) return;
     var cc=String(a.CONCEPTO||'').toUpperCase().trim();
     if(cc!=='DEVENGO') return;
     var mk=acumQnaAMes(a.QNA_LABEL);
@@ -16621,8 +16621,8 @@ function acumRender(){
     if(a.CEDULA) trabUnicos.add(a.CEDULA);
     if(a.QNA_LABEL) qnaUnicas.add(a.QNA_LABEL);
     var v=Number(a.VALOR)||0;
-    if(a.TIPO==='DEVENGO') totDev+=v;
-    else if(a.TIPO==='DEDUCIDO') totDed+=v;
+    if(acumEsDevengo(a.TIPO)) totDev+=v;
+    else if(acumEsDeduccion(a.TIPO)) totDed+=v;
   });
 
   var kpis=document.getElementById('acum-kpis');
@@ -17456,8 +17456,8 @@ function acumConsultaCalc(){
     var k=a.CONCEPTO||'?';
     if(!porQna[q].conceptos[k]) porQna[q].conceptos[k]={concepto:k, tipo:a.TIPO, categoria:a.CATEGORIA, valor:0};
     porQna[q].conceptos[k].valor+=v;
-    if(a.TIPO==='DEVENGO') porQna[q].devengo+=v;
-    else if(a.TIPO==='DEDUCIDO') porQna[q].deducido+=v;
+    if(acumEsDevengo(a.TIPO)) porQna[q].devengo+=v;
+    else if(acumEsDeduccion(a.TIPO)) porQna[q].deducido+=v;
     if(a.CONCEPTO==='NETO A PAGAR') porQna[q].neto=v;
   });
 
@@ -17532,34 +17532,46 @@ function acumGuardarConcepto(ix){
 // ═══════════════════════════════════════════════════════════════
 // Catálogo BASE de conceptos de acumulados (el que trae la app de fábrica).
 // Los que el usuario clasifica en RH → Configuración se guardan en la base y mandan sobre estos.
+// ── Tipos de concepto de acumulados ──────────────────────────────────
+// DEVENGO SS      → devengos que provisionan seguridad social
+// OTROS DEVENGOS  → auxilios, préstamos, anticipos y demás
+// DEDUCCIONES     → descuentos
+// RESUMENES       → subtotales y totales de la colilla
+// (se aceptan también los nombres antiguos que ya estén guardados)
+function acumEsDevengoSS(t){ t=String(t||'').toUpperCase(); return t==='DEVENGO SS'||t==='DEVENGO'; }
+function acumEsOtroDevengo(t){ t=String(t||'').toUpperCase(); return t==='OTROS DEVENGOS'||t==='OTRO'; }
+function acumEsDevengo(t){ return acumEsDevengoSS(t)||acumEsOtroDevengo(t); }
+function acumEsDeduccion(t){ t=String(t||'').toUpperCase(); return t==='DEDUCCIONES'||t==='DEDUCIDO'; }
+function acumEsResumen(t){ t=String(t||'').toUpperCase(); return t==='RESUMENES'||t==='SUBTOTAL'||t==='RESUMEN'; }
+
 var CONCEPTOS_ACUM_BASE={
-      'SALARIO':['DEVENGO','Sueldo'],'SALARIO SUR TOTAL':['DEVENGO','Sueldo'],
-      'AJUSTE SAL NORTE':['DEVENGO','Sueldo'],'AJUSTE SUR':['DEVENGO','Sueldo'],
-      'SAL MOTOB':['DEVENGO','Sueldo'],
-      'DOMINICAL  Y FESTIVO SALARIO':['DEVENGO','Dominical/Festivo'],
-      'DOMINICAL Y FEST MOT/VIG':['DEVENGO','Dominical/Festivo'],
-      'DOMINICAL SUR':['DEVENGO','Dominical/Festivo'],
-      'AUX TRAN':['DEVENGO','Aux. transporte'],'AUX TRAN SUR':['DEVENGO','Aux. transporte'],
-      'ART 128 AUX. ALIMENT':['DEVENGO','Aux. art 128'],'ART 128 MOT/VIG':['DEVENGO','Aux. art 128'],
-      'ART 128 SUR':['DEVENGO','Aux. art 128'],'ART 128 RODAM':['DEVENGO','Aux. art 128'],
-      'INT CESANTIAS':['DEVENGO','Cesantías'],'VACACIONES':['DEVENGO','Vacaciones'],
-      'ANTIC VACAC':['DEVENGO','Vacaciones'],'RECON IND-BASIC':['DEVENGO','Reconocimiento'],
-      'GTOS REP':['DEVENGO','Reconocimiento'],'LIC LUTO':['DEVENGO','Aux. especial'],
-      'AUX CALAMIDAD':['DEVENGO','Aux. especial'],'DIA DE LA FLIA':['DEVENGO','Aux. especial'],
-      'E.G.':['DEVENGO','Incapacidad'],'E.G. EMP':['DEVENGO','Incapacidad'],
-      'E.G EMP SUR':['DEVENGO','Incapacidad'],'EG EMP':['DEVENGO','Incapacidad'],
-      'A.T.':['DEVENGO','Incapacidad'],'A.T. EMP':['DEVENGO','Incapacidad'],
-      'CTA X PAGAR INCAP':['DEVENGO','Incapacidad'],
-      'DEVENGO':['SUBTOTAL','Subtotal'],'TOTAL DEVENGO':['SUBTOTAL','Subtotal'],
-      'SALUD':['DEDUCIDO','Seguridad social'],'PENSION':['DEDUCIDO','Seguridad social'],
-      'OLIVOS':['DEDUCIDO','Cooperativa'],'COOPETRAFES':['DEDUCIDO','Cooperativa'],
-      'CORPORATIVO':['DEDUCIDO','Cooperativa'],'POLIZA SURA':['DEDUCIDO','Aseguradora'],
-      'SEGUROS BOLIVAR':['DEDUCIDO','Aseguradora'],'ACE SEGURO':['DEDUCIDO','Aseguradora'],
-      'SUR FUNERARIAS':['DEDUCIDO','Funeraria'],'DCTO ANT SALARIO':['DEDUCIDO','Anticipo'],
-      'DCTO PRESTAMO':['DEDUCIDO','Préstamo'],'PRESTAMO':['DEDUCIDO','Préstamo'],
-      'PTMO':['DEDUCIDO','Préstamo'],'DCTO EMBARGO':['DEDUCIDO','Embargo'],
-      'DESC LIBRANZA':['DEDUCIDO','Libranza'],'DESC M/CIA':['DEDUCIDO','Libranza'],
-      'TOTAL DEDUCCIONES':['SUBTOTAL','Subtotal'],'NETO A PAGAR':['RESUMEN','Neto']
+      'SALARIO':['DEVENGO SS','Sueldo'],'SALARIO SUR TOTAL':['DEVENGO SS','Sueldo'],
+      'AJUSTE SAL NORTE':['DEVENGO SS','Sueldo'],'AJUSTE SUR':['DEVENGO SS','Sueldo'],
+      'SAL MOTOB':['DEVENGO SS','Sueldo'],
+      'DOMINICAL  Y FESTIVO SALARIO':['DEVENGO SS','Dominical/Festivo'],
+      'DOMINICAL Y FEST MOT/VIG':['DEVENGO SS','Dominical/Festivo'],
+      'DOMINICAL SUR':['DEVENGO SS','Dominical/Festivo'],
+      'AUX TRAN':['DEVENGO SS','Aux. transporte'],'AUX TRAN SUR':['DEVENGO SS','Aux. transporte'],
+      'ART 128 AUX. ALIMENT':['DEVENGO SS','Aux. art 128'],'ART 128 MOT/VIG':['DEVENGO SS','Aux. art 128'],
+      'ART 128 SUR':['DEVENGO SS','Aux. art 128'],'ART 128 RODAM':['DEVENGO SS','Aux. art 128'],
+      'INT CESANTIAS':['DEVENGO SS','Cesantías'],'VACACIONES':['DEVENGO SS','Vacaciones'],
+      'ANTIC VACAC':['DEVENGO SS','Vacaciones'],'RECON IND-BASIC':['DEVENGO SS','Reconocimiento'],
+      'GTOS REP':['DEVENGO SS','Reconocimiento'],'LIC LUTO':['DEVENGO SS','Aux. especial'],
+      'AUX CALAMIDAD':['DEVENGO SS','Aux. especial'],'DIA DE LA FLIA':['DEVENGO SS','Aux. especial'],
+      'E.G.':['DEVENGO SS','Incapacidad'],'E.G. EMP':['DEVENGO SS','Incapacidad'],
+      'E.G EMP SUR':['DEVENGO SS','Incapacidad'],'EG EMP':['DEVENGO SS','Incapacidad'],
+      'A.T.':['DEVENGO SS','Incapacidad'],'A.T. EMP':['DEVENGO SS','Incapacidad'],
+      'CTA X PAGAR INCAP':['DEVENGO SS','Incapacidad'],
+      'DEVENGO':['RESUMENES','Subtotal'],'TOTAL DEVENGO':['RESUMENES','Subtotal'],
+      'SALUD':['DEDUCCIONES','Seguridad social'],'PENSION':['DEDUCCIONES','Seguridad social'],
+      'OLIVOS':['DEDUCCIONES','Cooperativa'],'COOPETRAFES':['DEDUCCIONES','Cooperativa'],
+      'CORPORATIVO':['DEDUCCIONES','Cooperativa'],'POLIZA SURA':['DEDUCCIONES','Aseguradora'],
+      'SEGUROS BOLIVAR':['DEDUCCIONES','Aseguradora'],'ACE SEGURO':['DEDUCCIONES','Aseguradora'],
+      'SUR FUNERARIAS':['DEDUCCIONES','Funeraria'],'DCTO ANT SALARIO':['DEDUCCIONES','Anticipo'],
+      'DCTO PRESTAMO':['DEDUCCIONES','Préstamo'],'PRESTAMO':['DEDUCCIONES','Préstamo'],
+      'PTMO':['DEDUCCIONES','Préstamo'],'DCTO EMBARGO':['DEDUCCIONES','Embargo'],
+      'DESC LIBRANZA':['DEDUCCIONES','Libranza'],'DESC M/CIA':['DEDUCCIONES','Libranza'],
+      'TOTAL DEDUCCIONES':['RESUMENES','Subtotal'],'NETO A PAGAR':['RESUMENES','Neto']
     };
 
 var GC_DATA=[]; // [{concepto,tipo,categoria}]
@@ -17712,7 +17724,7 @@ function acumGCRecargar(){
 }
 function acumGCRender(){
   var body=document.getElementById('gc-body'); if(!body) return;
-  var tiposStd=['DEVENGO','DEDUCIDO','SUBTOTAL','RESUMEN','OTRO'];
+  var tiposStd=['DEVENGO SS','OTROS DEVENGOS','DEDUCCIONES','RESUMENES'];
   body.innerHTML=
     // Formulario agregar/editar
     '<div style="background:var(--gf);border-radius:8px;padding:12px;margin-bottom:14px">'+
