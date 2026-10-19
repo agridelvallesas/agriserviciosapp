@@ -15456,9 +15456,20 @@ function cartasTrabList(){
 }
 function cartasTrabActual(){
   var v=(document.getElementById('cr-trab').value||'').trim();
-  var ced=v.indexOf(' · ')>=0?v.split(' · ').pop().trim():v;
   var arr=(typeof RH_DATA!=='undefined'?RH_DATA:[]);
-  return arr.find(function(t){return String(t.CEDULA)===String(ced);}) || arr.find(function(t){return String(t.NOMBRES||'').toLowerCase()===v.toLowerCase();}) || null;
+  if(!v||!arr.length) return null;
+  // El campo puede venir como "CÉDULA - NOMBRE" (buscador), "NOMBRE · CÉDULA" o solo la cédula
+  var nums=v.match(/\d[\d.,]*/g)||[];
+  for(var i=0;i<nums.length;i++){
+    var ced=nums[i].replace(/[.,\s]/g,'');
+    var t=arr.find(function(x){return String(x.CEDULA).replace(/[.,\s]/g,'')===ced;});
+    if(t) return t;
+  }
+  // Si no hay cédula, buscar por nombre exacto y luego por coincidencia
+  var vn=v.toLowerCase();
+  return arr.find(function(t){return String(t.NOMBRES||'').toLowerCase()===vn;})
+      || arr.find(function(t){return vn.indexOf(String(t.NOMBRES||'').toLowerCase())>=0 && String(t.NOMBRES||'').length>5;})
+      || null;
 }
 function cartasTrabChange(){
   var t=cartasTrabActual(); var el=document.getElementById('cr-datos-trab');
