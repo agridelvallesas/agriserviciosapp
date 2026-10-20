@@ -1802,13 +1802,19 @@ tfoot td{background:var(--gf);font-weight:700}
               <option value="">Todas</option>
             </select>
           </div>
+          <div class="fld"><label>Mes</label>
+            <select id="acum-mes" onchange="acumRender()">
+              <option value="">Todos</option>
+            </select>
+          </div>
           <div class="fld"><label>Tipo</label>
             <select id="acum-tipo" onchange="acumActualizarConceptos();acumRender()">
               <option value="">Todos</option>
-              <option value="DEVENGO">Devengos</option>
-              <option value="DEDUCIDO">Deducciones</option>
-              <option value="SUBTOTAL">Subtotales</option>
-              <option value="RESUMEN">Neto a pagar</option>
+              <option value="DEVENGO SS">Devengo SS</option>
+              <option value="OTROS DEVENGOS">Otros devengos</option>
+              <option value="__DEV__">Todos los devengos (SS + otros)</option>
+              <option value="DEDUCCIONES">Deducciones</option>
+              <option value="RESUMENES">Resúmenes</option>
             </select>
           </div>
         </div>
@@ -15618,7 +15624,7 @@ function cartasPromedioRender(t){
     if(!acumEsResumen(a.TIPO)) return;
     var cc=String(a.CONCEPTO||'').toUpperCase().trim();
     if(cc!=='DEVENGO') return;
-    var mk=acumQnaAMes(a.QNA_LABEL);
+    var mk=acumMesDeRegistro(a);
     if(!mk) return;
     porMes[mk]=(porMes[mk]||0)+(Number(a.VALOR)||0);
   });
@@ -16567,6 +16573,19 @@ function acumPostCarga(){
     sel.innerHTML='<option value="">Todas</option>'+
       arr.map(function(q){return '<option value="'+q+'">'+q+'</option>';}).join('');
   }
+  // Llenar selector de meses (en orden de calendario)
+  var selM=document.getElementById('acum-mes');
+  if(selM){
+    var ORD={'ENERO':1,'FEBRERO':2,'MARZO':3,'ABRIL':4,'MAYO':5,'JUNIO':6,'JULIO':7,
+             'AGOSTO':8,'SEPTIEMBRE':9,'SEPTIEMB':9,'OCTUBRE':10,'NOVIEMBRE':11,'DICIEMBRE':12};
+    var meses={};
+    ACUM_DATA.forEach(function(a){ var m=String(a.MES||'').trim().toUpperCase(); if(m) meses[m]=1; });
+    var am=Object.keys(meses).sort(function(x,y){
+      var ax=ORD[x.split(' ')[0]]||99, ay=ORD[y.split(' ')[0]]||99;
+      return ax!==ay?ax-ay:x.localeCompare(y);
+    });
+    selM.innerHTML='<option value="">Todos</option>'+am.map(function(m){return '<option value="'+m+'">'+m+'</option>';}).join('');
+  }
   acumActualizarConceptos();
   acumRender();
 }
@@ -16579,7 +16598,14 @@ function acumActualizarConceptos(){
   var conceptos=new Set();
   ACUM_DATA.forEach(function(a){
     if(!a.CONCEPTO) return;
-    if(tipo && a.TIPO!==tipo) return;
+    if(tipo){
+      if(tipo==='__DEV__'){ if(!acumEsDevengo(a.TIPO)) return; }
+      else if(tipo==='DEVENGO SS'){ if(!acumEsDevengoSS(a.TIPO)) return; }
+      else if(tipo==='OTROS DEVENGOS'){ if(!acumEsOtroDevengo(a.TIPO)) return; }
+      else if(tipo==='DEDUCCIONES'){ if(!acumEsDeduccion(a.TIPO)) return; }
+      else if(tipo==='RESUMENES'){ if(!acumEsResumen(a.TIPO)) return; }
+      else if(a.TIPO!==tipo) return;
+    }
     conceptos.add(a.CONCEPTO);
   });
   var arr=Array.from(conceptos).sort();
@@ -16590,6 +16616,7 @@ function acumActualizarConceptos(){
 function acumRender(){
   var busc=(document.getElementById('acum-busc')?.value||'').toLowerCase().trim();
   var qna=document.getElementById('acum-qna')?.value||'';
+  var mes=(document.getElementById('acum-mes')?.value||'').toUpperCase();
   var tipo=document.getElementById('acum-tipo')?.value||'';
   var concepto=document.getElementById('acum-concepto')?.value||'';
   var vmin=Number(document.getElementById('acum-vmin')?.value)||0;
@@ -16598,7 +16625,15 @@ function acumRender(){
 
   var filtered=ACUM_DATA.filter(function(a){
     if(qna && a.QNA_LABEL!==qna) return false;
-    if(tipo && a.TIPO!==tipo) return false;
+    if(mes && String(a.MES||'').toUpperCase()!==mes) return false;
+    if(tipo){
+      if(tipo==='__DEV__'){ if(!acumEsDevengo(a.TIPO)) return false; }
+      else if(tipo==='DEVENGO SS'){ if(!acumEsDevengoSS(a.TIPO)) return false; }
+      else if(tipo==='OTROS DEVENGOS'){ if(!acumEsOtroDevengo(a.TIPO)) return false; }
+      else if(tipo==='DEDUCCIONES'){ if(!acumEsDeduccion(a.TIPO)) return false; }
+      else if(tipo==='RESUMENES'){ if(!acumEsResumen(a.TIPO)) return false; }
+      else if(a.TIPO!==tipo) return false;
+    }
     if(concepto && a.CONCEPTO!==concepto) return false;
     var v=Number(a.VALOR)||0;
     if(v<vmin || v>vmax) return false;
@@ -16679,23 +16714,69 @@ function acumExportarFiltrado(){
   if(!ACUM_LAST_FILTERED || !ACUM_LAST_FILTERED.length){
     alert('No hay datos filtrados para exportar');return;
   }
-  var cols=['CEDULA','NOMBRES','QNA_LABEL','MES','TIPO','CATEGORIA','CONCEPTO','VALOR','OBS'];
-  var csv='\ufeff'+cols.join(',')+'\n';
-  ACUM_LAST_FILTERED.forEach(function(a){
-    csv+=cols.map(function(c){
-      var v=a[c];
-      if(v===null||v===undefined) v='';
-      if(typeof v==='string' && (v.indexOf(',')>=0 || v.indexOf('"')>=0)){
-        return '"'+v.replace(/"/g,'""')+'"';
-      }
-      return v;
-    }).join(',')+'\n';
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel. Revisa la conexión.'); return; }
+    var datos=ACUM_LAST_FILTERED;
+    // Resumen de los filtros aplicados, para que el archivo se explique solo
+    function val(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }
+    var filtros=[];
+    if(val('acum-busc')) filtros.push('Trabajador: '+val('acum-busc'));
+    if(val('acum-qna')) filtros.push('Quincena: '+val('acum-qna'));
+    if(val('acum-mes')) filtros.push('Mes: '+val('acum-mes'));
+    if(val('acum-tipo')) filtros.push('Tipo: '+(val('acum-tipo')==='__DEV__'?'Todos los devengos':val('acum-tipo')));
+    if(val('acum-concepto')) filtros.push('Concepto: '+val('acum-concepto'));
+    if(val('acum-vmin')) filtros.push('Valor desde: '+cop(Number(val('acum-vmin'))));
+    if(val('acum-vmax')) filtros.push('Valor hasta: '+cop(Number(val('acum-vmax'))));
+
+    var rows=[];
+    rows.push(['ACUMULADOS DE NÓMINA']);
+    rows.push([filtros.length?('Filtros: '+filtros.join('  ·  ')):'Sin filtros (todos los registros)']);
+    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')+' · '+datos.length+' registro(s)']);
+    rows.push([]);
+    rows.push(['Cédula','Nombre','Quincena','Mes','Tipo','Categoría','Concepto','Valor','Observación']);
+    var totDev=0, totDed=0;
+    datos.forEach(function(a){
+      var v=Number(a.VALOR)||0;
+      if(acumEsDevengo(a.TIPO)) totDev+=v; else if(acumEsDeduccion(a.TIPO)) totDed+=v;
+      rows.push([String(a.CEDULA||''), a.NOMBRES||'', a.QNA_LABEL||'', a.MES||'', a.TIPO||'',
+                 a.CATEGORIA||'', a.CONCEPTO||'', v, a.OBS||'']);
+    });
+    rows.push([]);
+    rows.push(['','','','','','','TOTAL DEVENGOS', totDev, '']);
+    rows.push(['','','','','','','TOTAL DEDUCCIONES', totDed, '']);
+
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:13},{wch:34},{wch:14},{wch:14},{wch:16},{wch:16},{wch:28},{wch:15},{wch:24}];
+    var nf=datos.length;
+    // Formato: título, subtítulos, encabezado verde y valores en pesos
+    var estilo=function(ref,st){ if(ws[ref]) ws[ref].s=st; };
+    estilo('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    estilo('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    estilo('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDEFGHI'.split('').forEach(function(c){
+      estilo(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},
+                    alignment:{horizontal:'center',vertical:'center'}});
+    });
+    for(var i=0;i<nf;i++){
+      var r=6+i;
+      if(ws['H'+r]) ws['H'+r].z='$#,##0';
+      if(i%2===1){ 'ABCDEFGHI'.split('').forEach(function(c){
+        if(ws[c+r]) ws[c+r].s=Object.assign({},ws[c+r].s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    var rt1=6+nf+1, rt2=rt1+1;
+    [[rt1,'2D5A3D'],[rt2,'B91C1C']].forEach(function(p){
+      estilo('G'+p[0],{font:{bold:true,color:{rgb:p[1]}},alignment:{horizontal:'right'}});
+      if(ws['H'+p[0]]){ ws['H'+p[0]].z='$#,##0'; ws['H'+p[0]].s={font:{bold:true,color:{rgb:p[1]}}}; }
+    });
+    ws['!autofilter']={ref:'A5:I'+(5+nf)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Acumulados');
+    var nom='Acumulados'+(val('acum-mes')?('_'+val('acum-mes').replace(/\s+/g,'_')):'')
+            +(val('acum-qna')?('_'+val('acum-qna').replace(/\s+/g,'_')):'')+'.xlsx';
+    XLSX.writeFile(wb, nom);
   });
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='acumulados_filtrado_'+new Date().toISOString().substring(0,10)+'.csv';
-  a.click();
 }
 
 // ── LIMPIAR BD COMPLETA ──
@@ -16950,12 +17031,31 @@ function acumReporteExportar(){
 // ════════════════════════════════════════════════════════════════
 var ACUM_ANALISIS_DATA=null;
 
+// Mes (AAAA-MM) de un registro de acumulados.
+// Se usa la FECHA de la quincena, que es el dato confiable; si no está, se
+// interpreta la etiqueta en cualquiera de sus formatos.
+var MESES_NUM={ENE:'01',ENERO:'01',FEB:'02',FEBRERO:'02',MAR:'03',MARZO:'03',ABR:'04',ABRIL:'04',
+  MAY:'05',MAYO:'05',JUN:'06',JUNIO:'06',JUL:'07',JULIO:'07',AGO:'08',AGOSTO:'08',
+  SEP:'09',SEPT:'09',SEPTIEMB:'09',SEPTIEMBRE:'09',OCT:'10',OCTUBRE:'10',NOV:'11',NOVIEMBRE:'11',DIC:'12',DICIEMBRE:'12'};
+function acumMesDeRegistro(a){
+  if(!a) return '';
+  // 1) Fecha de la quincena (lo más confiable)
+  var f=String(a.FECHA_QUINCENA||'').match(/^(\d{4})-(\d{2})/);
+  if(f) return f[1]+'-'+f[2];
+  // 2) Campo MES + año de donde se pueda
+  var txt=String(a.MES||'')+' '+String(a.QNA_LABEL||'');
+  var mm=txt.toUpperCase().match(/[A-ZÁÉÍÓÚÑ]{3,}/g)||[];
+  var num='';
+  for(var i=0;i<mm.length && !num;i++){ if(MESES_NUM[mm[i]]) num=MESES_NUM[mm[i]]; }
+  var an=txt.match(/(20\d{2})/) || txt.match(/\/(\d{2})\b/);
+  var anio=an?(an[1].length===4?an[1]:'20'+an[1]):'';
+  if(num&&anio) return anio+'-'+num;
+  return '';
+}
+// Compatibilidad: algunas partes aún llaman con la etiqueta sola
 function acumQnaAMes(qna){
-  if(!qna) return '';
-  var m=String(qna).match(/^(01|02)-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)\/(\d{2})$/);
-  if(!m) return '';
-  var meses={ENE:'01',FEB:'02',MAR:'03',ABR:'04',MAY:'05',JUN:'06',JUL:'07',AGO:'08',SEP:'09',OCT:'10',NOV:'11',DIC:'12'};
-  return '20'+m[3]+'-'+meses[m[2]];
+  if(qna && typeof qna==='object') return acumMesDeRegistro(qna);
+  return acumMesDeRegistro({QNA_LABEL:qna, MES:qna});
 }
 function acumMesLabel(mesKey){
   if(!mesKey) return '-';
@@ -17076,7 +17176,7 @@ function acumAnalisisRefrescarMeses(){
   ACUM_DATA.forEach(function(a){
     if(a.CONCEPTO!==concepto) return;
     if(modo==='trab' && trab && String(a.CEDULA)!==String(trab)) return;
-    var mk=acumQnaAMes(a.QNA_LABEL);
+    var mk=acumMesDeRegistro(a);
     if(mk) mesesSet.add(mk);
   });
   var mesesDisp=Array.from(mesesSet).sort();
@@ -17175,7 +17275,7 @@ function acumAnalisisCalc(){
 
   var setMesesIncluir={};
   mesesSeleccionados.forEach(function(m){setMesesIncluir[m]=true;});
-  var regs=regsBase.filter(function(r){return setMesesIncluir[acumQnaAMes(r.QNA_LABEL)];});
+  var regs=regsBase.filter(function(r){return setMesesIncluir[acumMesDeRegistro(r)];});
 
   if(!regs.length){
     result.style.display='block';
@@ -17186,7 +17286,7 @@ function acumAnalisisCalc(){
   // Agrupación por MES
   var porMes={};
   regs.forEach(function(r){
-    var mk=acumQnaAMes(r.QNA_LABEL);
+    var mk=acumMesDeRegistro(r);
     if(!porMes[mk]) porMes[mk]={mes:mk, qnas:{}, trabs:new Set(), valores:[]};
     var v=Number(r.VALOR)||0;
     porMes[mk].valores.push(v);
