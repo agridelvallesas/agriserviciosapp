@@ -17099,6 +17099,9 @@ function acumAbrirInforme(){
   ACUM_DATA.forEach(function(a){ if(a.QNA_LABEL) qnas[a.QNA_LABEL]=1; if(a.CONCEPTO) conceptos[a.CONCEPTO]=1; });
   var lq=Object.keys(qnas).sort(function(a,b){ return String(acumMesDeRegistro({QNA_LABEL:b,MES:b})+b).localeCompare(acumMesDeRegistro({QNA_LABEL:a,MES:a})+a); });
   var lc=Object.keys(conceptos).sort();
+  var mset={};
+  ACUM_DATA.forEach(function(a){ var k=acumMesDeRegistro(a); if(k) mset[k]=1; });
+  var lm=Object.keys(mset).sort().reverse().map(function(k){ return {k:k, t:acumMesLabel(k)}; });
   var m=document.createElement('div');
   m.id='acinf-modal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -17111,8 +17114,12 @@ function acumAbrirInforme(){
     +'</div>'
     +'<div style="padding:16px;overflow:auto">'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">'
-        +'<div class="fld" style="margin:0"><label style="font-size:10px">Quincena *</label><select id="acinf-qna" onchange="acumInfSemAuto()">'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Periodo</label><select id="acinf-periodo" onchange="acumInfPeriodo()">'
+          +'<option value="qna">Por quincena</option><option value="mes">Por mes (suma las dos quincenas)</option></select></div>'
+        +'<div class="fld" style="margin:0" id="acinf-wrap-qna"><label style="font-size:10px">Quincena *</label><select id="acinf-qna" onchange="acumInfSemAuto()">'
           +lq.map(function(q){return '<option value="'+gcEsc(q)+'">'+gcEsc(q)+'</option>';}).join('')+'</select></div>'
+        +'<div class="fld" style="margin:0;display:none" id="acinf-wrap-mes"><label style="font-size:10px">Mes *</label><select id="acinf-mes" onchange="acumInfSemAuto()">'
+          +lm.map(function(m){return '<option value="'+m.k+'">'+gcEsc(m.t)+'</option>';}).join('')+'</select></div>'
         +'<div class="fld" style="margin:0"><label style="font-size:10px">Concepto *</label><select id="acinf-concepto">'
           +lc.map(function(c){return '<option value="'+gcEsc(c)+'"'+(c==='DEVENGO'?' selected':'')+'>'+gcEsc(c)+'</option>';}).join('')+'</select></div>'
         +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor mínimo</label><input type="number" id="acinf-vmin" placeholder="ej: 1750000"/></div>'
@@ -17130,15 +17137,37 @@ function acumAbrirInforme(){
   document.body.appendChild(m);
   acumInfSemAuto();
 }
-// Sugiere la semana completa de la quincena elegida
+function acumInfPeriodo(){
+  var p=(document.getElementById('acinf-periodo')||{}).value||'qna';
+  var wq=document.getElementById('acinf-wrap-qna'), wm=document.getElementById('acinf-wrap-mes');
+  if(wq) wq.style.display=(p==='mes')?'none':'block';
+  if(wm) wm.style.display=(p==='mes')?'block':'none';
+  acumInfSemAuto();
+}
+// Quincenas que componen el mes elegido
+function acumInfQnasDelMes(mesKey){
+  var set={};
+  ACUM_DATA.forEach(function(a){ if(acumMesDeRegistro(a)===mesKey && a.QNA_LABEL) set[a.QNA_LABEL]=1; });
+  return Object.keys(set).sort();
+}
+// Sugiere la semana completa (de la quincena, o de la última quincena del mes)
 function acumInfSemAuto(){
-  var q=(document.getElementById('acinf-qna')||{}).value||'';
+  var p=(document.getElementById('acinf-periodo')||{}).value||'qna';
+  var el=document.getElementById('acinf-sem'); if(!el) return;
+  var q='';
+  if(p==='mes'){
+    var qs=acumInfQnasDelMes((document.getElementById('acinf-mes')||{}).value||'');
+    q=qs.length?qs[qs.length-1]:'';
+  } else {
+    q=(document.getElementById('acinf-qna')||{}).value||'';
+  }
   var info=acumInfSemanasDe(q);
-  var el=document.getElementById('acinf-sem');
-  if(el && info.completa) el.value=info.completa;
+  if(info.completa) el.value=info.completa;
 }
 function acumInfGenerar(){
+  var periodo=(document.getElementById('acinf-periodo')||{}).value||'qna';
   var qna=(document.getElementById('acinf-qna')||{}).value||'';
+  var mesKey=(document.getElementById('acinf-mes')||{}).value||'';
   var concepto=(document.getElementById('acinf-concepto')||{}).value||'';
   var vmin=Number((document.getElementById('acinf-vmin')||{}).value)||0;
   var vmaxRaw=(document.getElementById('acinf-vmax')||{}).value;
@@ -17146,7 +17175,8 @@ function acumInfGenerar(){
   var sede=(document.getElementById('acinf-sede')||{}).value||'';
   var sem=parseInt((document.getElementById('acinf-sem')||{}).value)||0;
   var cont=document.getElementById('acinf-result');
-  if(!qna||!concepto){ alert('Elige la quincena y el concepto'); return; }
+  if(periodo==='mes'? (!mesKey||!concepto) : (!qna||!concepto)){ alert('Elige el periodo y el concepto'); return; }
+  var etiqueta=(periodo==='mes')?('Mes de '+acumMesLabel(mesKey)):qna;
   cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cruzando con los reportes de la semana '+(sem||'—')+'...</div>';
 
   var armar=function(){
@@ -17160,9 +17190,20 @@ function acumInfGenerar(){
         coordDe[c][r.coord||'—']=(coordDe[c][r.coord||'—']||0)+1;
       });
     }
-    var filas=ACUM_DATA.filter(function(a){
-      if(a.QNA_LABEL!==qna) return false;
+    // Registros del periodo: una quincena, o todas las del mes sumadas por trabajador
+    var base=ACUM_DATA.filter(function(a){
       if(a.CONCEPTO!==concepto) return false;
+      return (periodo==='mes') ? (acumMesDeRegistro(a)===mesKey) : (a.QNA_LABEL===qna);
+    });
+    var porCed={};
+    base.forEach(function(a){
+      var c=String(a.CEDULA||''); if(!c) return;
+      if(!porCed[c]) porCed[c]={CEDULA:c, NOMBRES:a.NOMBRES||'', VALOR:0, nQnas:0};
+      porCed[c].VALOR+=Number(a.VALOR)||0;
+      porCed[c].nQnas++;
+      if(!porCed[c].NOMBRES && a.NOMBRES) porCed[c].NOMBRES=a.NOMBRES;
+    });
+    var filas=Object.keys(porCed).map(function(k){return porCed[k];}).filter(function(a){
       var v=Number(a.VALOR)||0;
       return v>=vmin && v<=vmax;
     }).map(function(a){
@@ -17172,11 +17213,12 @@ function acumInfGenerar(){
       var sd=(t&&t.SEDE)||'';
       if(!sd && cs.length && typeof getSedeCo==='function') sd=getSedeCo(cs[0])||'';
       return {ced:ced, nombre:a.NOMBRES||(t&&t.NOMBRES)||'', sede:String(sd||'').toUpperCase(),
-              coord:cs.join(' / ')||'—', nCoord:cs.length, valor:Number(a.VALOR)||0};
+              coord:cs.join(' / ')||'—', nCoord:cs.length, valor:Number(a.VALOR)||0, nQnas:a.nQnas||1};
     }).filter(function(f){ return !sede || f.sede===sede; })
       .sort(function(a,b){ return b.valor-a.valor; });
 
-    ACUM_INF_DATA={qna:qna, concepto:concepto, vmin:vmin, vmax:vmaxRaw?vmax:null, sede:sede, sem:sem, filas:filas};
+    ACUM_INF_DATA={qna:etiqueta, periodo:periodo, concepto:concepto, vmin:vmin,
+                   vmax:vmaxRaw?vmax:null, sede:sede, sem:sem, filas:filas};
     var tot=filas.reduce(function(s,f){return s+f.valor;},0);
     cont.innerHTML= filas.length
       ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
@@ -17195,7 +17237,8 @@ function acumInfGenerar(){
             +'<td style="padding:6px 9px;font-weight:600">'+gcEsc(f.nombre)+'</td>'
             +'<td style="padding:6px 9px;text-align:center">'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
             +'<td style="padding:6px 9px;color:'+(f.nCoord>1?'var(--a)':'var(--g2)')+'">'+gcEsc(f.coord)+(f.nCoord>1?' <span style="font-size:9px">('+f.nCoord+')</span>':'')+'</td>'
-            +'<td style="padding:6px 9px;text-align:right;font-weight:700;color:var(--v)">'+cop(f.valor)+'</td></tr>';
+            +'<td style="padding:6px 9px;text-align:right;font-weight:700;color:var(--v)">'+cop(f.valor)
+              +((periodo==='mes'&&f.nQnas>1)?(' <span style="font-size:9px;color:var(--g3)">('+f.nQnas+' qnas)</span>'):'')+'</td></tr>';
         }).join('')+'</tbody></table></div></div>'
       : '<div style="text-align:center;padding:24px;color:var(--g3)">Ningún trabajador cumple esos filtros.</div>';
   };
