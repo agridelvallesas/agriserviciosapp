@@ -17115,7 +17115,8 @@ function acumAbrirInforme(){
     +'<div style="padding:16px;overflow:auto">'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">'
         +'<div class="fld" style="margin:0"><label style="font-size:10px">Periodo</label><select id="acinf-periodo" onchange="acumInfPeriodo()">'
-          +'<option value="qna">Por quincena</option><option value="mes">Por mes (suma las dos quincenas)</option></select></div>'
+          +'<option value="qna">Por quincena</option><option value="mes">Por mes (suma las dos quincenas)</option>'
+          +'<option value="multi">Comparativo de varios meses</option></select></div>'
         +'<div class="fld" style="margin:0" id="acinf-wrap-qna"><label style="font-size:10px">Quincena *</label><select id="acinf-qna" onchange="acumInfSemAuto()">'
           +lq.map(function(q){return '<option value="'+gcEsc(q)+'">'+gcEsc(q)+'</option>';}).join('')+'</select></div>'
         +'<div class="fld" style="margin:0;display:none" id="acinf-wrap-mes"><label style="font-size:10px">Mes *</label><select id="acinf-mes" onchange="acumInfSemAuto()">'
@@ -17127,6 +17128,16 @@ function acumAbrirInforme(){
         +'<div class="fld" style="margin:0"><label style="font-size:10px">Sede</label><select id="acinf-sede"><option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option></select></div>'
         +'<div class="fld" style="margin:0"><label style="font-size:10px">Semana para el coordinador</label><input type="number" id="acinf-sem" min="1" max="53" title="Semana completa de la quincena"/></div>'
       +'</div>'
+      +'<div id="acinf-wrap-multi" style="display:none;margin-top:10px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:5px">Meses a comparar '
+          +'<span style="font-weight:400;color:var(--g3)">— marca los que necesites</span>'
+          +'<button class="btn bg" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="acumInfMesesTodos(true)">Todos</button>'
+          +'<button class="btn bg" style="font-size:10px;padding:2px 8px" onclick="acumInfMesesTodos(false)">Ninguno</button></div>'
+        +'<div id="acinf-chips" style="display:flex;gap:6px;flex-wrap:wrap">'
+        +lm.map(function(m){
+          return '<label style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--bd);border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer">'
+            +'<input type="checkbox" class="acinf-mes-chk" value="'+m.k+'"/> '+gcEsc(m.t)+'</label>';
+        }).join('')+'</div></div>'
       +'<div style="font-size:11px;color:var(--g3);margin-top:6px">El coordinador se toma de la semana indicada (por defecto, la semana completa de 7 días de esa quincena). Si el trabajador estuvo con varios, se listan todos.</div>'
       +'<div style="display:flex;gap:8px;margin-top:12px">'
         +'<button class="btn bv" onclick="acumInfGenerar()">📊 Generar informe</button>'
@@ -17140,11 +17151,21 @@ function acumAbrirInforme(){
 function acumInfPeriodo(){
   var p=(document.getElementById('acinf-periodo')||{}).value||'qna';
   var wq=document.getElementById('acinf-wrap-qna'), wm=document.getElementById('acinf-wrap-mes');
-  if(wq) wq.style.display=(p==='mes')?'none':'block';
+  var wx=document.getElementById('acinf-wrap-multi');
+  if(wq) wq.style.display=(p==='qna')?'block':'none';
   if(wm) wm.style.display=(p==='mes')?'block':'none';
+  if(wx) wx.style.display=(p==='multi')?'block':'none';
   acumInfSemAuto();
 }
 // Quincenas que componen el mes elegido
+function acumInfMesesTodos(v){
+  document.querySelectorAll('#acinf-chips .acinf-mes-chk').forEach(function(c){ c.checked=!!v; });
+}
+function acumInfMesesMarcados(){
+  var out=[];
+  document.querySelectorAll('#acinf-chips .acinf-mes-chk:checked').forEach(function(c){ out.push(c.value); });
+  return out.sort();
+}
 function acumInfQnasDelMes(mesKey){
   var set={};
   ACUM_DATA.forEach(function(a){ if(acumMesDeRegistro(a)===mesKey && a.QNA_LABEL) set[a.QNA_LABEL]=1; });
@@ -17175,6 +17196,7 @@ function acumInfGenerar(){
   var sede=(document.getElementById('acinf-sede')||{}).value||'';
   var sem=parseInt((document.getElementById('acinf-sem')||{}).value)||0;
   var cont=document.getElementById('acinf-result');
+  if(periodo==='multi'){ acumInfGenerarMulti(concepto, vmin, vmax, vmaxRaw, sede); return; }
   if(periodo==='mes'? (!mesKey||!concepto) : (!qna||!concepto)){ alert('Elige el periodo y el concepto'); return; }
   var etiqueta=(periodo==='mes')?('Mes de '+acumMesLabel(mesKey)):qna;
   cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cruzando con los reportes de la semana '+(sem||'—')+'...</div>';
@@ -17247,11 +17269,146 @@ function acumInfGenerar(){
   if(sem && typeof cargarSemanasMultiples==='function'){ cargarSemanasMultiples([String(sem)], armar); }
   else armar();
 }
+
+// ── Comparativo de varios meses ──────────────────────────────────────────
+// Una fila por trabajador y una columna por mes. Queda vacío el mes en que
+// el trabajador no alcanzó el rango de valor pedido.
+function acumInfGenerarMulti(concepto, vmin, vmax, vmaxRaw, sede){
+  var meses=acumInfMesesMarcados();
+  var cont=document.getElementById('acinf-result');
+  if(!concepto){ alert('Elige el concepto'); return; }
+  if(meses.length<2){ alert('Marca al menos dos meses para comparar'); return; }
+
+  // Total por trabajador y mes
+  var porMes={};
+  meses.forEach(function(m){ porMes[m]={}; });
+  var nombres={};
+  ACUM_DATA.forEach(function(a){
+    if(a.CONCEPTO!==concepto) return;
+    var mk=acumMesDeRegistro(a);
+    if(!porMes[mk]) return;
+    var c=String(a.CEDULA||''); if(!c) return;
+    porMes[mk][c]=(porMes[mk][c]||0)+(Number(a.VALOR)||0);
+    if(a.NOMBRES) nombres[c]=a.NOMBRES;
+  });
+
+  // Un trabajador entra si cumple el rango en al menos un mes
+  var ceds={};
+  meses.forEach(function(m){
+    Object.keys(porMes[m]).forEach(function(c){
+      var v=porMes[m][c];
+      if(v>=vmin && v<=vmax) ceds[c]=1;
+    });
+  });
+
+  var filas=Object.keys(ceds).map(function(c){
+    var t=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(x){return String(x.CEDULA)===c;}):null;
+    var vals={}, suma=0, veces=0;
+    meses.forEach(function(m){
+      var v=porMes[m][c];
+      if(v!==undefined && v>=vmin && v<=vmax){ vals[m]=v; suma+=v; veces++; }
+      else vals[m]=null;
+    });
+    return {ced:c, nombre:nombres[c]||(t&&t.NOMBRES)||'', sede:String((t&&t.SEDE)||'').toUpperCase(),
+            vals:vals, veces:veces, promedio:veces?suma/veces:0, suma:suma};
+  }).filter(function(f){ return !sede || f.sede===sede; })
+    .sort(function(a,b){ return (b.veces-a.veces) || (b.promedio-a.promedio); });
+
+  ACUM_INF_DATA={periodo:'multi', concepto:concepto, meses:meses, vmin:vmin,
+                 vmax:vmaxRaw?vmax:null, sede:sede, filas:filas,
+                 qna:'Comparativo: '+meses.map(acumMesLabel).join(' · ')};
+
+  if(!filas.length){ cont.innerHTML='<div style="text-align:center;padding:24px;color:var(--g3)">Ningún trabajador cumple esos filtros en los meses marcados.</div>'; return; }
+  var conTodos=filas.filter(function(f){return f.veces===meses.length;}).length;
+  cont.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">TRABAJADORES</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+filas.length+'</div></div>'
+      +'<div style="background:var(--gf);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">MESES COMPARADOS</div><div style="font-size:18px;font-weight:800">'+meses.length+'</div></div>'
+      +'<div style="background:#fef3c7;border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:#92400e">EN TODOS LOS MESES</div><div style="font-size:18px;font-weight:800;color:#b45309">'+conTodos+'</div></div>'
+    +'</div>'
+    +'<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden"><div style="overflow:auto;max-height:46vh">'
+    +'<table style="width:100%;font-size:12px;border-collapse:collapse"><thead style="position:sticky;top:0;background:var(--gf)"><tr>'
+      +'<th style="text-align:left;padding:7px 9px">Cédula</th><th style="text-align:left;padding:7px 9px">Trabajador</th>'
+      +'<th style="text-align:center;padding:7px 9px">Sede</th>'
+      +meses.map(function(m){return '<th style="text-align:right;padding:7px 9px">'+gcEsc(acumMesLabel(m))+'</th>';}).join('')
+      +'<th style="text-align:center;padding:7px 9px;background:#ecfdf5">Veces</th>'
+      +'<th style="text-align:right;padding:7px 9px;background:#ecfdf5">Promedio</th></tr></thead><tbody>'
+    +filas.map(function(f){
+      return '<tr style="border-top:1px solid var(--bd)">'
+        +'<td style="padding:6px 9px"><code style="font-size:11px">'+gcEsc(f.ced)+'</code></td>'
+        +'<td style="padding:6px 9px;font-weight:600">'+gcEsc(f.nombre)+'</td>'
+        +'<td style="padding:6px 9px;text-align:center">'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+        +meses.map(function(m){
+          return '<td style="padding:6px 9px;text-align:right;'+(f.vals[m]?'font-weight:600;color:var(--v)':'color:var(--g3)')+'">'
+            +(f.vals[m]?cop(f.vals[m]):'—')+'</td>';
+        }).join('')
+        +'<td style="padding:6px 9px;text-align:center;font-weight:700;background:#f0fdf4;color:'+(f.veces===meses.length?'#b45309':'var(--g2)')+'">'+f.veces+'</td>'
+        +'<td style="padding:6px 9px;text-align:right;font-weight:700;background:#f0fdf4">'+cop(f.promedio)+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+}
+
+
+// Exportación a Excel del comparativo de varios meses
+function acumInfExcelMulti(d){
+  var meses=d.meses, crit=[];
+  if(d.vmin) crit.push('desde '+cop(d.vmin));
+  if(d.vmax) crit.push('hasta '+cop(d.vmax));
+  if(d.sede) crit.push('sede '+d.sede);
+  var rows=[];
+  rows.push(['COMPARATIVO DE ACUMULADOS POR MES']);
+  rows.push(['Concepto: '+d.concepto+(crit.length?('  ·  '+crit.join('  ·  ')):'')]);
+  rows.push(['Meses: '+meses.map(acumMesLabel).join('  ·  ')]);
+  rows.push(['Las celdas vacías son meses en que el trabajador no alcanzó el rango  ·  Generado el '+new Date().toLocaleDateString('es-CO')]);
+  rows.push([]);
+  rows.push(['Cédula','Trabajador','Sede'].concat(meses.map(acumMesLabel)).concat(['Veces','Promedio']));
+  d.filas.forEach(function(f){
+    var r=[f.ced, f.nombre, f.sede];
+    meses.forEach(function(m){ r.push(f.vals[m]!==null&&f.vals[m]!==undefined?f.vals[m]:''); });
+    r.push(f.veces); r.push(f.promedio);
+    rows.push(r);
+  });
+
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  var cols=[{wch:14},{wch:36},{wch:9}];
+  meses.forEach(function(){ cols.push({wch:15}); });
+  cols.push({wch:9}); cols.push({wch:16});
+  ws['!cols']=cols;
+  var LET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  var nCol=3+meses.length+2, nFil=d.filas.length;
+  function est(r,st){ if(ws[r]) ws[r].s=st; }
+  est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+  ['A2','A3','A4'].forEach(function(r){ est(r,{font:{italic:true,sz:10,color:{rgb:'64748B'}}}); });
+  for(var c=0;c<nCol;c++){
+    var esRes=(c>=3+meses.length);
+    est(LET[c]+'6',{font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:esRes?'B45309':'2D5A3D'}},alignment:{horizontal:'center',vertical:'center'}});
+  }
+  for(var i=0;i<nFil;i++){
+    var r=7+i;
+    for(var c=3;c<nCol;c++){
+      var cel=ws[LET[c]+r];
+      if(cel && typeof cel.v==='number' && c!==3+meses.length) cel.z='$#,##0';
+    }
+    if(i%2===1){ for(var c2=0;c2<nCol;c2++){
+      var cc=ws[LET[c2]+r];
+      if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}});
+    } }
+    // Resaltar a quienes aparecen en todos los meses
+    var cv=ws[LET[3+meses.length]+r];
+    if(cv && cv.v===meses.length) cv.s=Object.assign({},cv.s||{},{font:{bold:true,color:{rgb:'B45309'}}});
+  }
+  ws['!autofilter']={ref:'A6:'+LET[nCol-1]+(6+nFil)};
+  ws['!freeze']={xSplit:2,ySplit:6};
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Comparativo');
+  XLSX.writeFile(wb, 'Comparativo_acumulados_'+meses.length+'_meses.xlsx');
+}
+
 function acumInfExcel(){
   if(!ACUM_INF_DATA||!ACUM_INF_DATA.filas.length){ alert('Primero genera el informe'); return; }
   consCargarSheetJS(function(ok){
     if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
     var d=ACUM_INF_DATA;
+    if(d.periodo==='multi'){ acumInfExcelMulti(d); return; }
     var crit=[];
     if(d.vmin) crit.push('desde '+cop(d.vmin));
     if(d.vmax) crit.push('hasta '+cop(d.vmax));
