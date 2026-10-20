@@ -17339,8 +17339,15 @@ function acumAnalisisCalc(){
 
   var headerTrab='';
   if(modo==='trab'){
-    var sel=document.getElementById('an-trab');
-    var nombreTrab=sel.options[sel.selectedIndex].text;
+    // El trabajador ahora se elige con el buscador (campo oculto + texto visible)
+    var nombreTrab='';
+    var vis=document.getElementById('an-trab-q');
+    if(vis && vis.value) nombreTrab=vis.value;
+    if(!nombreTrab && typeof RH_DATA!=='undefined'){
+      var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(trab);});
+      if(t) nombreTrab=(t.NOMBRES||'')+' · '+t.CEDULA;
+    }
+    if(!nombreTrab) nombreTrab='C.C. '+trab;
     headerTrab='<div style="background:linear-gradient(135deg,var(--vs) 0%,#f0fdf4 100%);border:1px solid var(--v);border-radius:8px;padding:12px;margin-bottom:14px">'+
       '<div style="font-size:14px;font-weight:700;color:var(--vh)">👤 '+nombreTrab+'</div>'+
       '<div style="font-size:11px;color:var(--g2);margin-top:3px">Concepto: <strong>'+concepto+'</strong></div>'+
@@ -17428,48 +17435,68 @@ function acumAnalisisCalc(){
 function acumAnalisisExportar(){
   if(!ACUM_ANALISIS_DATA){alert('Genera primero el análisis');return;}
   var d=ACUM_ANALISIS_DATA;
-  var lines=[];
-  lines.push('ANALISIS TEMPORAL DE ACUMULADOS');
-  lines.push('Modo,'+(d.modo==='trab'?'Por trabajador':'Global'));
-  lines.push('Concepto,'+d.concepto);
-  lines.push('Meses seleccionados,'+d.mesesSeleccionados.map(acumMesLabel).join(' | '));
-  if(d.modo==='trab') lines.push('Cedula,'+d.trab);
-  lines.push('');
-  lines.push('TOTALES');
-  lines.push('Meses analizados,'+d.mesesArr.length);
-  lines.push('Total acumulado,'+d.totalGen);
-  lines.push('Promedio mensual,'+Math.round(d.promMensual));
-  lines.push('Promedio por registro,'+Math.round(d.promGen));
-  if(d.modo==='global') lines.push('Trabajadores involucrados,'+d.trabsUnicos);
-  lines.push('');
-  lines.push('RESUMEN POR MES');
-  if(d.modo==='global'){
-    lines.push('MES,QUINCENAS,TRABAJADORES,TOTAL,PROMEDIO,MAXIMO');
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel. Revisa la conexión.'); return; }
+    var nombreTrab='';
+    if(d.modo==='trab'){
+      var vis=document.getElementById('an-trab-q');
+      nombreTrab=(vis&&vis.value)||('C.C. '+d.trab);
+    }
+    var rows=[];
+    rows.push(['ANÁLISIS TEMPORAL DE ACUMULADOS']);
+    rows.push([d.modo==='trab'?('Trabajador: '+nombreTrab):'Análisis global (todos los trabajadores)']);
+    rows.push(['Concepto: '+d.concepto]);
+    rows.push(['Meses: '+d.mesesSeleccionados.map(acumMesLabel).join(' · ')]);
+    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['TOTALES']);
+    rows.push(['Meses analizados', d.mesesArr.length]);
+    rows.push(['Total acumulado', d.totalGen]);
+    rows.push(['Promedio mensual', d.promMensual]);
+    rows.push(['Promedio por registro', d.promGen]);
+    if(d.modo==='global') rows.push(['Trabajadores distintos', d.trabsUnicos]);
+    rows.push([]);
+    var filaEncMes=rows.length;
+    rows.push(d.modo==='global'
+      ? ['Mes','Quincenas','Trabajadores','Total','Promedio','Máximo']
+      : ['Mes','Quincenas','Total','Promedio','Máximo','Mínimo']);
     d.mesesArr.forEach(function(m){
-      lines.push([m.label,m.numQnas,m.numTrabs,m.total,Math.round(m.promedio),m.maxV].join(','));
+      rows.push(d.modo==='global'
+        ? [m.label, m.numQnas, m.numTrabs, m.total, m.promedio, m.maxV]
+        : [m.label, m.numQnas, m.total, m.promedio, m.maxV, m.minV]);
     });
-  } else {
-    lines.push('MES,QUINCENAS,TOTAL,PROMEDIO,MAXIMO,MINIMO');
-    d.mesesArr.forEach(function(m){
-      lines.push([m.label,m.numQnas,m.total,Math.round(m.promedio),m.maxV,m.minV].join(','));
+    rows.push([]);
+    var filaEncQna=rows.length;
+    rows.push(d.modo==='global' ? ['Quincena','Trabajadores','Total','Promedio'] : ['Quincena','Total']);
+    d.qnasArr.forEach(function(q){
+      rows.push(d.modo==='global' ? [q.qna, q.numTrabs, q.total, q.promedio] : [q.qna, q.total]);
     });
-  }
-  lines.push('');
-  lines.push('DETALLE POR QUINCENA');
-  if(d.modo==='global'){
-    lines.push('QUINCENA,TRABAJADORES,TOTAL,PROMEDIO');
-    d.qnasArr.forEach(function(q){lines.push([q.qna,q.numTrabs,q.total,Math.round(q.promedio)].join(','));});
-  } else {
-    lines.push('QUINCENA,TOTAL');
-    d.qnasArr.forEach(function(q){lines.push([q.qna,q.total].join(','));});
-  }
-  var csv='\ufeff'+lines.join('\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  var sufijo=d.modo==='trab'?d.trab:'global';
-  a.download='analisis_temporal_'+d.concepto.replace(/[^a-zA-Z0-9]/g,'_')+'_'+sufijo+'_'+new Date().toISOString().substring(0,10)+'.csv';
-  a.click();
+
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:26},{wch:14},{wch:16},{wch:16},{wch:16},{wch:16}];
+    function est(ref,st){ if(ws[ref]) ws[ref].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    ['A2','A3','A4','A5'].forEach(function(r){ est(r,{font:{italic:true,sz:10,color:{rgb:'64748B'}}}); });
+    est('A7',{font:{bold:true,color:{rgb:'2D5A3D'}}});
+    // Encabezados verdes de las dos tablas
+    [filaEncMes,filaEncQna].forEach(function(f){
+      'ABCDEF'.split('').forEach(function(c){
+        est(c+(f+1),{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+      });
+    });
+    // Formato de pesos en las columnas de valores
+    for(var r=8;r<=rows.length;r++){
+      ['B','C','D','E','F'].forEach(function(c){
+        var cel=ws[c+r];
+        if(cel && typeof cel.v==='number' && cel.v>1000) cel.z='$#,##0';
+      });
+    }
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Análisis temporal');
+    var nom='Analisis_'+String(d.concepto).replace(/[^\w]+/g,'_')
+            +(d.modo==='trab'?('_'+String(d.trab)):'_global')+'.xlsx';
+    XLSX.writeFile(wb, nom);
+  });
 }
 
 // ── CONSULTA DETALLADA POR TRABAJADOR ──
