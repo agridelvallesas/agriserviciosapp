@@ -1787,6 +1787,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bvs" onclick="acumAbrirConsulta()" style="height:36px">🔍 Consultar trabajador</button>
             <button class="btn bvs" onclick="acumAbrirReporte()" style="height:36px">📈 Reporte por concepto</button>
             <button class="btn bvs" onclick="acumAbrirAnalisis()" style="height:36px">📅 Análisis temporal</button>
+            <button class="btn bn" onclick="acumAbrirInforme()" style="height:36px">📑 Informe por rango de valor</button>
             <button class="btn ba" onclick="acumAbrirImportador()" style="height:36px">📥 Importar Excel</button>
             <button class="btn bg" onclick="acumExportar()" style="height:36px">📊 Exportar</button>
             <button class="btn br" onclick="acumLimpiarTodo()" style="height:36px;font-size:11px" title="Borrar TODO de la BD (peligroso)">🗑️ Limpiar BD</button>
@@ -17063,6 +17064,193 @@ function acumMesLabel(mesKey){
   var p=mesKey.split('-');
   if(p.length<2) return mesKey;
   return meses[parseInt(p[1])-1]+' '+p[0].slice(2);
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// INFORME POR RANGO DE VALOR (Acumulados)
+// Lista los trabajadores cuyo devengo está por encima o por debajo de un
+// valor, con su sede y el coordinador con el que estuvo en la semana
+// completa de esa quincena. Exporta a Excel con formato.
+// ══════════════════════════════════════════════════════════════════════════
+var ACUM_INF_DATA=null;
+
+// Semanas de la quincena de un acumulado, tomadas del calendario de nómina
+function acumInfSemanasDe(qnaLabel){
+  if(typeof QNAS==='undefined'||!QNAS.length) return {sems:[], completa:0, qna:null};
+  var mk=acumMesDeRegistro({QNA_LABEL:qnaLabel, MES:qnaLabel});
+  var num=(String(qnaLabel).match(/\b(01|02)\b/)||[])[1]||'';
+  var cand=QNAS.filter(function(q){
+    var qk=acumMesDeRegistro({QNA_LABEL:q.n, MES:q.n});
+    if(mk && qk && mk!==qk) return false;
+    if(num && String(q.n).indexOf(num+' ')!==0 && String(q.n).indexOf(num+'-')!==0 && String(q.n).indexOf(num)<0) return false;
+    return !!(mk&&qk);
+  });
+  var q=cand[0]||null;
+  if(!q) return {sems:[], completa:0, qna:null};
+  var sems=(q.sems||[]).map(function(x){return {s:parseInt(x.s), d:parseInt(x.d)||0};});
+  var comp=sems.filter(function(x){return x.d>=7;})[0] || sems.slice().sort(function(a,b){return b.d-a.d;})[0] || null;
+  return {sems:sems.map(function(x){return x.s;}), completa:comp?comp.s:0, qna:q};
+}
+
+function acumAbrirInforme(){
+  if(!ACUM_DATA.length){ alert('Primero carga los acumulados'); return; }
+  var qnas={}, conceptos={};
+  ACUM_DATA.forEach(function(a){ if(a.QNA_LABEL) qnas[a.QNA_LABEL]=1; if(a.CONCEPTO) conceptos[a.CONCEPTO]=1; });
+  var lq=Object.keys(qnas).sort(function(a,b){ return String(acumMesDeRegistro({QNA_LABEL:b,MES:b})+b).localeCompare(acumMesDeRegistro({QNA_LABEL:a,MES:a})+a); });
+  var lc=Object.keys(conceptos).sort();
+  var m=document.createElement('div');
+  m.id='acinf-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:1000px;width:100%;max-height:93vh;display:flex;flex-direction:column">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--v)">📑 Informe por rango de valor</div>'
+      +'<div style="font-size:11px;color:var(--g3)">Trabajadores por encima o por debajo de un valor, con su sede y coordinador</div></div>'
+      +'<button onclick="document.getElementById(\'acinf-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px;overflow:auto">'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Quincena *</label><select id="acinf-qna" onchange="acumInfSemAuto()">'
+          +lq.map(function(q){return '<option value="'+gcEsc(q)+'">'+gcEsc(q)+'</option>';}).join('')+'</select></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Concepto *</label><select id="acinf-concepto">'
+          +lc.map(function(c){return '<option value="'+gcEsc(c)+'"'+(c==='DEVENGO'?' selected':'')+'>'+gcEsc(c)+'</option>';}).join('')+'</select></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor mínimo</label><input type="number" id="acinf-vmin" placeholder="ej: 1750000"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor máximo</label><input type="number" id="acinf-vmax" placeholder="opcional"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Sede</label><select id="acinf-sede"><option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option></select></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Semana para el coordinador</label><input type="number" id="acinf-sem" min="1" max="53" title="Semana completa de la quincena"/></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--g3);margin-top:6px">El coordinador se toma de la semana indicada (por defecto, la semana completa de 7 días de esa quincena). Si el trabajador estuvo con varios, se listan todos.</div>'
+      +'<div style="display:flex;gap:8px;margin-top:12px">'
+        +'<button class="btn bv" onclick="acumInfGenerar()">📊 Generar informe</button>'
+        +'<button class="btn bg" onclick="acumInfExcel()">📥 Exportar a Excel</button>'
+      +'</div>'
+      +'<div id="acinf-result" style="margin-top:14px"></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  acumInfSemAuto();
+}
+// Sugiere la semana completa de la quincena elegida
+function acumInfSemAuto(){
+  var q=(document.getElementById('acinf-qna')||{}).value||'';
+  var info=acumInfSemanasDe(q);
+  var el=document.getElementById('acinf-sem');
+  if(el && info.completa) el.value=info.completa;
+}
+function acumInfGenerar(){
+  var qna=(document.getElementById('acinf-qna')||{}).value||'';
+  var concepto=(document.getElementById('acinf-concepto')||{}).value||'';
+  var vmin=Number((document.getElementById('acinf-vmin')||{}).value)||0;
+  var vmaxRaw=(document.getElementById('acinf-vmax')||{}).value;
+  var vmax=vmaxRaw?Number(vmaxRaw):Infinity;
+  var sede=(document.getElementById('acinf-sede')||{}).value||'';
+  var sem=parseInt((document.getElementById('acinf-sem')||{}).value)||0;
+  var cont=document.getElementById('acinf-result');
+  if(!qna||!concepto){ alert('Elige la quincena y el concepto'); return; }
+  cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cruzando con los reportes de la semana '+(sem||'—')+'...</div>';
+
+  var armar=function(){
+    // Coordinador(es) de cada trabajador en la semana de referencia
+    var coordDe={};
+    if(sem){
+      getAllRegs().forEach(function(r){
+        if((parseInt(r.sem)||0)!==sem) return;
+        var c=String(r.ced||''); if(!c) return;
+        if(!coordDe[c]) coordDe[c]={};
+        coordDe[c][r.coord||'—']=(coordDe[c][r.coord||'—']||0)+1;
+      });
+    }
+    var filas=ACUM_DATA.filter(function(a){
+      if(a.QNA_LABEL!==qna) return false;
+      if(a.CONCEPTO!==concepto) return false;
+      var v=Number(a.VALOR)||0;
+      return v>=vmin && v<=vmax;
+    }).map(function(a){
+      var ced=String(a.CEDULA||'');
+      var t=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(x){return String(x.CEDULA)===ced;}):null;
+      var cs=coordDe[ced]?Object.keys(coordDe[ced]).sort(function(x,y){return coordDe[ced][y]-coordDe[ced][x];}):[];
+      var sd=(t&&t.SEDE)||'';
+      if(!sd && cs.length && typeof getSedeCo==='function') sd=getSedeCo(cs[0])||'';
+      return {ced:ced, nombre:a.NOMBRES||(t&&t.NOMBRES)||'', sede:String(sd||'').toUpperCase(),
+              coord:cs.join(' / ')||'—', nCoord:cs.length, valor:Number(a.VALOR)||0};
+    }).filter(function(f){ return !sede || f.sede===sede; })
+      .sort(function(a,b){ return b.valor-a.valor; });
+
+    ACUM_INF_DATA={qna:qna, concepto:concepto, vmin:vmin, vmax:vmaxRaw?vmax:null, sede:sede, sem:sem, filas:filas};
+    var tot=filas.reduce(function(s,f){return s+f.valor;},0);
+    cont.innerHTML= filas.length
+      ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+          +'<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">TRABAJADORES</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+filas.length+'</div></div>'
+          +'<div style="background:var(--vs);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">TOTAL</div><div style="font-size:18px;font-weight:800;color:var(--v)">'+cop(tot)+'</div></div>'
+          +'<div style="background:var(--gf);border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:var(--g2)">PROMEDIO</div><div style="font-size:18px;font-weight:800">'+cop(tot/filas.length)+'</div></div>'
+        +'</div>'
+        +'<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden"><div style="overflow:auto;max-height:46vh">'
+        +'<table style="width:100%;font-size:12px;border-collapse:collapse"><thead style="position:sticky;top:0;background:var(--gf)"><tr>'
+          +'<th style="text-align:left;padding:7px 9px">Cédula</th><th style="text-align:left;padding:7px 9px">Trabajador</th>'
+          +'<th style="text-align:center;padding:7px 9px">Sede</th><th style="text-align:left;padding:7px 9px">Coordinador (sem '+(sem||'—')+')</th>'
+          +'<th style="text-align:right;padding:7px 9px">Valor</th></tr></thead><tbody>'
+        +filas.map(function(f){
+          return '<tr style="border-top:1px solid var(--bd)">'
+            +'<td style="padding:6px 9px"><code style="font-size:11px">'+gcEsc(f.ced)+'</code></td>'
+            +'<td style="padding:6px 9px;font-weight:600">'+gcEsc(f.nombre)+'</td>'
+            +'<td style="padding:6px 9px;text-align:center">'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+            +'<td style="padding:6px 9px;color:'+(f.nCoord>1?'var(--a)':'var(--g2)')+'">'+gcEsc(f.coord)+(f.nCoord>1?' <span style="font-size:9px">('+f.nCoord+')</span>':'')+'</td>'
+            +'<td style="padding:6px 9px;text-align:right;font-weight:700;color:var(--v)">'+cop(f.valor)+'</td></tr>';
+        }).join('')+'</tbody></table></div></div>'
+      : '<div style="text-align:center;padding:24px;color:var(--g3)">Ningún trabajador cumple esos filtros.</div>';
+  };
+
+  // Cargar los registros de la semana si aún no están en memoria
+  if(sem && typeof cargarSemanasMultiples==='function'){ cargarSemanasMultiples([String(sem)], armar); }
+  else armar();
+}
+function acumInfExcel(){
+  if(!ACUM_INF_DATA||!ACUM_INF_DATA.filas.length){ alert('Primero genera el informe'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var d=ACUM_INF_DATA;
+    var crit=[];
+    if(d.vmin) crit.push('desde '+cop(d.vmin));
+    if(d.vmax) crit.push('hasta '+cop(d.vmax));
+    if(d.sede) crit.push('sede '+d.sede);
+    var rows=[];
+    rows.push(['INFORME DE ACUMULADOS POR RANGO DE VALOR']);
+    rows.push([d.qna+'  ·  Concepto: '+d.concepto+(crit.length?('  ·  '+crit.join('  ·  ')):'')]);
+    rows.push(['Coordinador tomado de la semana '+(d.sem||'—')+'  ·  Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Sede','Coordinador','Valor']);
+    d.filas.forEach(function(f){ rows.push([f.ced, f.nombre, f.sede, f.coord, f.valor]); });
+    var tot=d.filas.reduce(function(s,f){return s+f.valor;},0);
+    rows.push([]);
+    rows.push(['','','','TOTAL ('+d.filas.length+' trabajadores)', tot]);
+    rows.push(['','','','PROMEDIO', tot/d.filas.length]);
+
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:38},{wch:10},{wch:34},{wch:16}];
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDE'.split('').forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    });
+    var n=d.filas.length;
+    for(var i=0;i<n;i++){
+      var r=6+i;
+      if(ws['E'+r]) ws['E'+r].z='$#,##0';
+      if(i%2===1){ 'ABCDE'.split('').forEach(function(c){
+        if(ws[c+r]) ws[c+r].s=Object.assign({},ws[c+r].s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    [6+n+1, 6+n+2].forEach(function(r){
+      est('D'+r,{font:{bold:true,color:{rgb:'2D5A3D'}},alignment:{horizontal:'right'}});
+      if(ws['E'+r]){ ws['E'+r].z='$#,##0'; ws['E'+r].s={font:{bold:true,color:{rgb:'2D5A3D'}}}; }
+    });
+    ws['!autofilter']={ref:'A5:E'+(5+n)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Informe');
+    XLSX.writeFile(wb, 'Informe_acumulados_'+String(d.qna).replace(/[^\w]+/g,'_')+'.xlsx');
+  });
 }
 
 function acumAbrirAnalisis(){
