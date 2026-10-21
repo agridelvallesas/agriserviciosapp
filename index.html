@@ -2701,6 +2701,15 @@ tfoot td{background:var(--gf);font-weight:700}
             <div class="fld" style="min-width:110px"><label>Prefijo</label>
               <select id="fi-prefijo" onchange="calcInfFac()"><option value="">Todos</option></select>
             </div>
+            <div class="fld" style="min-width:130px"><label>Estado</label>
+              <select id="fi-estado" onchange="calcInfFac()">
+                <option value="">Todos</option>
+                <option value="PAGADA">Pagadas</option>
+                <option value="PENDIENTE">Pendientes</option>
+              </select>
+            </div>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--g2);margin-top:16px;cursor:pointer">
+              <input type="checkbox" id="fi-anuladas" onchange="calcInfFac()"/> Incluir anuladas</label>
             <button class="btn bf" onclick="calcInfFac()" style="height:34px;margin-top:16px">📊 Ver informe</button>
             <button class="btn bg" onclick="expCSV('fi-t','informe_facturas')" style="height:34px;margin-top:16px">📥 Excel</button>
           </div>
@@ -2710,11 +2719,13 @@ tfoot td{background:var(--gf);font-weight:700}
         <!-- Stats principales -->
         <div class="sg" id="fi-sg" style="display:none;grid-template-columns:repeat(5,1fr)">
           <div class="st"><div class="sl">Total facturas</div><div class="sv" id="fi-nf">0</div></div>
-          <div class="st"><div class="sl">Total facturado</div><div class="sv" id="fi-tv" style="font-size:13px">$0</div></div>
-          <div class="st"><div class="sl">🟢 Pagado</div><div class="sv gv" id="fi-pagado" style="font-size:13px">$0</div></div>
-          <div class="st"><div class="sl">🟡 Pendiente</div><div class="sv" id="fi-pendiente" style="font-size:13px;color:var(--a)">$0</div></div>
+          <div class="st"><div class="sl">Total facturado (bruto)</div><div class="sv" id="fi-tv" style="font-size:13px">$0</div></div>
+          <div class="st"><div class="sl">🟢 Pagado (neto)</div><div class="sv gv" id="fi-pagado" style="font-size:13px">$0</div></div>
+          <div class="st"><div class="sl">🟡 Pendiente (neto)</div><div class="sv" id="fi-pendiente" style="font-size:13px;color:var(--a)">$0</div></div>
           <div class="st"><div class="sl">Retención total</div><div class="sv" id="fi-tr" style="font-size:13px;color:var(--r)">$0</div></div>
         </div>
+
+        <div id="fi-nota" style="display:none;font-size:11px;color:var(--g3);margin:-4px 0 10px;padding:7px 11px;background:var(--gf);border-radius:8px"></div>
 
         <!-- Resumen por semana -->
         <div class="card" id="fi-sem-card" style="display:none">
@@ -3124,6 +3135,27 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- ══════════ SST — ENTREGAS POR EMPLEADO ══════════ -->
+    <!-- ══════ SST — INFORME DE ENTREGAS ══════ -->
+    <div class="page" id="p-inv-inf">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct">📋 Informe de entregas de dotación
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Qué se entregó, a quién y cuándo, por categoría</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="iinf-d1"/></div>
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="iinf-d2"/></div>
+          <div class="fld" style="min-width:170px;margin:0"><label style="font-size:10px">Categoría</label>
+            <select id="iinf-cat"><option value="">Todas</option></select></div>
+          <div class="fld" style="flex:1;min-width:180px;margin:0"><label style="font-size:10px">Trabajador (opcional)</label>
+            <input type="text" id="iinf-emp" placeholder="Nombre o cédula..." autocomplete="off"/></div>
+          <button class="btn bv" onclick="invInfGenerar()" style="height:36px">📊 Generar</button>
+          <button class="btn bg" onclick="invInfExcel()" style="height:36px">📥 Excel</button>
+        </div>
+        <div style="font-size:11px;color:var(--g3);margin-top:6px">Al elegir una categoría solo se listan los elementos de esa categoría, aunque en la misma entrega se hayan dado otros. Las devoluciones no cuentan.</div>
+      </div>
+      <div id="iinf-kpis" class="sg" style="display:none;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px"></div>
+      <div id="iinf-cont"></div>
+    </div>
+
     <div class="page" id="p-inv-emp">
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
@@ -4251,6 +4283,7 @@ function buildNav(){
       '<button class="ni" onclick="go(\'inv-ent\')"><span class="ni-ico">📥</span>Registrar entrada</button>'+
       '<button class="ni" onclick="go(\'inv-sal\')"><span class="ni-ico">📤</span>Salida / Entrega</button>'+
       '<button class="ni" onclick="go(\'inv-emp\')"><span class="ni-ico">👤</span>Entregas por empleado</button>'+
+      '<button class="ni" onclick="go(\'inv-inf\')"><span class="ni-ico">📋</span>Informe de entregas</button>'+
       '<button class="ni" onclick="go(\'inv-kardex\')"><span class="ni-ico">🔎</span>Kardex por producto</button>'+
       '<button class="ni" onclick="go(\'inv-cfg\')"><span class="ni-ico">⚙️</span>Configuración</button>'+
       '<div class="sb-sec">Otras áreas</div>'+
@@ -4278,7 +4311,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4309,6 +4342,7 @@ function go(pg){
   if(pg==='inv-sal') invSalInit();
   if(pg==='inv-hist') invHistInit();
   if(pg==='inv-emp') invEmpInit();
+  if(pg==='inv-inf') invInfInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
@@ -9751,10 +9785,14 @@ function calcInfFac(){
   var fec1=(document.getElementById('fi-fec1')||{}).value||'';
   var fec2=(document.getElementById('fi-fec2')||{}).value||'';
   var filtPref=(document.getElementById('fi-prefijo')||{}).value||'';
+  var filtEstado=(document.getElementById('fi-estado')||{}).value||'';
+  var incAnul=!!(document.getElementById('fi-anuladas')&&document.getElementById('fi-anuladas').checked);
   var usaFecha=!!(fec1||fec2);
   facInfPoblarPrefijos();
+  var nAnuladas=0;
   var data=FACTURAS_CACHE.filter(function(f){
-    if(f.estado==='ANULADA') return false;
+    if(f.estado==='ANULADA'){ nAnuladas++; if(!incAnul) return false; }
+    if(filtEstado && f.estado!==filtEstado) return false;
     if(filtC&&f.contrato!==filtC) return false;
     if(filtR&&f.resp!==filtR) return false;
     if(filtPref){
@@ -9781,9 +9819,20 @@ function calcInfFac(){
     tVal+=f.val||0;
     tRet+=f.ret||0;
     if(f.estado==='PAGADA') tPagado+=f.vpag||0;
-    else tPendiente+=f.vpag||0;
+    else if(f.estado!=='ANULADA') tPendiente+=f.vpag||0;   // una anulada no es un pendiente por cobrar
   });
 
+  // Nota de verificación: deja explícito qué entra y qué no en los totales
+  var nota=document.getElementById('fi-nota');
+  if(nota){
+    nota.style.display='block';
+    var partes=[];
+    partes.push('<strong>Pagado + Pendiente + Retención = Total facturado</strong> ('+cop(tPagado)+' + '+cop(tPendiente)+' + '+cop(tRet)+' = '+cop(tPagado+tPendiente+tRet)+')');
+    partes.push(incAnul?('⚠️ Incluyendo '+nAnuladas+' factura(s) ANULADA(S)'):('Se excluyen '+nAnuladas+' factura(s) anulada(s)'));
+    if(filtPref) partes.push('Solo prefijo <strong>'+filtPref+'</strong>');
+    if(filtEstado) partes.push('Solo <strong>'+filtEstado+'</strong>');
+    nota.innerHTML=partes.join('  ·  ');
+  }
   document.getElementById('fi-sg').style.display='grid';
   document.getElementById('fi-nf').textContent=data.length;
   document.getElementById('fi-tv').textContent=cop(tVal);
@@ -9799,7 +9848,7 @@ function calcInfFac(){
     bySem[key].n++;
     bySem[key].val+=f.val||0;
     if(f.estado==='PAGADA') bySem[key].pagado+=f.vpag||0;
-    else bySem[key].pendiente+=f.vpag||0;
+    else if(f.estado!=='ANULADA') bySem[key].pendiente+=f.vpag||0;
     bySem[key].estados.push(f.estado);
   });
   var semRows=Object.values(bySem).sort(function(a,b){return a.sem.localeCompare(b.sem);});
@@ -20259,6 +20308,144 @@ function invVerActaRender(a, firma){
 // ── Entregas por empleado (agrupado por cédula, expandible) ──
 var EMP_RESUMEN=[], EMP_GRUPOS=[], EMP_ITEMS={};
 function invEmpCedNorm(c){ return String(c==null?'':c).replace(/[.\s,\-]/g,'').trim(); }
+
+// ══════════════════════════════════════════════════════════════════════════
+// SST — INFORME DE ENTREGAS DE DOTACIÓN
+// Una fila por elemento entregado, con cédula, nombre y fecha. Al filtrar por
+// categoría solo salen los elementos de esa categoría de cada entrega.
+// ══════════════════════════════════════════════════════════════════════════
+var INV_INF_DATA=null;
+function invInfInit(){
+  // Rango por defecto: el año en curso
+  var hoy=new Date(), y=hoy.getFullYear();
+  var d1=document.getElementById('iinf-d1'), d2=document.getElementById('iinf-d2');
+  if(d1&&!d1.value) d1.value=y+'-01-01';
+  if(d2&&!d2.value) d2.value=y+'-12-31';
+  // Categorías desde el catálogo de inventario
+  invAsegurarDatos(function(){
+    var sel=document.getElementById('iinf-cat');
+    if(sel && sel.options.length<=1){
+      var cats={};
+      (INV_DATA||[]).forEach(function(p){ if(p.categoria) cats[String(p.categoria).toUpperCase()]=1; });
+      sel.innerHTML='<option value="">Todas</option>'+Object.keys(cats).sort().map(function(c){
+        return '<option value="'+gcEsc(c)+'">'+gcEsc(c)+'</option>';}).join('');
+    }
+    acTrabAsegurar(function(){
+      acAdjuntarBuscador('iinf-emp', acTrabFuente, function(ced,nom){
+        var i=document.getElementById('iinf-emp'); if(i) i.value=nom;
+        invInfGenerar();
+      });
+    });
+  });
+}
+function invInfGenerar(){
+  var d1=(document.getElementById('iinf-d1')||{}).value||'';
+  var d2=(document.getElementById('iinf-d2')||{}).value||'';
+  var cat=(document.getElementById('iinf-cat')||{}).value||'';
+  var emp=((document.getElementById('iinf-emp')||{}).value||'').trim().toLowerCase();
+  var cont=document.getElementById('iinf-cont');
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Consultando entregas...</div>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'invInformeEntregas', desde:d1, hasta:d2, categoria:cat})})
+  .then(function(r){return r.json();}).then(function(d){
+    var filas=(d&&d.ok&&d.data)?d.data:[];
+    if(emp){
+      filas=filas.filter(function(f){
+        return String(f.nombre||'').toLowerCase().indexOf(emp)>=0 ||
+               String(f.cedula||'').replace(/[.,\s]/g,'').indexOf(emp.replace(/[.,\s]/g,''))>=0;
+      });
+    }
+    INV_INF_DATA={filas:filas, d1:d1, d2:d2, cat:cat};
+    invInfRender();
+  }).catch(function(e){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
+  });
+}
+function invInfRender(){
+  var cont=document.getElementById('iinf-cont'), kp=document.getElementById('iinf-kpis');
+  if(!INV_INF_DATA) return;
+  var f=INV_INF_DATA.filas;
+  if(!f.length){
+    if(kp) kp.style.display='none';
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay entregas en ese rango'+(INV_INF_DATA.cat?(' para la categoría '+INV_INF_DATA.cat):'')+'.</div>';
+    return;
+  }
+  var totUnd=f.reduce(function(s,x){return s+(x.cantidad||0);},0);
+  var trabs={}, prods={};
+  f.forEach(function(x){ if(x.cedula||x.nombre) trabs[(x.cedula||x.nombre)]=1; prods[x.producto]=(prods[x.producto]||0)+(x.cantidad||0); });
+  if(kp){
+    kp.style.display='grid';
+    kp.innerHTML='<div class="st"><div class="sl">Entregas (líneas)</div><div class="sv">'+f.length+'</div></div>'
+      +'<div class="st"><div class="sl">Unidades entregadas</div><div class="sv gv">'+totUnd+'</div></div>'
+      +'<div class="st"><div class="sl">Trabajadores</div><div class="sv">'+Object.keys(trabs).length+'</div></div>'
+      +'<div class="st"><div class="sl">Elementos distintos</div><div class="sv">'+Object.keys(prods).length+'</div></div>';
+  }
+  // Resumen por elemento (lo más pedido primero)
+  var resumen=Object.keys(prods).map(function(p){return {p:p,c:prods[p]};}).sort(function(a,b){return b.c-a.c;});
+  cont.innerHTML='<div class="card" style="margin-bottom:12px">'
+    +'<div class="ct">📦 Resumen por elemento</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +resumen.map(function(r){
+      return '<span style="background:var(--vs);border:1px solid var(--bd);border-radius:99px;padding:4px 11px;font-size:12px">'
+        +gcEsc(r.p)+' <strong style="color:var(--v)">'+r.c+'</strong></span>';
+    }).join('')+'</div></div>'
+    +'<div class="card"><div class="ct">📋 Detalle de entregas</div>'
+    +'<div class="tw" style="max-height:60vh;overflow:auto"><table id="iinf-t"><thead><tr>'
+      +'<th>Cédula</th><th>Trabajador</th><th>Fecha de entrega</th><th>Categoría</th><th>Elemento</th><th style="text-align:center">Cantidad</th>'
+    +'</tr></thead><tbody>'
+    +f.map(function(x){
+      var fe=x.fecha?String(x.fecha).slice(0,10).split('-').reverse().join('/'):'—';
+      return '<tr>'
+        +'<td><code style="font-size:11px">'+gcEsc(x.cedula||'—')+'</code></td>'
+        +'<td><strong>'+gcEsc(x.nombre||'')+'</strong></td>'
+        +'<td>'+fe+'</td>'
+        +'<td><span class="bdg ba2">'+gcEsc(x.categoria||'—')+'</span></td>'
+        +'<td>'+gcEsc(x.producto||x.item)+(x.tipo==='CAMBIO'?' <span style="font-size:9px;color:#b45309">(cambio)</span>':'')+'</td>'
+        +'<td style="text-align:center;font-weight:700">'+(x.cantidad||0)+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+}
+function invInfExcel(){
+  if(!INV_INF_DATA||!INV_INF_DATA.filas.length){ alert('Primero genera el informe'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var d=INV_INF_DATA, f=d.filas;
+    var fFmt=function(x){ return x?String(x).slice(0,10).split('-').reverse().join('/'):''; };
+    var rows=[];
+    rows.push(['INFORME DE ENTREGAS DE DOTACIÓN']);
+    rows.push(['Periodo: '+fFmt(d.d1)+' al '+fFmt(d.d2)+(d.cat?('  ·  Categoría: '+d.cat):'  ·  Todas las categorías')]);
+    rows.push([f.length+' entrega(s) · '+f.reduce(function(s,x){return s+(x.cantidad||0);},0)+' unidades · Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Fecha de entrega','Categoría','Elemento','Cantidad']);
+    f.forEach(function(x){
+      rows.push([String(x.cedula||''), x.nombre||'', fFmt(x.fecha), x.categoria||'', x.producto||x.item, x.cantidad||0]);
+    });
+    rows.push([]);
+    rows.push(['','','','','TOTAL UNIDADES', f.reduce(function(s,x){return s+(x.cantidad||0);},0)]);
+
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:36},{wch:17},{wch:18},{wch:36},{wch:11}];
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDEF'.split('').forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    });
+    for(var i=0;i<f.length;i++){
+      if(i%2===1){ 'ABCDEF'.split('').forEach(function(c){
+        var cc=ws[c+(6+i)]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    var rt=6+f.length+1;
+    est('E'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}},alignment:{horizontal:'right'}});
+    est('F'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}}});
+    ws['!autofilter']={ref:'A5:F'+(5+f.length)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Entregas');
+    XLSX.writeFile(wb, 'Entregas_dotacion'+(d.cat?('_'+d.cat.replace(/\s+/g,'_')):'')+'_'+String(d.d1).slice(0,4)+'.xlsx');
+  });
+}
+
 function invEmpInit(){
   acTrabAsegurar(function(){ acAdjuntarBuscador('iemp-q', acTrabFuente, function(ced,nom){ var i=document.getElementById('iemp-q'); if(i){i.value=nom;} invEmpRender(); }); });
   cargarConfigEmpresa();
