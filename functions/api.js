@@ -42,7 +42,7 @@ const PORTADAS = new Set([
   'invAjustarStock', 'invActivarProducto',
   'invGetMovimientos', 'invRegistrarEntrada', 'invRegistrarSalida',
   'invGetActas', 'invEliminarActa', 'invEditarActa',
-  'invEntregasResumen', 'invItemsActas', 'invRegistrarCambio',
+  'invEntregasResumen', 'invItemsActas', 'invRegistrarCambio', 'invInformeEntregas',
   'getInvConfig', 'guardarInvConfig', 'eliminarInvConfig',
   'invGetFirma',
   'getConfigEmpresa', 'guardarConfigEmpresa',
@@ -140,6 +140,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'invEntregasResumen')   r = await accionInvEntregasResumen(body, env);
     else if (accion === 'invItemsActas')        r = await accionInvItemsActas(body, env);
     else if (accion === 'invRegistrarCambio')   r = await accionInvRegistrarCambio(body, env);
+    else if (accion === 'invInformeEntregas')   r = await accionInvInformeEntregas(body, env);
     else if (accion === 'getInvConfig')         r = await accionGetInvConfig(body, env);
     else if (accion === 'guardarInvConfig')     r = await accionGuardarInvConfig(body, env);
     else if (accion === 'eliminarInvConfig')    r = await accionEliminarInvConfig(body, env);
@@ -2131,4 +2132,46 @@ async function accionInvRegistrarCambio(body, env) {
   });
   if (filas.length) await sbWrite(env, 'POST', 'inv_movimientos', filas);
   return { ok: true, id_regn: idRegn, tipo };
+}
+
+
+// ── Informe de entregas de dotación por categoría y rango de fechas ─────────
+// Devuelve una fila por elemento entregado (no por acta), con la cédula y el
+// nombre del trabajador. Solo salidas; las devoluciones no cuentan.
+async function accionInvInformeEntregas(body, env) {
+  const desde = String(body.desde || '').trim();
+  const hasta = String(body.hasta || '').trim();
+  const categoria = String(body.categoria || '').trim().toUpperCase();
+  let path = 'inv_movimientos?select=id_regn,item,producto,categoria,salidas,fecha,empleado,novedad&salidas=gt.0';
+  if (desde) path += `&fecha=gte.${encodeURIComponent(desde)}`;
+  if (hasta) path += `&fecha=lte.${encodeURIComponent(hasta)}`;
+  if (categoria) path += `&categoria=eq.${encodeURIComponent(categoria)}`;
+  const movs = await sbAll(env, path + '&order=fecha.desc');
+  if (!movs.length) return { ok: true, data: [] };
+
+  // Datos del acta (cédula y nombre) para cada movimiento
+  const ids = Array.from(new Set(movs.map((m) => m.id_regn).filter(Boolean)));
+  const actas = {};
+  for (let i = 0; i < ids.length; i += 80) {
+    const lote = ids.slice(i, i + 80).map((x) => `"${String(x).replace(/"/g, '')}"`).join(',');
+    const part = await sbAll(env, `inv_registros?select=id_regn,empleado_proveedor,id_factura,fecha,tipo,auxiliar&id_regn=in.(${lote})`);
+    part.forEach((a) => { actas[a.id_regn] = a; });
+  }
+  const data = movs.map((m) => {
+    const a = actas[m.id_regn] || {};
+    return {
+      id_regn: m.id_regn,
+      cedula: String(a.id_factura || '').trim(),
+      nombre: String(a.empleado_proveedor || m.empleado || '').trim(),
+      fecha: m.fecha,
+      item: String(m.item || ''),
+      producto: String(m.producto || ''),
+      categoria: String(m.categoria || ''),
+      cantidad: Number(m.salidas || 0),
+      auxiliar: String(a.auxiliar || ''),
+      tipo: String(a.tipo || 'ENTREGA'),
+      novedad: String(m.novedad || ''),
+    };
+  });
+  return { ok: true, data };
 }
