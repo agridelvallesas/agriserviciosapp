@@ -54,6 +54,7 @@ const PORTADAS = new Set([
   'getRhCatalogos', 'guardarRhCatalogo', 'eliminarRhCatalogo',
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
+  'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
 ]);
 
@@ -161,6 +162,10 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarFotoTrabajador') r = await accionGuardarFotoTrabajador(body, env);
     else if (accion === 'getRhConfig')          r = await accionGetRhConfig(body, env);
     else if (accion === 'guardarRhConfig')      r = await accionGuardarRhConfig(body, env);
+    else if (accion === 'getVinculaciones')     r = await accionGetVinculaciones(body, env);
+    else if (accion === 'registrarReingreso')   r = await accionRegistrarReingreso(body, env);
+    else if (accion === 'cerrarVinculacion')    r = await accionCerrarVinculacion(body, env);
+    else if (accion === 'eliminarVinculacion')  r = await accionEliminarVinculacion(body, env);
     else if (accion === 'facArchivoSubirUrl')   r = await accionFacArchivoSubirUrl(body, env);
     else if (accion === 'facArchivoRegistrar')  r = await accionFacArchivoRegistrar(body, env);
     else if (accion === 'facArchivos')          r = await accionFacArchivos(body, env);
@@ -719,6 +724,7 @@ async function accionGuardarFactura(body, env) {
     fecha_ven: fechaONull(f.fven),
     num_factura: f.nfac || '',
     num_acta: f.nacta || '',
+    pedido: f.pedido || '',
     valor_factura: f.val || 0,
     retencion: f.ret || 0,
     valor_pagar: f.vpag || 0,
@@ -745,13 +751,14 @@ async function accionGuardarFactura(body, env) {
 }
 
 async function accionGetFacturas(body, env) {
-  const rows = await sbAll(env, 'facturas?select=id,fecha_fac,fecha_ven,num_factura,num_acta,valor_factura,retencion,valor_pagar,semanas,contrato,responsable,nota,estado,no_detallable,fecha_pago');
+  const rows = await sbAll(env, 'facturas?select=id,fecha_fac,fecha_ven,num_factura,num_acta,pedido,valor_factura,retencion,valor_pagar,semanas,contrato,responsable,nota,estado,no_detallable,fecha_pago');
   const facturas = rows.map((f, i) => ({
     id: String(f.id || '').trim(),
     ffac: f.fecha_fac ? String(f.fecha_fac).slice(0, 10) : '',
     fven: f.fecha_ven ? String(f.fecha_ven).slice(0, 10) : '',
     nfac: String(f.num_factura || '').trim(),
     nacta: String(f.num_acta || '').trim(),
+    pedido: String(f.pedido || '').trim(),
     val: parseFloat(f.valor_factura) || 0,
     ret: parseFloat(f.retencion) || 0,
     vpag: parseFloat(f.valor_pagar) || 0,
@@ -2174,4 +2181,67 @@ async function accionInvInformeEntregas(body, env) {
     };
   });
   return { ok: true, data };
+}
+
+
+// ── Historial de vinculaciones (ingresos y retiros) ─────────────────────────
+async function accionGetVinculaciones(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  if (!ced) return { ok: false, error: 'Falta cédula' };
+  const rows = await sbAll(env, `trabajador_vinculaciones?select=*&cedula=eq.${encodeURIComponent(ced)}&order=fecha_ingreso.desc`);
+  return { ok: true, data: rows.map((v) => ({
+    id: v.id, cedula: v.cedula,
+    ingreso: v.fecha_ingreso ? String(v.fecha_ingreso).slice(0, 10) : '',
+    retiro: v.fecha_retiro ? String(v.fecha_retiro).slice(0, 10) : '',
+    cargo: v.cargo || '', sede: v.sede || '',
+    motivo: v.motivo_retiro || '', obs: v.observacion || '',
+  })) };
+}
+
+// Cierra la vinculación vigente con una fecha de retiro
+async function accionCerrarVinculacion(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  const retiro = fechaONull(body.retiro);
+  if (!ced || !retiro) return { ok: false, error: 'Falta cédula o fecha de retiro' };
+  const abiertas = await sb(env, `trabajador_vinculaciones?select=id&cedula=eq.${encodeURIComponent(ced)}&fecha_retiro=is.null&order=fecha_ingreso.desc&limit=1`);
+  if (!abiertas.length) return { ok: true, sinVinculacionAbierta: true };
+  await sbWrite(env, 'PATCH', `trabajador_vinculaciones?id=eq.${abiertas[0].id}`, {
+    fecha_retiro: retiro,
+    motivo_retiro: String(body.motivo || '').trim(),
+  });
+  return { ok: true };
+}
+
+// Reingreso: cierra la vinculación anterior (si está abierta) y abre una nueva
+async function accionRegistrarReingreso(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  const ingreso = fechaONull(body.ingreso);
+  if (!ced || !ingreso) return { ok: false, error: 'Falta cédula o fecha de ingreso' };
+  const retiroAnt = fechaONull(body.retiroAnterior);
+
+  // Cerrar la vinculación vigente con la fecha de retiro indicada
+  const abiertas = await sb(env, `trabajador_vinculaciones?select=id,fecha_ingreso&cedula=eq.${encodeURIComponent(ced)}&fecha_retiro=is.null&order=fecha_ingreso.desc&limit=1`);
+  if (abiertas.length && retiroAnt) {
+    await sbWrite(env, 'PATCH', `trabajador_vinculaciones?id=eq.${abiertas[0].id}`, {
+      fecha_retiro: retiroAnt,
+      motivo_retiro: String(body.motivoAnterior || '').trim(),
+    });
+  }
+  // Abrir la nueva
+  await sbWrite(env, 'POST', 'trabajador_vinculaciones', {
+    cedula: ced, fecha_ingreso: ingreso, fecha_retiro: null,
+    cargo: String(body.cargo || ''), sede: String(body.sede || ''),
+    observacion: 'Reingreso', registrado_por: String(body.usuario || ''),
+  });
+  // Dejar la ficha con la vinculación vigente
+  await sbWrite(env, 'PATCH', `trabajadores?cedula=eq.${parseInt(ced)}`, {
+    fecha_ingreso: ingreso, fecha_retiro: null, estado: 'ACTIVO',
+  });
+  return { ok: true };
+}
+
+async function accionEliminarVinculacion(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `trabajador_vinculaciones?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
 }
