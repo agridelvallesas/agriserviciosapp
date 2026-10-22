@@ -8803,7 +8803,7 @@ function facRadicar(idFac){
           +'<button class="btn bg" onclick="facRadCopiar()">📋 Copiar con tabla</button>'
           +'<button class="btn bf" onclick="facRadOutlook()">📨 Abrir en Outlook</button>'
         +'</div>'
-        +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">“Abrir en Outlook” abre tu sesión con todo listo, incluida la tabla dibujada con guiones. Si la prefieres con bordes reales, usa “Copiar con tabla” y pega en el cuerpo (Ctrl+V).</div>'
+        +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">“Abrir en Outlook” abre tu sesión con el destinatario, la copia y el asunto, y <strong>deja el cuerpo en blanco</strong>. El mensaje con la tabla queda copiado: solo pega con <strong>Ctrl+V</strong> y adjunta los PDF.</div>'
       +'</div></div>';
     document.body.appendChild(m);
 
@@ -8820,6 +8820,20 @@ function facRadicar(idFac){
     }).catch(function(){});
    });
   });
+}
+// Copia el mensaje con formato sin mostrar aviso (se usa al abrir Outlook)
+function facRadCopiarSilencioso(){
+  var html=window.FAC_RAD_HTML||'';
+  var txt=(document.getElementById('rad-cuerpo')||{}).value||'';
+  if(!html) return;
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html],{type:'text/html'}),
+        'text/plain': new Blob([txt],{type:'text/plain'})
+      })]).catch(function(){});
+    }
+  }catch(e){}
 }
 function facRadCopiar(){
   var html=window.FAC_RAD_HTML||'';
@@ -8847,11 +8861,12 @@ function facRadOutlook(){
   var para=(document.getElementById('rad-para')||{}).value||'';
   var cc=(document.getElementById('rad-cc')||{}).value||'';
   var asunto=(document.getElementById('rad-asunto')||{}).value||'';
-  var cuerpo=(document.getElementById('rad-cuerpo')||{}).value||'';
+  // El cuerpo va en blanco a propósito: el mensaje con la tabla se pega desde
+  // el portapapeles, que conserva el formato. Se copia aquí mismo.
+  facRadCopiarSilencioso();
   var mailto='mailto:'+encodeURIComponent(para)
     +'?subject='+encodeURIComponent(asunto)
-    +(cc?('&cc='+encodeURIComponent(cc)):'')
-    +'&body='+encodeURIComponent(cuerpo);
+    +(cc?('&cc='+encodeURIComponent(cc)):'');
   var base=(CONFIG_EMPRESA&&CONFIG_EMPRESA.radica_outlook==='office')
     ? 'https://outlook.office.com/mail/deeplink/compose?mailtouri='
     : 'https://outlook.live.com/mail/0/deeplink/compose?mailtouri=';
