@@ -2278,6 +2278,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <div class="fld" style="margin:0"><label>Fecha vencimiento</label><input type="date" id="fac-fven"/></div>
             <div class="fld" style="margin:0"><label>N° Factura</label><input type="text" id="fac-nfac" placeholder="FAC-2026-001"/></div>
             <div class="fld" style="margin:0"><label>N° Acta</label><input type="text" id="fac-nacta" placeholder="ACTA-001"/></div>
+            <div class="fld" style="margin:0"><label>N° Pedido <span style="font-weight:400;color:var(--g3);font-size:10px">(para radicar)</span></label><input type="text" id="fac-pedido" placeholder="2000701270"/></div>
             <div class="fld" style="margin:0"><label>Valor factura</label><input type="number" id="fac-val" placeholder="0" oninput="calcFacTotales()"/></div>
             <div class="fld" style="margin:0"><label>Retención (4% auto)</label><input type="number" id="fac-ret" placeholder="0" readonly style="background:var(--gf)"/></div>
             <div class="fld" style="margin:0"><label>Valor a pagar</label><input type="number" id="fac-vpag" placeholder="0" readonly style="background:var(--gf);font-weight:600;color:var(--v)"/></div>
@@ -8376,6 +8377,7 @@ function editFac(btn){
   document.getElementById('fac-fven').value=fac.fven||'';
   document.getElementById('fac-nfac').value=fac.nfac||'';
   document.getElementById('fac-nacta').value=fac.nacta||'';
+  var _pd=document.getElementById('fac-pedido'); if(_pd) _pd.value=fac.pedido||'';
   document.getElementById('fac-val').value=fac.val||0;
   document.getElementById('fac-ret').value=fac.ret||0;
   document.getElementById('fac-vpag').value=fac.vpag||0;
@@ -8420,7 +8422,7 @@ function calcFacTotales(){
 }
 
 function limpiarFactura(){
-  ['fac-ffac','fac-fven','fac-nfac','fac-nacta','fac-val','fac-ret','fac-vpag','fac-sems','fac-nota'].forEach(function(id){
+  ['fac-ffac','fac-fven','fac-nfac','fac-nacta','fac-pedido','fac-val','fac-ret','fac-vpag','fac-sems','fac-nota'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('fac-contrato').value='';
@@ -8445,6 +8447,7 @@ function guardarFactura(){
   var fven=document.getElementById('fac-fven').value;
   var nfac=document.getElementById('fac-nfac').value.trim();
   var nacta=document.getElementById('fac-nacta').value.trim();
+  var pedido=((document.getElementById('fac-pedido')||{}).value||'').trim();
   var val=parseFloat(document.getElementById('fac-val').value)||0;
   var ret=parseFloat(document.getElementById('fac-ret').value)||0;
   var vpag=parseFloat(document.getElementById('fac-vpag').value)||0;
@@ -8461,7 +8464,7 @@ function guardarFactura(){
   var editId=document.getElementById('fac-guardar-btn').getAttribute('data-edit-id');
   var fac={
     id:editId||'FAC'+Date.now(),
-    ffac:ffac, fven:fven, nfac:nfac, nacta:nacta,
+    ffac:ffac, fven:fven, nfac:nfac, nacta:nacta, pedido:pedido,
     val:val, ret:ret, vpag:vpag, sems:sems,
     contrato:contrato, resp:resp, nota:nota,
     estado:document.getElementById('fac-estado').value||'PENDIENTE',
@@ -8560,6 +8563,109 @@ function facSubirAdjuntosForm(idFac, cb){
     });
   });
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// CORREO DE RADICACIÓN DE FACTURAS
+// Arma el asunto y el cuerpo exactos del correo que se envía a Riopaila,
+// listo para adjuntar los PDF y enviar desde el correo de la empresa.
+// ══════════════════════════════════════════════════════════════════════════
+function facRadicar(idFac){
+  var f=FACTURAS_CACHE.find(function(x){return String(x.id)===String(idFac);});
+  if(!f){ alert('Factura no encontrada'); return; }
+  cargarConfigEmpresa(function(){
+    var para=CONFIG_EMPRESA.radica_para||'archivo.riopaila@riopaila-castilla.com';
+    var cc=CONFIG_EMPRESA.radica_cc||'';
+    var nota=CONFIG_EMPRESA.radica_nota||'Certificamos que los documentos adjuntos son fiel copia de los originales.';
+    var fec=f.ffac?String(f.ffac).slice(0,10).split('-').reverse().join('/'):'';
+    var asunto='RADICACION FRA ELECT '+(f.nfac||'')+' ACTA '+(f.nacta||'')+' - AGRISERVICIOS';
+    var cuerpo='Cordial Saludo\n\n'
+      +'Adjunto factura para su radicación según acta:\n\n'
+      +'FECHA: '+fec+'\n'
+      +'FRA: '+(f.nfac||'')+'\n'
+      +'ACTA: '+(f.nacta||'')+'\n'
+      +'VALOR FACT: '+cop(f.val||0)+'\n'
+      +'PEDIDO: '+(f.pedido||'(sin pedido registrado)')+'\n\n'
+      +'Agradezco me confirmes el recibido y el número de radicación de la factura.\n\n'
+      +'NOTA: '+nota+'\n\nCordialmente,\n'+(CONFIG_EMPRESA.nombre||'');
+
+    var m=document.createElement('div');
+    m.id='facrad-modal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    modalCerrarAlFondo(m, function(){ m.remove(); });
+    var falta=!f.pedido;
+    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:92vh;overflow:auto">'
+      +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+        +'<div><div style="font-size:16px;font-weight:800;color:var(--f)">📧 Radicar factura '+gcEsc(f.nfac||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--g3)">Correo listo para enviar a Riopaila</div></div>'
+        +'<button onclick="document.getElementById(\'facrad-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+      +'</div>'
+      +'<div style="padding:16px">'
+        +(falta?'<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;margin-bottom:10px">⚠️ Esta factura no tiene <strong>número de pedido</strong>. Edítala y agrégalo antes de radicar.</div>':'')
+        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Para</label><input type="text" id="rad-para" value="'+gcEsc(para)+'"/></div>'
+        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Copia a</label><input type="text" id="rad-cc" value="'+gcEsc(cc)+'" placeholder="correo de la responsable"/></div>'
+        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Asunto</label><input type="text" id="rad-asunto" value="'+gcEsc(asunto)+'"/></div>'
+        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Mensaje</label>'
+          +'<textarea id="rad-cuerpo" rows="12" style="width:100%;font-family:inherit;font-size:12px">'+gcEsc(cuerpo)+'</textarea></div>'
+        +'<div id="rad-adj" style="font-size:11px;color:var(--g3);margin-bottom:10px">Buscando documentos adjuntos...</div>'
+        +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+          +'<button class="btn bg" onclick="facRadCopiar()">📋 Copiar mensaje</button>'
+          +'<button class="btn bg" onclick="facRadAbrirCorreo()">✉️ Correo del equipo</button>'
+          +'<button class="btn bf" onclick="facRadOutlook()">📨 Abrir en Outlook</button>'
+        +'</div>'
+        +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">“Abrir en Outlook” abre una pestaña de Outlook web con la sesión que ya tienes iniciada y el correo escrito. Solo adjuntas los dos PDF y envías.</div>'
+      +'</div></div>';
+    document.body.appendChild(m);
+
+    // Mostrar los documentos que ya están cargados en la app
+    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({accion:'facArchivos', idFac:idFac})})
+    .then(function(r){return r.json();}).then(function(d){
+      var arch=(d&&d.ok&&d.data)?d.data:[];
+      var cont=document.getElementById('rad-adj'); if(!cont) return;
+      cont.innerHTML=arch.length
+        ? '<strong style="color:var(--g2)">Documentos en la app:</strong> '+arch.map(function(a){
+            return '<a href="'+a.url+'" target="_blank" style="color:var(--f);text-decoration:none">⬇️ '+gcEsc(a.nombre)+'</a>';
+          }).join('  ·  ')+'<div style="margin-top:3px">Descárgalos y adjúntalos al correo.</div>'
+        : '<span style="color:#b45309">⚠️ Esta factura no tiene documentos adjuntos en la app. Súbelos con el botón 📎 para tenerlos a mano.</span>';
+    }).catch(function(){});
+  });
+}
+function facRadCopiar(){
+  var t=document.getElementById('rad-cuerpo');
+  if(!t) return;
+  t.select(); t.setSelectionRange(0,99999);
+  try{ document.execCommand('copy'); alert('✓ Mensaje copiado'); }
+  catch(e){ alert('No se pudo copiar automáticamente; selecciona y copia manualmente.'); }
+}
+// Abre Outlook web (cuenta personal/Hotmail) con el correo ya redactado.
+// Usa el parámetro mailtouri, que es el que respeta destinatarios, copia,
+// asunto y cuerpo en la sesión que el usuario ya tiene abierta.
+function facRadOutlook(){
+  var para=(document.getElementById('rad-para')||{}).value||'';
+  var cc=(document.getElementById('rad-cc')||{}).value||'';
+  var asunto=(document.getElementById('rad-asunto')||{}).value||'';
+  var cuerpo=(document.getElementById('rad-cuerpo')||{}).value||'';
+  var mailto='mailto:'+encodeURIComponent(para)
+    +'?subject='+encodeURIComponent(asunto)
+    +(cc?('&cc='+encodeURIComponent(cc)):'')
+    +'&body='+encodeURIComponent(cuerpo);
+  var base=(CONFIG_EMPRESA&&CONFIG_EMPRESA.radica_outlook==='office')
+    ? 'https://outlook.office.com/mail/deeplink/compose?mailtouri='
+    : 'https://outlook.live.com/mail/0/deeplink/compose?mailtouri=';
+  window.open(base+encodeURIComponent(mailto), '_blank');
+}
+function facRadAbrirCorreo(){
+  var para=(document.getElementById('rad-para')||{}).value||'';
+  var cc=(document.getElementById('rad-cc')||{}).value||'';
+  var asunto=(document.getElementById('rad-asunto')||{}).value||'';
+  var cuerpo=(document.getElementById('rad-cuerpo')||{}).value||'';
+  var url='mailto:'+encodeURIComponent(para)
+    +'?subject='+encodeURIComponent(asunto)
+    +(cc?('&cc='+encodeURIComponent(cc)):'')
+    +'&body='+encodeURIComponent(cuerpo);
+  window.location.href=url;
+}
+
 function facAdjAbrir(idFac, nfac){
   FAC_ADJ_ID=idFac;
   var m=document.getElementById('facadj-modal'); if(m) m.remove();
@@ -8679,7 +8785,9 @@ function renderFacturas(){
     return'<tr>'
       +'<td>'+detBdg+'</td>'
       +'<td>'+fmtFechaCorta(f.ffac)+'</td><td>'+fmtFechaCorta(f.fven)+'</td>'
-      +'<td><strong>'+f.nfac+'</strong> <button class="btn bg" style="padding:1px 6px;font-size:11px" onclick="facAdjAbrir(\''+f.id+'\',\''+String(f.nfac).replace(/'/g,"")+'\')" title="Documentos adjuntos">📎</button></td>'
+      +'<td><strong>'+f.nfac+'</strong> '
+        +'<button class="btn bg" style="padding:1px 6px;font-size:11px" onclick="facAdjAbrir(\''+f.id+'\',\''+String(f.nfac).replace(/'/g,"")+'\')" title="Documentos adjuntos">📎</button> '
+        +'<button class="btn bg" style="padding:1px 6px;font-size:11px" onclick="facRadicar(\''+f.id+'\')" title="Preparar correo de radicación">📧</button></td>'
       +'<td><span class="bdg ba2">'+f.nacta+'</span></td>'
       +'<td>'+f.sems+'</td>'
       +'<td><span class="bdg bv2">'+f.contrato+'</span></td>'
@@ -13900,6 +14008,88 @@ function rhRender(){
   }).join('');
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// HISTORIAL DE VINCULACIONES (ingresos y retiros)
+// La ficha guarda la vinculación vigente; aquí queda el rastro de las
+// anteriores, con su fecha de ingreso y de retiro.
+// ══════════════════════════════════════════════════════════════════════════
+var RH_VINC=[];
+function rhFechaCorta(f){ return f?String(f).slice(0,10).split('-').reverse().join('/'):'—'; }
+function rhVincDuracion(ini, fin){
+  if(!ini) return '';
+  var a=new Date(ini+'T00:00:00'), b=fin?new Date(fin+'T00:00:00'):new Date();
+  if(isNaN(a.getTime())||isNaN(b.getTime())) return '';
+  var m=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());
+  if(b.getDate()<a.getDate()) m--;
+  if(m<0) m=0;
+  var an=Math.floor(m/12), me=m%12;
+  return (an?an+' año'+(an>1?'s':''):'')+(an&&me?' y ':'')+(me?me+' mes'+(me>1?'es':''):'')||'menos de un mes';
+}
+function rhVincCargar(cedula){
+  var cont=document.getElementById('rh-vinc'); if(!cont) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'getVinculaciones', cedula:String(cedula)})})
+  .then(function(r){return r.json();}).then(function(d){
+    RH_VINC=(d&&d.ok&&d.data)?d.data:[];
+    rhVincRender(cedula);
+  }).catch(function(){ cont.innerHTML=''; });
+}
+function rhVincRender(cedula){
+  var cont=document.getElementById('rh-vinc'); if(!cont) return;
+  var hay=RH_VINC.length;
+  cont.innerHTML='<div style="background:var(--gf);border-radius:8px;padding:10px 12px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:'+(hay?'8px':'0')+'">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--g2);text-transform:uppercase">🔁 Historial de vinculaciones'
+        +(hay>1?(' <span style="font-size:10px;background:var(--vs);color:var(--v);padding:1px 7px;border-radius:99px">'+hay+' periodos</span>'):'')+'</div>'
+      +'<button type="button" class="btn ba" style="font-size:11px;padding:3px 10px" onclick="rhVincReingreso(\''+cedula+'\')">➕ Registrar reingreso</button>'
+    +'</div>'
+    +(hay?('<div style="display:flex;flex-direction:column;gap:5px">'+RH_VINC.map(function(v){
+      var vigente=!v.retiro;
+      return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 8px;background:#fff;border-radius:6px;border-left:3px solid '+(vigente?'var(--v)':'var(--g3)')+'">'
+        +'<span style="flex:1">'+rhFechaCorta(v.ingreso)+' → '+(vigente?'<strong style="color:var(--v)">vigente</strong>':rhFechaCorta(v.retiro))
+          +' <span style="color:var(--g3)">· '+rhVincDuracion(v.ingreso, v.retiro)+'</span>'
+          +(v.motivo?(' <span style="font-size:10px;color:var(--g3)">('+gcEsc(v.motivo)+')</span>'):'')+'</span>'
+        +'<button type="button" class="btn br" style="padding:1px 7px;font-size:10px" onclick="rhVincEliminar('+v.id+',\''+cedula+'\')" title="Eliminar este registro">🗑️</button>'
+      +'</div>';
+    }).join('')+'</div>'):'<div style="font-size:11px;color:var(--g3)">Sin historial registrado. Si el trabajador ya estuvo antes en la empresa, usa “Registrar reingreso”.</div>')
+  +'</div>';
+}
+function rhVincReingreso(cedula){
+  var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(cedula);})||{};
+  var vigente=RH_VINC.filter(function(v){return !v.retiro;})[0];
+  var msg='REGISTRAR REINGRESO\n\n';
+  if(vigente) msg+='Se cerrará la vinculación que inició el '+rhFechaCorta(vigente.ingreso)+'.\n\n';
+  var retiroAnt=prompt(msg+'¿En qué fecha se retiró la vez anterior? (AAAA-MM-DD)', t.FECHA_RETIRO||'');
+  if(retiroAnt===null) return;
+  var ingreso=prompt('¿En qué fecha vuelve a ingresar? (AAAA-MM-DD)', new Date().toISOString().slice(0,10));
+  if(!ingreso) return;
+  var motivo=prompt('Motivo del retiro anterior (opcional):','')||'';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'registrarReingreso', cedula:String(cedula), ingreso:ingreso,
+      retiroAnterior:retiroAnt, motivoAnterior:motivo, cargo:t.CARGO||'', sede:t.SEDE||'',
+      usuario:(typeof S!=='undefined'&&S.u)||''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){
+      alert('✓ Reingreso registrado.\n\nLa ficha queda con la nueva fecha de ingreso y el periodo anterior se guarda en el historial.\n\nLas vacaciones se calcularán desde '+ingreso+'.');
+      var fi=document.getElementById('rh-f-FECHA_INGRESO'); if(fi) fi.value=ingreso;
+      var fr=document.getElementById('rh-f-FECHA_RETIRO'); if(fr) fr.value='';
+      var es=document.getElementById('rh-f-ESTADO'); if(es) es.value='ACTIVO';
+      var t2=RH_DATA.find(function(x){return String(x.CEDULA)===String(cedula);});
+      if(t2){ t2.FECHA_INGRESO=ingreso; t2.FECHA_RETIRO=''; t2.ESTADO='ACTIVO'; }
+      rhVincCargar(cedula);
+      if(typeof rhRender==='function') rhRender();
+    } else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+function rhVincEliminar(id, cedula){
+  if(!confirm('¿Eliminar este registro del historial? No afecta la ficha del trabajador.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'eliminarVinculacion', id:id})})
+  .then(function(r){return r.json();}).then(function(){ rhVincCargar(cedula); })
+  .catch(function(e){ alert('Error de red: '+e.message); });
+}
+
 function rhAbrirModalNuevo(){
   RH_EDITANDO=null;
   rhCargarCatalogos(function(){ rhAbrirModal({}); RH_FOTO_ACTUAL=''; rhFotoPintar(); });
@@ -13909,7 +14099,7 @@ function rhAbrirModalEdit(cedula){
   var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(cedula);});
   if(!t){alert('Trabajador no encontrado');return;}
   RH_EDITANDO=cedula;
-  rhCargarCatalogos(function(){ rhAbrirModal(t); rhFotoCargar(cedula); });
+  rhCargarCatalogos(function(){ rhAbrirModal(t); rhFotoCargar(cedula); rhVincCargar(cedula); });
 }
 
 function rhAbrirModal(t){
@@ -13994,6 +14184,7 @@ function rhAbrirModal(t){
           '</div>'+
         '</div>'+
       '</div>'+
+      (esEdicion?('<div id="rh-vinc" style="margin-bottom:10px"></div>'):'')+
       bloquesHtml+
       '<div id="rh-modal-msg" style="font-size:11px;margin:8px 0;display:none"></div>'+
     '</div>'+
@@ -14740,10 +14931,16 @@ function vacResumenTrab(ced){
   }
   var calc=vacCalcCausados(trab.FECHA_INGRESO);
   var causados=calc.periodos.length;
-  var unicos=new Set();
+  // Solo cuentan los periodos de la vinculación vigente: si el trabajador se
+  // retiró y reingresó, los periodos anteriores ya fueron liquidados.
+  var anioIng=parseInt(String(trab.FECHA_INGRESO).slice(0,4))||0;
+  var unicos=new Set(), previos=0;
   if(typeof VAC_DATA!=='undefined'){
     VAC_DATA.filter(function(v){return String(v.CEDULA)===String(ced);}).forEach(function(v){
-      var pn=vacNormPeriodo(v.PERIODO_CAUSADO); if(pn) unicos.add(pn);
+      var pn=vacNormPeriodo(v.PERIODO_CAUSADO); if(!pn) return;
+      var ini=parseInt(String(pn).match(/(\d{4})/)?String(pn).match(/(\d{4})/)[1]:0)||0;
+      if(anioIng && ini && ini<anioIng){ previos++; return; }   // vinculación anterior
+      unicos.add(pn);
     });
   }
   var tomados=unicos.size, pend=causados-tomados;
@@ -14761,6 +14958,7 @@ function vacResumenTrab(ced){
       +dato('Pendientes', pend, pend>0?'var(--a)':'var(--v)')
     +'</div>'
     +(sug?('<div style="text-align:center;font-size:11px;color:var(--g2);margin-top:5px;border-top:1px dashed var(--bd);padding-top:5px">Siguiente periodo sugerido: <strong style="color:var(--v)">'+sug.label+'</strong></div>'):'')
+    +(previos?('<div style="text-align:center;font-size:10.5px;color:#92400e;margin-top:4px">⚠️ Tiene '+previos+' periodo(s) de una vinculación anterior (no se cuentan en este cálculo)</div>'):'')
   +'</div>';
 }
 
