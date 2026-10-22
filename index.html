@@ -2259,6 +2259,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <button class="tab" onclick="swFac('cons',this)">📊 Consolidado semanal</button>
         <button class="tab" onclick="swFac('inf',this)">📊 Informe</button>
         <button class="tab" onclick="swFac('hist',this)">📥 Cobros históricos</button>
+        <button class="tab" onclick="swFac('cfg',this)">⚙️ Configuración</button>
       </div>
 
       <!-- ── FACTURAS ── -->
@@ -2754,6 +2755,49 @@ tfoot td{background:var(--gf);font-weight:700}
           </tr></thead><tbody id="fi-tb">
             <tr><td colspan="13" style="text-align:center;padding:20px;color:var(--g3)">Presiona 📊 Ver informe</td></tr>
           </tbody><tfoot id="fi-tf"></tfoot></table></div>
+        </div>
+      </div>
+
+      <!-- ── CONFIGURACIÓN DE FACTURACIÓN ── -->
+      <div id="fac-cfg" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div class="ct">👥 Responsables de facturación
+            <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Su correo se pone automáticamente en copia al radicar</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--gf);border-radius:8px;padding:10px;margin-bottom:10px">
+            <input type="hidden" id="fcr-id"/>
+            <div class="fld" style="flex:1;min-width:190px;margin:0"><label style="font-size:10px">Nombre</label>
+              <input type="text" id="fcr-nombre" placeholder="NOMBRE DEL RESPONSABLE" style="text-transform:uppercase"/></div>
+            <div class="fld" style="flex:2;min-width:220px;margin:0"><label style="font-size:10px">Correo electrónico</label>
+              <input type="email" id="fcr-email" placeholder="correo@riopaila-castilla.com"/></div>
+            <button class="btn bv" onclick="facCfgGuardarResp()" style="height:36px">💾 Guardar</button>
+            <button class="btn bg" onclick="facCfgLimpiarResp()" style="height:36px">Limpiar</button>
+          </div>
+          <div id="fcr-tabla"></div>
+        </div>
+
+        <div class="card">
+          <div class="ct">✉️ Plantilla del correo de radicación</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px">
+            <div class="fld" style="margin:0"><label style="font-size:10px">Para (archivo de Riopaila)</label>
+              <input type="text" id="fcf-para" placeholder="archivo.riopaila@riopaila-castilla.com"/></div>
+            <div class="fld" style="margin:0"><label style="font-size:10px">Copia fija (además del responsable)</label>
+              <input type="text" id="fcf-cc" placeholder="opcional"/></div>
+          </div>
+          <div class="fld" style="margin-top:8px"><label style="font-size:10px">Asunto</label>
+            <input type="text" id="fcf-asunto" placeholder="RADICACION FRA ELECT {FRA} ACTA {ACTA} - AGRISERVICIOS"/></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <div class="fld" style="margin:0"><label style="font-size:10px">Saludo</label><input type="text" id="fcf-saludo"/></div>
+            <div class="fld" style="margin:0"><label style="font-size:10px">Línea de introducción</label><input type="text" id="fcf-intro"/></div>
+          </div>
+          <div class="fld" style="margin-top:8px"><label style="font-size:10px">Cierre</label><input type="text" id="fcf-cierre"/></div>
+          <div class="fld" style="margin-top:8px"><label style="font-size:10px">Nota final</label><input type="text" id="fcf-nota"/></div>
+          <div style="font-size:11px;color:var(--g3);margin-top:8px;background:var(--gf);border-radius:6px;padding:8px 10px">
+            Variables disponibles para el asunto: <code>{FRA}</code> <code>{ACTA}</code> <code>{PEDIDO}</code> <code>{FECHA}</code> <code>{VALOR}</code>.
+            Los datos de la factura salen en una tabla, no hay que escribirlos.
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button class="btn bv" onclick="facCfgGuardarPlantilla()">💾 Guardar plantilla</button>
+          </div>
         </div>
       </div>
 
@@ -8270,13 +8314,14 @@ function guardarCobrosHist(){
 }
 
 function swFac(s,btn){
-  ['fac','det','sal','cons','inf','hist'].forEach(function(x){
+  ['fac','det','sal','cons','inf','hist','cfg'].forEach(function(x){
     var el=document.getElementById('fac-'+x);
     if(el) el.style.display=x===s?'block':'none';
   });
   document.querySelectorAll('#p-fac .tab').forEach(function(b){b.classList.remove('on');});
   if(btn) btn.classList.add('on');
   if(s==='fac'){carFacturas();}
+  if(s==='cfg'){facCfgInit();}
   if(s==='det'){
     poblarDetCoords();
     if(!FACTURAS_CACHE.length) carFacturas();
@@ -8492,6 +8537,7 @@ function guardarFactura(){
 }
 
 function carFacturas(cb){
+  if(typeof FAC_RESP!=='undefined' && !FAC_RESP.length) facCargarResponsables();
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getFacturas'})})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -8569,54 +8615,198 @@ function facSubirAdjuntosForm(idFac, cb){
 // Arma el asunto y el cuerpo exactos del correo que se envía a Riopaila,
 // listo para adjuntar los PDF y enviar desde el correo de la empresa.
 // ══════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN DE FACTURACIÓN: responsables y plantilla del correo
+// ══════════════════════════════════════════════════════════════════════════
+var FAC_RESP=[];
+function facCargarResponsables(cb){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getFacResponsables'})})
+  .then(function(r){return r.json();}).then(function(d){
+    FAC_RESP=(d&&d.ok&&d.data)?d.data:[];
+    // Llenar el selector del formulario de factura conservando lo elegido
+    var sel=document.getElementById('fac-resp');
+    if(sel && FAC_RESP.length){
+      var actual=sel.value;
+      sel.innerHTML='<option value="">— Seleccionar —</option>'
+        +FAC_RESP.filter(function(r){return r.activo;}).map(function(r){
+          return '<option value="'+gcEsc(r.nombre)+'">'+gcEsc(r.nombre)+(r.email?'':' (sin correo)')+'</option>';
+        }).join('');
+      if(actual){ if(!Array.prototype.some.call(sel.options,function(o){return o.value===actual;}))
+        sel.insertAdjacentHTML('beforeend','<option value="'+gcEsc(actual)+'">'+gcEsc(actual)+'</option>');
+        sel.value=actual; }
+    }
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); });
+}
+function facEmailResponsable(nombre){
+  var r=FAC_RESP.filter(function(x){return String(x.nombre).toUpperCase()===String(nombre||'').toUpperCase();})[0];
+  return r?(r.email||''):'';
+}
+function facCfgInit(){
+  cargarConfigEmpresa(function(){
+    var v=function(id,val){ var e=document.getElementById(id); if(e) e.value=val||''; };
+    v('fcf-para', CONFIG_EMPRESA.radica_para||'archivo.riopaila@riopaila-castilla.com');
+    v('fcf-cc', CONFIG_EMPRESA.radica_cc);
+    v('fcf-asunto', CONFIG_EMPRESA.radica_asunto||'RADICACION FRA ELECT {FRA} ACTA {ACTA} - AGRISERVICIOS');
+    v('fcf-saludo', CONFIG_EMPRESA.radica_saludo||'Cordial Saludo');
+    v('fcf-intro', CONFIG_EMPRESA.radica_intro||'Adjunto factura para su radicación según acta:');
+    v('fcf-cierre', CONFIG_EMPRESA.radica_cierre||'Agradezco me confirmes el recibido y el número de radicación de la factura.');
+    v('fcf-nota', CONFIG_EMPRESA.radica_nota||'Certificamos que los documentos adjuntos son fiel copia de los originales.');
+  });
+  facCargarResponsables(facCfgRenderResp);
+}
+function facCfgRenderResp(){
+  var cont=document.getElementById('fcr-tabla'); if(!cont) return;
+  cont.innerHTML=FAC_RESP.length
+    ? '<div class="tw"><table><thead><tr><th>Responsable</th><th>Correo electrónico</th><th style="text-align:center">Estado</th><th style="text-align:right">Acc.</th></tr></thead><tbody>'
+      +FAC_RESP.map(function(r){
+        return '<tr'+(r.activo?'':' style="opacity:.55"')+'>'
+          +'<td><strong>'+gcEsc(r.nombre)+'</strong></td>'
+          +'<td>'+(r.email?gcEsc(r.email):'<span style="color:#b45309">sin correo</span>')+'</td>'
+          +'<td style="text-align:center">'+(r.activo?'<span class="bdg bv2">Activo</span>':'<span class="bdg">Inactivo</span>')+'</td>'
+          +'<td style="text-align:right;white-space:nowrap">'
+            +'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="facCfgEditarResp('+r.id+')">✏️</button> '
+            +'<button class="btn bg" style="padding:3px 8px;font-size:11px" onclick="facCfgActivarResp('+r.id+','+(r.activo?'false':'true')+')">'+(r.activo?'🚫':'✓')+'</button> '
+            +'<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="facCfgEliminarResp('+r.id+')">🗑️</button>'
+          +'</td></tr>';
+      }).join('')+'</tbody></table></div>'
+    : '<div style="padding:16px;text-align:center;color:var(--g3)">Sin responsables registrados</div>';
+}
+function facCfgEditarResp(id){
+  var r=FAC_RESP.filter(function(x){return x.id===id;})[0]; if(!r) return;
+  document.getElementById('fcr-id').value=r.id;
+  document.getElementById('fcr-nombre').value=r.nombre;
+  document.getElementById('fcr-email').value=r.email||'';
+}
+function facCfgLimpiarResp(){
+  ['fcr-id','fcr-nombre','fcr-email'].forEach(function(i){ var e=document.getElementById(i); if(e) e.value=''; });
+}
+function facCfgGuardarResp(){
+  var id=(document.getElementById('fcr-id')||{}).value||'';
+  var nombre=((document.getElementById('fcr-nombre')||{}).value||'').trim();
+  var email=((document.getElementById('fcr-email')||{}).value||'').trim();
+  if(!nombre){ alert('Escribe el nombre del responsable'); return; }
+  if(email && email.indexOf('@')<0){ alert('El correo no parece válido'); return; }
+  var body={accion:'guardarFacResponsable', nombre:nombre, email:email};
+  if(id) body.id=id;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ facCfgLimpiarResp(); facCargarResponsables(facCfgRenderResp); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+function facCfgActivarResp(id, activo){
+  var r=FAC_RESP.filter(function(x){return x.id===id;})[0]; if(!r) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarFacResponsable', id:id, nombre:r.nombre, email:r.email, activo:activo})})
+  .then(function(){ facCargarResponsables(facCfgRenderResp); });
+}
+function facCfgEliminarResp(id){
+  var r=FAC_RESP.filter(function(x){return x.id===id;})[0];
+  if(!confirm('¿Eliminar a "'+((r&&r.nombre)||'')+'"?\n\nLas facturas que ya lo tengan asignado no se modifican.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarFacResponsable', id:id})})
+  .then(function(){ facCargarResponsables(facCfgRenderResp); });
+}
+function facCfgGuardarPlantilla(){
+  var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
+  var datos={radica_para:g('fcf-para'), radica_cc:g('fcf-cc'), radica_asunto:g('fcf-asunto'),
+             radica_saludo:g('fcf-saludo'), radica_intro:g('fcf-intro'),
+             radica_cierre:g('fcf-cierre'), radica_nota:g('fcf-nota')};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarConfigEmpresa', data:datos})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ Object.keys(datos).forEach(function(k){ CONFIG_EMPRESA[k]=datos[k]; });
+      alert('✅ Plantilla guardada'); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){alert('Error de red: '+e.message);});
+}
+
+// Dibuja la tabla de datos con guiones, para el correo en texto plano
+function facRadTablaTxt(datos){
+  var anchos=datos.map(function(d){ return Math.max(String(d[0]).length, String(d[1]).length); });
+  var rep=function(c,n){ var o=''; for(var i=0;i<n;i++) o+=c; return o; };
+  var linea='+'+anchos.map(function(a){ return rep('-', a+2); }).join('+')+'+';
+  var fila=function(idx){
+    return '|'+datos.map(function(d,i){
+      var t=String(d[idx]);
+      var libre=anchos[i]-t.length, izq=Math.floor(libre/2);
+      return ' '+rep(' ',izq)+t+rep(' ',libre-izq)+' ';
+    }).join('|')+'|';
+  };
+  return [linea, fila(0), linea, fila(1), linea].join('\n');
+}
 function facRadicar(idFac){
   var f=FACTURAS_CACHE.find(function(x){return String(x.id)===String(idFac);});
   if(!f){ alert('Factura no encontrada'); return; }
   cargarConfigEmpresa(function(){
-    var para=CONFIG_EMPRESA.radica_para||'archivo.riopaila@riopaila-castilla.com';
-    var cc=CONFIG_EMPRESA.radica_cc||'';
-    var nota=CONFIG_EMPRESA.radica_nota||'Certificamos que los documentos adjuntos son fiel copia de los originales.';
+   facCargarResponsables(function(){
+    var C=CONFIG_EMPRESA;
+    var para=C.radica_para||'archivo.riopaila@riopaila-castilla.com';
+    // Copia: el correo del responsable de la factura + la copia fija configurada
+    var ccResp=facEmailResponsable(f.resp);
+    var cc=[ccResp, C.radica_cc||''].filter(function(x){return x;}).join(', ');
     var fec=f.ffac?String(f.ffac).slice(0,10).split('-').reverse().join('/'):'';
-    var asunto='RADICACION FRA ELECT '+(f.nfac||'')+' ACTA '+(f.nacta||'')+' - AGRISERVICIOS';
-    var cuerpo='Cordial Saludo\n\n'
-      +'Adjunto factura para su radicación según acta:\n\n'
-      +'FECHA: '+fec+'\n'
-      +'FRA: '+(f.nfac||'')+'\n'
-      +'ACTA: '+(f.nacta||'')+'\n'
-      +'VALOR FACT: '+cop(f.val||0)+'\n'
-      +'PEDIDO: '+(f.pedido||'(sin pedido registrado)')+'\n\n'
-      +'Agradezco me confirmes el recibido y el número de radicación de la factura.\n\n'
-      +'NOTA: '+nota+'\n\nCordialmente,\n'+(CONFIG_EMPRESA.nombre||'');
+    var pedido=f.pedido||'(sin pedido registrado)';
+    var rep=function(t){ return String(t||'')
+      .replace(/\{FRA\}/g, f.nfac||'').replace(/\{ACTA\}/g, f.nacta||'')
+      .replace(/\{PEDIDO\}/g, pedido).replace(/\{FECHA\}/g, fec)
+      .replace(/\{VALOR\}/g, cop(f.val||0)); };
+    var asunto=rep(C.radica_asunto||'RADICACION FRA ELECT {FRA} ACTA {ACTA} - AGRISERVICIOS');
+    var saludo=C.radica_saludo||'Cordial Saludo';
+    var intro=C.radica_intro||'Adjunto factura para su radicación según acta:';
+    var cierre=C.radica_cierre||'Agradezco me confirmes el recibido y el número de radicación de la factura.';
+    var nota=C.radica_nota||'Certificamos que los documentos adjuntos son fiel copia de los originales.';
+    var datos=[['FECHA',fec],['FRA',f.nfac||''],['ACTA',f.nacta||''],['VALOR FACT',cop(f.val||0)],['PEDIDO',pedido]];
+
+    // Versión en texto (el enlace de Outlook no admite formato): la tabla se
+    // dibuja con guiones, que es lo más parecido que permite el texto plano.
+    var cuerpoTxt=saludo+'\n\n'+intro+'\n\n'
+      +facRadTablaTxt(datos)
+      +'\n\n'+cierre+'\n\nNOTA: '+nota+'\n\nCordialmente,\n'+(C.nombre||'');
+    // Versión con la tabla 5x2 (para pegar con formato en el correo)
+    var tablaHtml='<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt">'
+      +'<tr>'+datos.map(function(d){
+          return '<th style="border:1px solid #000;padding:4px 10px;background:#fff;text-align:center">'+d[0]+'</th>';
+        }).join('')+'</tr>'
+      +'<tr>'+datos.map(function(d){
+          return '<td style="border:1px solid #000;padding:4px 10px;text-align:center">'+gcEsc(d[1])+'</td>';
+        }).join('')+'</tr></table>';
+    window.FAC_RAD_HTML='<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt">'
+      +'<p>'+gcEsc(saludo)+'</p><p>'+gcEsc(intro)+'</p>'+tablaHtml
+      +'<p>'+gcEsc(cierre)+'</p><p><b>NOTA:</b> '+gcEsc(nota)+'</p>'
+      +'<p>Cordialmente,<br>'+gcEsc(C.nombre||'')+'</p></div>';
 
     var m=document.createElement('div');
     m.id='facrad-modal';
     m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
     modalCerrarAlFondo(m, function(){ m.remove(); });
-    var falta=!f.pedido;
-    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:92vh;overflow:auto">'
+    var avisos='';
+    if(!f.pedido) avisos+='<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;margin-bottom:8px">⚠️ Esta factura no tiene <strong>número de pedido</strong>. Edítala y agrégalo antes de radicar.</div>';
+    if(f.resp && !ccResp) avisos+='<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;margin-bottom:8px">⚠️ <strong>'+gcEsc(f.resp)+'</strong> no tiene correo registrado. Agrégalo en Facturación → Configuración.</div>';
+    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:92vh;overflow:auto">'
       +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
         +'<div><div style="font-size:16px;font-weight:800;color:var(--f)">📧 Radicar factura '+gcEsc(f.nfac||'')+'</div>'
-        +'<div style="font-size:11px;color:var(--g3)">Correo listo para enviar a Riopaila</div></div>'
+        +'<div style="font-size:11px;color:var(--g3)">Responsable: '+gcEsc(f.resp||'—')+'</div></div>'
         +'<button onclick="document.getElementById(\'facrad-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
       +'</div>'
       +'<div style="padding:16px">'
-        +(falta?'<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;margin-bottom:10px">⚠️ Esta factura no tiene <strong>número de pedido</strong>. Edítala y agrégalo antes de radicar.</div>':'')
+        +avisos
         +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Para</label><input type="text" id="rad-para" value="'+gcEsc(para)+'"/></div>'
-        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Copia a</label><input type="text" id="rad-cc" value="'+gcEsc(cc)+'" placeholder="correo de la responsable"/></div>'
+        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Con copia a</label><input type="text" id="rad-cc" value="'+gcEsc(cc)+'" placeholder="correo del responsable"/></div>'
         +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Asunto</label><input type="text" id="rad-asunto" value="'+gcEsc(asunto)+'"/></div>'
-        +'<div class="fld" style="margin-bottom:8px"><label style="font-size:10px">Mensaje</label>'
-          +'<textarea id="rad-cuerpo" rows="12" style="width:100%;font-family:inherit;font-size:12px">'+gcEsc(cuerpo)+'</textarea></div>'
-        +'<div id="rad-adj" style="font-size:11px;color:var(--g3);margin-bottom:10px">Buscando documentos adjuntos...</div>'
+        +'<div style="font-size:10px;color:var(--g2);margin-bottom:4px;text-transform:uppercase;font-weight:700">Vista previa del mensaje</div>'
+        +'<div id="rad-vista" style="border:1px solid var(--bd);border-radius:8px;padding:12px;background:#fff;font-size:12px;overflow:auto">'+window.FAC_RAD_HTML+'</div>'
+        +'<textarea id="rad-cuerpo" style="display:none">'+gcEsc(cuerpoTxt)+'</textarea>'
+        +'<div id="rad-adj" style="font-size:11px;color:var(--g3);margin:10px 0">Buscando documentos adjuntos...</div>'
         +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
-          +'<button class="btn bg" onclick="facRadCopiar()">📋 Copiar mensaje</button>'
-          +'<button class="btn bg" onclick="facRadAbrirCorreo()">✉️ Correo del equipo</button>'
+          +'<button class="btn bg" onclick="facRadCopiar()">📋 Copiar con tabla</button>'
           +'<button class="btn bf" onclick="facRadOutlook()">📨 Abrir en Outlook</button>'
         +'</div>'
-        +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">“Abrir en Outlook” abre una pestaña de Outlook web con la sesión que ya tienes iniciada y el correo escrito. Solo adjuntas los dos PDF y envías.</div>'
+        +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">“Abrir en Outlook” abre tu sesión con todo listo, incluida la tabla dibujada con guiones. Si la prefieres con bordes reales, usa “Copiar con tabla” y pega en el cuerpo (Ctrl+V).</div>'
       +'</div></div>';
     document.body.appendChild(m);
 
-    // Mostrar los documentos que ya están cargados en la app
     fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({accion:'facArchivos', idFac:idFac})})
     .then(function(r){return r.json();}).then(function(d){
@@ -8626,16 +8816,29 @@ function facRadicar(idFac){
         ? '<strong style="color:var(--g2)">Documentos en la app:</strong> '+arch.map(function(a){
             return '<a href="'+a.url+'" target="_blank" style="color:var(--f);text-decoration:none">⬇️ '+gcEsc(a.nombre)+'</a>';
           }).join('  ·  ')+'<div style="margin-top:3px">Descárgalos y adjúntalos al correo.</div>'
-        : '<span style="color:#b45309">⚠️ Esta factura no tiene documentos adjuntos en la app. Súbelos con el botón 📎 para tenerlos a mano.</span>';
+        : '<span style="color:#b45309">⚠️ Esta factura no tiene documentos adjuntos en la app. Súbelos con el botón 📎.</span>';
     }).catch(function(){});
+   });
   });
 }
 function facRadCopiar(){
-  var t=document.getElementById('rad-cuerpo');
-  if(!t) return;
-  t.select(); t.setSelectionRange(0,99999);
-  try{ document.execCommand('copy'); alert('✓ Mensaje copiado'); }
-  catch(e){ alert('No se pudo copiar automáticamente; selecciona y copia manualmente.'); }
+  var html=window.FAC_RAD_HTML||'';
+  var txt=(document.getElementById('rad-cuerpo')||{}).value||'';
+  if(!html){ alert('Nada que copiar'); return; }
+  var ok=function(){ alert('✓ Mensaje copiado con la tabla.\n\nPégalo en el cuerpo del correo con Ctrl+V.'); };
+  if(navigator.clipboard && window.ClipboardItem){
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([html],{type:'text/html'}),
+      'text/plain': new Blob([txt],{type:'text/plain'})
+    })]).then(ok).catch(function(){ facRadCopiarPlano(txt); });
+  } else facRadCopiarPlano(txt);
+}
+function facRadCopiarPlano(txt){
+  var ta=document.createElement('textarea');
+  ta.value=txt; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); alert('✓ Mensaje copiado (sin formato de tabla)'); }
+  catch(e){ alert('No se pudo copiar automáticamente'); }
+  ta.remove();
 }
 // Abre Outlook web (cuenta personal/Hotmail) con el correo ya redactado.
 // Usa el parámetro mailtouri, que es el que respeta destinatarios, copia,
