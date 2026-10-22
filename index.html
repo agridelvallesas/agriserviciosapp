@@ -13730,6 +13730,16 @@ function rhHojaRenderHTML(t, foto){
   if(typeof abrirCartaImprimible==='function') abrirCartaImprimible(cuerpo, 'Hoja de datos - '+nombre);
 }
 
+// Bancos de Colombia con su código de compensación (Banco de la República).
+// Se guardan como "código - nombre" para que el código quede a la mano en los
+// archivos de pago. Si falta alguno, se puede agregar a esta lista.
+var BANCOS_COL=['01 - BANCO DE BOGOTÁ','02 - BANCO POPULAR','06 - ITAÚ','07 - BANCOLOMBIA',
+  '09 - CITIBANK','12 - GNB SUDAMERIS','13 - BBVA COLOMBIA','19 - DAVIBANK (ANTES SCOTIABANK COLPATRIA)',
+  '23 - BANCO DE OCCIDENTE','32 - BANCO CAJA SOCIAL','40 - BANCO AGRARIO','51 - DAVIVIENDA',
+  '52 - BANCO AV VILLAS','53 - BANCO W','58 - BANCO CREDIFINANCIERA','59 - BANCAMÍA',
+  '60 - BANCO PICHINCHA','61 - BANCOOMEVA','62 - BANCO FALABELLA','63 - BANCO FINANDINA',
+  '65 - BANCO SANTANDER','66 - BANCO COOPERATIVO COOPCENTRAL','67 - BANCO COMPARTIR','69 - BANCO SERFINANZA'];
+
 var RH_BLOQUES={
   ident:{titulo:'🪪 Identificación', campos:[
     {k:'CEDULA', n:'Cédula', tipo:'text', req:true},
@@ -13740,7 +13750,6 @@ var RH_BLOQUES={
     {k:'FECHA_EXP', n:'Fecha exp. cédula', tipo:'date'},
     {k:'DEPTO_EXP', n:'Depto. exp. cédula', tipo:'cat', cat:'departamento'},
     {k:'LUGAR_EXP', n:'Ciudad exp. cédula', tipo:'cat', cat:'municipio', padreDe:'DEPTO_EXP'},
-    {k:'FECHA_NAC', n:'Fecha de nacimiento', tipo:'date'},
     {k:'TIPO_SANGRE', n:'Tipo de sangre', tipo:'cat', cat:'tipo_sangre'},
     {k:'ESTADO_CIVIL', n:'Estado civil', tipo:'cat', cat:'estado_civil'},
     {k:'NUM_HIJOS', n:'N.º de hijos', tipo:'text'},
@@ -13748,7 +13757,8 @@ var RH_BLOQUES={
     {k:'CONYUGE_CEDULA', n:'Cédula del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}},
     {k:'CONYUGE_TEL', n:'Teléfono del cónyuge', tipo:'text', dep:{k:'ESTADO_CIVIL', vals:['CASADO(A)','UNIÓN LIBRE']}}
   ]},
-  nacimiento:{titulo:'🌎 Lugar de nacimiento', campos:[
+  nacimiento:{titulo:'🌎 Nacimiento', campos:[
+    {k:'FECHA_NAC', n:'Fecha de nacimiento', tipo:'date'},
     {k:'PAIS_NAC', n:'País', tipo:'cat', cat:'pais'},
     {k:'DEPTO_NAC', n:'Departamento', tipo:'cat', cat:'departamento'},
     {k:'CIUDAD_NAC', n:'Ciudad / municipio', tipo:'cat', cat:'municipio', padreDe:'DEPTO_NAC'}
@@ -13768,11 +13778,11 @@ var RH_BLOQUES={
     {k:'ESTADO', n:'Estado', tipo:'select', opciones:['ACTIVO','RETIRADO'], req:true},
     {k:'FECHA_INGRESO', n:'Fecha de ingreso', tipo:'date'},
     {k:'FECHA_RETIRO', n:'Fecha de retiro', tipo:'date'},
-    {k:'CARGO', n:'Cargo', tipo:'text'},
+    {k:'CARGO', n:'Cargo', tipo:'select', opciones:['OFICIOS VARIOS','COORDINADOR']},
     {k:'SALARIO_MENSUAL', n:'Salario mensual', tipo:'number'}
   ]},
   banco:{titulo:'🏦 Datos bancarios', campos:[
-    {k:'BANCO', n:'Banco', tipo:'text'},
+    {k:'BANCO', n:'Banco', tipo:'select', opciones:BANCOS_COL},
     {k:'CUENTA', n:'Número de cuenta', tipo:'text', w:2}
   ]},
   ss:{titulo:'🩺 Seguridad social', campos:[
@@ -13938,9 +13948,11 @@ function rhAbrirModal(t){
                 '<option value="">—</option>'+rhCatOpcionesSel(c.cat, padreVal, val)+'</select>';
         }
       } else if(c.tipo==='select'){
+        var opts=(c.opciones||[]).slice();
+        if(val && opts.indexOf(val)<0) opts.unshift(val);   // conserva lo ya registrado
         input='<select id="rh-f-'+c.k+'"'+req+' onchange="rhCampoCambio(\''+c.k+'\')" style="width:100%">'+
           '<option value="">—</option>'+
-          c.opciones.map(function(o){return '<option value="'+o+'"'+(val===o?' selected':'')+'>'+o+'</option>';}).join('')+
+          opts.map(function(o){return '<option value="'+gcEsc(o)+'"'+(val===o?' selected':'')+'>'+gcEsc(o)+'</option>';}).join('')+
         '</select>';
       } else if(c.tipo==='textarea'){
         input='<textarea id="rh-f-'+c.k+'" rows="2" style="width:100%;font-family:inherit">'+val+'</textarea>';
