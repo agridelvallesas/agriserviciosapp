@@ -2235,7 +2235,7 @@ async function accionRegistrarReingreso(body, env) {
   });
   // Dejar la ficha con la vinculación vigente
   await sbWrite(env, 'PATCH', `trabajadores?cedula=eq.${parseInt(ced)}`, {
-    fecha_ingreso: ingreso, fecha_retiro: null, estado: 'ACTIVO',
+    fecha_ingreso: ingreso, fecha_ret: null, estado: 'ACTIVO',   // en trabajadores la columna es fecha_ret
   });
   return { ok: true };
 }
