@@ -55,6 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
+  'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
 ]);
 
@@ -166,6 +167,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'registrarReingreso')   r = await accionRegistrarReingreso(body, env);
     else if (accion === 'cerrarVinculacion')    r = await accionCerrarVinculacion(body, env);
     else if (accion === 'eliminarVinculacion')  r = await accionEliminarVinculacion(body, env);
+    else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
+    else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
+    else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
     else if (accion === 'facArchivoSubirUrl')   r = await accionFacArchivoSubirUrl(body, env);
     else if (accion === 'facArchivoRegistrar')  r = await accionFacArchivoRegistrar(body, env);
     else if (accion === 'facArchivos')          r = await accionFacArchivos(body, env);
@@ -2243,5 +2247,35 @@ async function accionRegistrarReingreso(body, env) {
 async function accionEliminarVinculacion(body, env) {
   if (!body.id) return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `trabajador_vinculaciones?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
+}
+
+
+// ── Responsables de facturación (con su correo para la copia) ──────────────
+async function accionGetFacResponsables(body, env) {
+  const rows = await sbAll(env, 'facturacion_responsables?select=id,nombre,email,activo,orden&order=orden,nombre');
+  return { ok: true, data: rows.map((r) => ({
+    id: r.id, nombre: String(r.nombre || ''), email: String(r.email || ''), activo: r.activo !== false,
+  })) };
+}
+async function accionGuardarFacResponsable(body, env) {
+  const nombre = String(body.nombre || '').trim().toUpperCase();
+  if (!nombre) return { ok: false, error: 'Falta el nombre' };
+  const fila = { nombre, email: String(body.email || '').trim(), activo: body.activo !== false };
+  if (body.id) {
+    await sbWrite(env, 'PATCH', `facturacion_responsables?id=eq.${encodeURIComponent(body.id)}`, fila);
+    return { ok: true };
+  }
+  const ex = await sb(env, `facturacion_responsables?select=id&nombre=eq.${encodeURIComponent(nombre)}&limit=1`);
+  if (ex.length) {
+    await sbWrite(env, 'PATCH', `facturacion_responsables?id=eq.${ex[0].id}`, fila);
+    return { ok: true, actualizado: true };
+  }
+  await sbWrite(env, 'POST', 'facturacion_responsables', fila);
+  return { ok: true };
+}
+async function accionEliminarFacResponsable(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `facturacion_responsables?id=eq.${encodeURIComponent(body.id)}`);
   return { ok: true };
 }
