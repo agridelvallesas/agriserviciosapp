@@ -3180,6 +3180,56 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- ══════════ SST — ENTREGAS POR EMPLEADO ══════════ -->
+    <!-- ══════ RH — INCAPACIDADES ══════ -->
+    <div class="page" id="p-inc">
+      <div style="display:flex;gap:6px;border-bottom:2px solid var(--gf);margin-bottom:12px;flex-wrap:wrap">
+        <button id="inct-lista" class="tab on" onclick="incTab('lista',this)">📋 Incapacidades</button>
+        <button id="inct-inf" class="tab" onclick="incTab('inf',this)">📊 Informe por quincena</button>
+      </div>
+
+      <div id="inc-lista">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Tipo</label>
+              <select id="inc-f-tipo" onchange="incCargar()">
+                <option value="">Todas</option>
+                <option value="EG">Enfermedad general</option>
+                <option value="AT">Accidente de trabajo</option>
+                <option value="MATERNIDAD">Licencia maternidad</option>
+                <option value="PATERNIDAD">Licencia paternidad</option>
+              </select></div>
+            <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="inc-f-d1" onchange="incCargar()"/></div>
+            <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="inc-f-d2" onchange="incCargar()"/></div>
+            <div class="fld" style="flex:1;min-width:190px;margin:0"><label style="font-size:10px">Buscar trabajador</label>
+              <input type="text" id="inc-f-emp" placeholder="Nombre o cédula..." autocomplete="off" oninput="incRender()"/></div>
+            <button class="btn bv" onclick="incNueva()" style="height:36px">➕ Registrar incapacidad</button>
+            <button class="btn bg" onclick="incCargar()" style="height:36px">🔄</button>
+          </div>
+        </div>
+        <div id="inc-kpis" class="sg" style="display:none;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px"></div>
+        <div id="inc-cont"></div>
+      </div>
+
+      <div id="inc-inf" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Quincena</label>
+              <select id="inci-qna"></select></div>
+            <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Tipo</label>
+              <select id="inci-tipo">
+                <option value="">Todas</option><option value="EG">Enfermedad general</option>
+                <option value="AT">Accidente de trabajo</option>
+                <option value="MATERNIDAD">Maternidad</option><option value="PATERNIDAD">Paternidad</option>
+              </select></div>
+            <button class="btn bv" onclick="incInformeGenerar()" style="height:36px">📊 Generar</button>
+            <button class="btn bg" onclick="incInformeExcel()" style="height:36px">📥 Excel</button>
+          </div>
+          <div style="font-size:11px;color:var(--g3);margin-top:6px">Muestra lo que se paga en esa quincena: trabajador, días y valor, con el total al final.</div>
+        </div>
+        <div id="inci-cont"></div>
+      </div>
+    </div>
+
     <!-- ══════ SST — INFORME DE ENTREGAS ══════ -->
     <div class="page" id="p-inv-inf">
       <div class="card" style="margin-bottom:12px">
@@ -4317,6 +4367,7 @@ function buildNav(){
       '<button class="ni" onclick="go(\'rrhh\')"><span class="ni-ico">👥</span>Trabajadores</button>'+
       '<button class="ni" onclick="go(\'vacac\')"><span class="ni-ico">🌴</span>Vacaciones</button>'+
       '<button class="ni" onclick="go(\'acum\')"><span class="ni-ico">📊</span>Acumulados</button>'+
+      '<button class="ni" onclick="go(\'inc\')"><span class="ni-ico">🏥</span>Incapacidades</button>'+
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
       '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico">⚙️</span>Configuración</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
@@ -4356,7 +4407,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4388,6 +4439,7 @@ function go(pg){
   if(pg==='inv-hist') invHistInit();
   if(pg==='inv-emp') invEmpInit();
   if(pg==='inv-inf') invInfInit();
+  if(pg==='inc') incInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
@@ -14266,6 +14318,465 @@ function rhVincDuracion(ini, fin){
   var an=Math.floor(m/12), me=m%12;
   return (an?an+' año'+(an>1?'s':''):'')+(an&&me?' y ':'')+(me?me+' mes'+(me>1?'es':''):'')||'menos de un mes';
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// INCAPACIDADES — enfermedad general (EPS), accidente de trabajo (ARL) y
+// licencias. El sistema SUGIERE el reparto por quincenas y el valor; quien
+// registra confirma o ajusta antes de guardar.
+// ══════════════════════════════════════════════════════════════════════════
+var INC_DATA=[], INC_EDIT=null, INC_INF=null;
+var MESES_CORTO=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
+function incCfg(k, def){
+  var v=(typeof CONFIG_EMPRESA!=='undefined')?CONFIG_EMPRESA[k]:null;
+  var n=parseFloat(v);
+  return isNaN(n)?def:n;
+}
+function incFecha(iso){ return iso?String(iso).slice(0,10).split('-').reverse().join('/'):'—'; }
+function incDiaISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function incParse(iso){ var p=String(iso||'').split('-'); return p.length===3?new Date(+p[0],+p[1]-1,+p[2]):null; }
+// Etiqueta de la quincena calendario de una fecha: "01 QNA SEP 2026"
+function incQnaDe(d){
+  return (d.getDate()<=15?'01':'02')+' QNA '+MESES_CORTO[d.getMonth()]+' '+d.getFullYear();
+}
+// Reparto SUGERIDO de los días de la incapacidad entre quincenas
+function incSugerirPagos(inicio, dias, tipo, prorroga, valorDia){
+  var ini=incParse(inicio); if(!ini||!dias) return [];
+  var diasEmpresa=prorroga?0:incCfg('inc_dias_empresa',2);
+  if(tipo==='AT') diasEmpresa=0;                 // el accidente lo cubre la ARL
+  if(tipo==='MATERNIDAD'||tipo==='PATERNIDAD') diasEmpresa=0;
+  var entidad=(tipo==='AT')?'ARL':'EPS';
+  var grupos={};
+  for(var i=0;i<dias;i++){
+    var d=new Date(ini.getTime()); d.setDate(d.getDate()+i);
+    var q=incQnaDe(d);
+    var cargo=(i<diasEmpresa)?'EMPRESA':entidad;
+    var k=q+'|'+cargo;
+    if(!grupos[k]) grupos[k]={quincena:q, aCargo:cargo, desde:incDiaISO(d), hasta:incDiaISO(d), dias:0};
+    grupos[k].hasta=incDiaISO(d); grupos[k].dias++;
+  }
+  return Object.keys(grupos).map(function(k){
+    var g=grupos[k];
+    g.valor=Math.round(g.dias*(valorDia||0));
+    return g;
+  }).sort(function(a,b){ return a.desde<b.desde?-1:1; });
+}
+// Valor día sugerido: salario del trabajador ÷ 30, o el mínimo configurado
+function incValorDiaSugerido(ced){
+  var base=incCfg('inc_valor_dia',58364);
+  var t=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(x){return String(x.CEDULA)===String(ced);}):null;
+  var sal=t?parseFloat(t.SALARIO_MENSUAL)||0:0;
+  if(sal>0){ var d=Math.round(sal/30); if(d>base) return d; }
+  return base;
+}
+
+function incTab(t, btn){
+  ['lista','inf'].forEach(function(x){
+    var el=document.getElementById('inc-'+x); if(el) el.style.display=(x===t)?'block':'none';
+    var b=document.getElementById('inct-'+x); if(b) b.classList.toggle('on', x===t);
+  });
+  if(t==='inf') incInformeInit();
+}
+function incInit(){
+  cargarConfigEmpresa();
+  acTrabAsegurar(function(){
+    acAdjuntarBuscador('inc-f-emp', acTrabFuente, function(ced,nom){
+      var i=document.getElementById('inc-f-emp'); if(i) i.value=nom; incRender();
+    });
+  });
+  if(!INC_DATA.length) incCargar();
+}
+function incCargar(){
+  var cont=document.getElementById('inc-cont');
+  if(cont) cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando incapacidades...</div>';
+  var body={accion:'getIncapacidades'};
+  var t=(document.getElementById('inc-f-tipo')||{}).value; if(t) body.tipo=t;
+  var d1=(document.getElementById('inc-f-d1')||{}).value; if(d1) body.desde=d1;
+  var d2=(document.getElementById('inc-f-d2')||{}).value; if(d2) body.hasta=d2;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    INC_DATA=(d&&d.ok&&d.data)?d.data:[];
+    incRender();
+  }).catch(function(e){
+    if(cont) cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
+  });
+}
+function incRender(){
+  var cont=document.getElementById('inc-cont'), kp=document.getElementById('inc-kpis');
+  if(!cont) return;
+  var q=((document.getElementById('inc-f-emp')||{}).value||'').toLowerCase().trim();
+  var filas=INC_DATA.filter(function(i){
+    if(!q) return true;
+    return String(i.nombres||'').toLowerCase().indexOf(q)>=0 ||
+           String(i.cedula||'').replace(/[.,\s]/g,'').indexOf(q.replace(/[.,\s]/g,''))>=0;
+  });
+  var tope=incCfg('inc_tope_dias',180);
+  if(kp){
+    var totDias=filas.reduce(function(s,i){return s+(i.dias||0);},0);
+    var totVal=filas.reduce(function(s,i){return s+(i.pagos||[]).reduce(function(a,p){return a+(p.valor||0);},0);},0);
+    var alertas=filas.filter(function(i){return (i.diasAcum||0)>=tope;}).length;
+    kp.style.display='grid';
+    kp.innerHTML='<div class="st"><div class="sl">Incapacidades</div><div class="sv">'+filas.length+'</div></div>'
+      +'<div class="st"><div class="sl">Días totales</div><div class="sv">'+totDias+'</div></div>'
+      +'<div class="st"><div class="sl">Valor registrado</div><div class="sv gv">'+cop(totVal)+'</div></div>'
+      +(alertas?('<div class="st" style="background:#fef3c7;border-color:#f59e0b"><div class="sl" style="color:#92400e">Superan '+tope+' días</div><div class="sv" style="color:#b45309">'+alertas+'</div></div>'):'');
+  }
+  if(!filas.length){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay incapacidades registradas con esos filtros.</div>';
+    return;
+  }
+  var tipoBdg={EG:['#dbeafe','#1e40af','EG'],AT:['#fee2e2','#b91c1c','AT'],
+               MATERNIDAD:['#fce7f3','#9d174d','MAT'],PATERNIDAD:['#e0e7ff','#3730a3','PAT']};
+  cont.innerHTML='<div class="card"><div class="tw" style="max-height:62vh;overflow:auto"><table id="inc-t"><thead><tr>'
+    +'<th>Tipo</th><th>Cédula</th><th>Trabajador</th><th>Inicio</th><th style="text-align:center">Días</th>'
+    +'<th>Fin</th><th>Diagnóstico</th><th>Entidad</th><th style="text-align:right">Valor</th>'
+    +'<th>Quincenas de pago</th><th class="no-print">Acc.</th></tr></thead><tbody>'
+    +filas.map(function(i){
+      var tb=tipoBdg[i.tipo]||['#f1f5f9','#475569',i.tipo];
+      var val=(i.pagos||[]).reduce(function(a,p){return a+(p.valor||0);},0);
+      var qnas=(i.pagos||[]).map(function(p){
+        return '<span style="font-size:10px;background:'+(p.aCargo==='EMPRESA'?'#fef3c7':'var(--vs)')+';padding:1px 6px;border-radius:99px;white-space:nowrap">'
+          +gcEsc(p.quincena.replace(' QNA ',' '))+': '+p.dias+'d'+(p.aCargo==='EMPRESA'?' (emp)':'')+'</span>';
+      }).join(' ');
+      var alerta=(i.diasAcum||0)>=tope;
+      return '<tr'+(alerta?' style="background:#fffbeb"':'')+'>'
+        +'<td><span style="font-size:10px;font-weight:700;background:'+tb[0]+';color:'+tb[1]+';padding:2px 7px;border-radius:99px">'+tb[2]+'</span>'
+          +(i.prorroga?' <span style="font-size:9px;color:var(--g3)">prórroga</span>':'')+'</td>'
+        +'<td><code style="font-size:11px">'+gcEsc(i.cedula)+'</code></td>'
+        +'<td><strong>'+gcEsc(i.nombres)+'</strong>'+(alerta?' <span title="Supera el tope de días" style="color:#b45309">⚠️</span>':'')+'</td>'
+        +'<td>'+incFecha(i.inicio)+'</td><td style="text-align:center;font-weight:700">'+i.dias+'</td>'
+        +'<td>'+incFecha(i.fin)+'</td>'
+        +'<td style="font-size:11px">'+(i.cie10?('<code>'+gcEsc(i.cie10)+'</code> '):'')+gcEsc(String(i.diagnostico||'').slice(0,40))+'</td>'
+        +'<td style="font-size:11px">'+gcEsc(i.entidad||'—')+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(val)+'</td>'
+        +'<td>'+(qnas||'<span style="color:var(--g3);font-size:10px">sin reparto</span>')+'</td>'
+        +'<td class="no-print" style="white-space:nowrap">'
+          +'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="incEditar('+i.id+')">✏️</button> '
+          +'<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="incEliminar('+i.id+')">🗑️</button></td>'
+      +'</tr>';
+    }).join('')+'</tbody></table></div></div>';
+}
+function incEliminar(id){
+  var i=INC_DATA.find(function(x){return x.id===id;});
+  if(!confirm('¿Eliminar la incapacidad de '+((i&&i.nombres)||'')+' del '+incFecha(i&&i.inicio)+'?\n\nSe borran también sus pagos por quincena.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarIncapacidad', id:id})})
+  .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok) incCargar(); else alert('Error: '+((d&&d.error)||'?')); });
+}
+
+
+// ── Formulario de registro / edición ──────────────────────────────────────
+function incNueva(){ incAbrir(null); }
+function incEditar(id){ incAbrir(INC_DATA.find(function(x){return x.id===id;})||null); }
+function incAbrir(inc){
+  INC_EDIT=inc?JSON.parse(JSON.stringify(inc)):{tipo:'EG', prorroga:false, dias:0, estado:'REGISTRADA', pagos:[]};
+  acTrabAsegurar(function(){
+    var m=document.createElement('div');
+    m.id='inc-modal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px';
+    modalCerrarAlFondo(m, function(){ m.remove(); });
+    var i=INC_EDIT;
+    var opt=function(v,t,sel){ return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+t+'</option>'; };
+    m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:94vh;display:flex;flex-direction:column">'
+      +'<div style="padding:13px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+        +'<div><div style="font-size:16px;font-weight:800;color:var(--v)">🏥 '+(inc?'Editar incapacidad':'Registrar incapacidad')+'</div>'
+        +'<div style="font-size:11px;color:var(--g3)">El sistema sugiere el reparto por quincenas; puedes ajustarlo antes de guardar</div></div>'
+        +'<button onclick="document.getElementById(\'inc-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+      +'</div>'
+      +'<div style="padding:16px;overflow:auto">'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px">'
+          +'<div class="fld" style="margin:0;grid-column:span 2;position:relative"><label style="font-size:10px">Trabajador *</label>'
+            +'<input type="text" id="inc-emp-q" value="'+(i.nombres?gcEsc(i.nombres+' · '+i.cedula):'')+'" placeholder="Nombre o cédula..." autocomplete="off"/>'
+            +'<input type="hidden" id="inc-ced" value="'+gcEsc(i.cedula||'')+'"/>'
+            +'<input type="hidden" id="inc-nom" value="'+gcEsc(i.nombres||'')+'"/>'
+            +'<div id="inc-emp-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Tipo *</label><select id="inc-tipo" onchange="incRecalcular()">'
+            +opt('EG','Enfermedad general',i.tipo)+opt('AT','Accidente de trabajo',i.tipo)
+            +opt('MATERNIDAD','Licencia maternidad',i.tipo)+opt('PATERNIDAD','Licencia paternidad',i.tipo)+'</select></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">¿Es prórroga?</label>'
+            +'<select id="inc-prorroga" onchange="incRecalcular()">'+opt('no','No (incapacidad inicial)',i.prorroga?'si':'no')+opt('si','Sí (mismo diagnóstico)',i.prorroga?'si':'no')+'</select></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha inicial *</label><input type="date" id="inc-ini" value="'+(i.inicio||'')+'" onchange="incRecalcular()"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Días *</label><input type="number" id="inc-dias" min="1" value="'+(i.dias||'')+'" oninput="incRecalcular()"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha final</label><input type="date" id="inc-fin" value="'+(i.fin||'')+'" readonly style="background:#f8fafc"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor día (sugerido)</label><input type="number" id="inc-vdia" value="'+(i.valorDia||'')+'" oninput="incRecalcular()"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">N.º incapacidad</label><input type="text" id="inc-num" value="'+gcEsc(i.numero||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Días acumulados</label><input type="number" id="inc-acum" value="'+(i.diasAcum||'')+'"/></div>'
+          +'<div class="fld" style="margin:0;position:relative;grid-column:span 2"><label style="font-size:10px">Diagnóstico CIE-10</label>'
+            +'<input type="text" id="inc-cie" value="'+gcEsc(i.cie10?(i.cie10+' · '+i.diagnostico):'')+'" placeholder="Código o descripción..." autocomplete="off" oninput="incCieBuscar()"/>'
+            +'<input type="hidden" id="inc-cie-cod" value="'+gcEsc(i.cie10||'')+'"/>'
+            +'<input type="hidden" id="inc-cie-desc" value="'+gcEsc(i.diagnostico||'')+'"/>'
+            +'<input type="hidden" id="inc-cie-grupo" value="'+gcEsc(i.grupo||'')+'"/>'
+            +'<div id="inc-cie-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">EPS / ARL</label><input type="text" id="inc-entidad" value="'+gcEsc(i.entidad||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">IBC</label><input type="number" id="inc-ibc" value="'+(i.ibc||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Origen / sede</label><input type="text" id="inc-origen" value="'+gcEsc(i.origen||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Estado</label><select id="inc-estado">'
+            +opt('REGISTRADA','Registrada',i.estado)+opt('RADICADA','Radicada',i.estado)
+            +opt('PAGADA','Pagada por la entidad',i.estado)+opt('NEGADA','Negada',i.estado)+'</select></div>'
+          +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Observación</label><input type="text" id="inc-obs" value="'+gcEsc(i.obsRad||'')+'" placeholder="Ej: Radicada 19/oct/26"/></div>'
+        +'</div>'
+        +'<div style="margin-top:14px;border-top:2px solid var(--gf);padding-top:10px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+            +'<div style="font-size:12px;font-weight:700;color:var(--g2);text-transform:uppercase">📅 Reparto por quincena (sugerido)</div>'
+            +'<button class="btn bg" style="font-size:11px;padding:3px 10px" onclick="incRecalcular(true)">🔄 Recalcular sugerencia</button>'
+          +'</div>'
+          +'<div id="inc-pagos" style="margin-top:8px"></div>'
+        +'</div>'
+        +'<div id="inc-aviso" style="margin-top:10px"></div>'
+        +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+          +'<button class="btn bg" onclick="document.getElementById(\'inc-modal\').remove()">Cancelar</button>'
+          +'<button class="btn bv" onclick="incGuardar()">💾 Guardar</button>'
+        +'</div>'
+      +'</div></div>';
+    document.body.appendChild(m);
+    acEmpInit('inc-emp-q','inc-emp-drop', function(ced,nom){
+      document.getElementById('inc-emp-q').value=nom+' · '+ced;
+      document.getElementById('inc-ced').value=ced;
+      document.getElementById('inc-nom').value=nom;
+      var vd=document.getElementById('inc-vdia');
+      if(vd && !vd.value) vd.value=incValorDiaSugerido(ced);
+      incRecalcular(true);
+    }, acTrabFuente);
+    if(!i.valorDia){
+      var vd=document.getElementById('inc-vdia');
+      if(vd && !vd.value) vd.value=i.cedula?incValorDiaSugerido(i.cedula):incCfg('inc_valor_dia',58364);
+    }
+    incRecalcular(!inc);
+  });
+}
+// Recalcula fecha final, reparto sugerido y avisos
+function incRecalcular(forzar){
+  var ini=(document.getElementById('inc-ini')||{}).value||'';
+  var dias=parseInt((document.getElementById('inc-dias')||{}).value)||0;
+  var tipo=(document.getElementById('inc-tipo')||{}).value||'EG';
+  var pro=((document.getElementById('inc-prorroga')||{}).value||'no')==='si';
+  var vdia=parseFloat((document.getElementById('inc-vdia')||{}).value)||0;
+  // Fecha final
+  var fin='';
+  if(ini&&dias){ var d=incParse(ini); d.setDate(d.getDate()+dias-1); fin=incDiaISO(d); }
+  var fEl=document.getElementById('inc-fin'); if(fEl) fEl.value=fin;
+  // Reparto sugerido (solo si no hay uno guardado, o si se pide recalcular)
+  if(forzar || !INC_EDIT.pagos || !INC_EDIT.pagos.length){
+    INC_EDIT.pagos=incSugerirPagos(ini, dias, tipo, pro, vdia);
+  }
+  incPagosRender();
+  // Avisos legales
+  var av=document.getElementById('inc-aviso'); if(!av) return;
+  var avisos=[];
+  var acum=parseInt((document.getElementById('inc-acum')||{}).value)||0;
+  var tope=incCfg('inc_tope_dias',180);
+  if(acum>=tope) avisos.push('⚠️ Con '+acum+' días acumulados se supera el tope de '+tope+': a partir de ahí el pago corresponde al fondo de pensión, no a la EPS.');
+  if(tipo==='EG'&&!pro) avisos.push('ℹ️ Los primeros '+incCfg('inc_dias_empresa',2)+' días los asume la empresa por ser incapacidad inicial.');
+  if(tipo==='EG'&&pro) avisos.push('ℹ️ Al ser prórroga del mismo diagnóstico, la empresa no asume días: todo va a cargo de la EPS.');
+  if(tipo==='AT') avisos.push('ℹ️ El accidente de trabajo lo reconoce la ARL.');
+  av.innerHTML=avisos.length?avisos.map(function(a){
+    return '<div style="font-size:11px;color:#92400e;background:#fef3c7;border-radius:6px;padding:7px 10px;margin-bottom:5px">'+a+'</div>';
+  }).join(''):'';
+}
+function incPagosRender(){
+  var cont=document.getElementById('inc-pagos'); if(!cont) return;
+  var ps=INC_EDIT.pagos||[];
+  if(!ps.length){ cont.innerHTML='<div style="font-size:11px;color:var(--g3);padding:8px">Indica la fecha inicial y los días para ver el reparto.</div>'; return; }
+  var tot=ps.reduce(function(a,p){return a+(p.valor||0);},0);
+  cont.innerHTML='<div class="tw"><table style="font-size:12px"><thead><tr>'
+    +'<th>Quincena</th><th>Desde</th><th>Hasta</th><th style="text-align:center">Días</th>'
+    +'<th>A cargo de</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+    +ps.map(function(p,ix){
+      return '<tr>'
+        +'<td style="font-size:11px">'+gcEsc(p.quincena)+'</td>'
+        +'<td><input type="date" value="'+(p.desde||'')+'" onchange="incPagoSet('+ix+',\'desde\',this.value)" style="font-size:11px;padding:2px 4px"/></td>'
+        +'<td><input type="date" value="'+(p.hasta||'')+'" onchange="incPagoSet('+ix+',\'hasta\',this.value)" style="font-size:11px;padding:2px 4px"/></td>'
+        +'<td style="text-align:center"><input type="number" value="'+(p.dias||0)+'" min="0" onchange="incPagoSet('+ix+',\'dias\',this.value)" style="width:60px;font-size:11px;padding:2px 4px;text-align:center"/></td>'
+        +'<td><select onchange="incPagoSet('+ix+',\'aCargo\',this.value)" style="font-size:11px;padding:2px 4px">'
+          +['EMPRESA','EPS','ARL','FONDO PENSION'].map(function(c){return '<option value="'+c+'"'+(p.aCargo===c?' selected':'')+'>'+c+'</option>';}).join('')
+        +'</select></td>'
+        +'<td style="text-align:right"><input type="number" value="'+(p.valor||0)+'" onchange="incPagoSet('+ix+',\'valor\',this.value)" style="width:110px;font-size:11px;padding:2px 4px;text-align:right"/></td>'
+      +'</tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td colspan="3">TOTAL</td>'
+    +'<td style="text-align:center">'+ps.reduce(function(a,p){return a+(p.dias||0);},0)+'</td>'
+    +'<td></td><td style="text-align:right;color:var(--v)">'+cop(tot)+'</td></tr>'
+    +'</tbody></table></div>';
+}
+function incPagoSet(ix, campo, val){
+  if(!INC_EDIT.pagos[ix]) return;
+  INC_EDIT.pagos[ix][campo]=(campo==='dias'||campo==='valor')?(parseFloat(val)||0):val;
+  if(campo==='dias'){
+    var vd=parseFloat((document.getElementById('inc-vdia')||{}).value)||0;
+    INC_EDIT.pagos[ix].valor=Math.round((parseFloat(val)||0)*vd);
+  }
+  incPagosRender();
+}
+// Autocompletado del diagnóstico CIE-10
+var INC_CIE_T=null;
+function incCieBuscar(){
+  clearTimeout(INC_CIE_T);
+  INC_CIE_T=setTimeout(function(){
+    var q=((document.getElementById('inc-cie')||{}).value||'').trim();
+    var drop=document.getElementById('inc-cie-drop'); if(!drop) return;
+    if(q.length<2){ drop.style.display='none'; return; }
+    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'buscarCie10', q:q})})
+    .then(function(r){return r.json();}).then(function(d){
+      var rows=(d&&d.ok&&d.data)?d.data:[];
+      if(!rows.length){ drop.style.display='none'; return; }
+      drop.innerHTML=rows.map(function(c){
+        return '<div style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bd)" '
+          +'onmousedown="incCieSel(this)" data-cod="'+gcEsc(c.codigo)+'" data-desc="'+gcEsc(c.descripcion)+'" data-grupo="'+gcEsc(c.grupo||'')+'">'
+          +'<code style="color:var(--v);font-weight:700">'+gcEsc(c.codigo)+'</code> '+gcEsc(c.descripcion)
+          +(c.grupo?('<div style="font-size:10px;color:var(--g3)">'+gcEsc(c.grupo)+'</div>'):'')+'</div>';
+      }).join('');
+      drop.style.display='block';
+    }).catch(function(){});
+  }, 250);
+}
+function incCieSel(el){
+  var cod=el.getAttribute('data-cod'), desc=el.getAttribute('data-desc'), grp=el.getAttribute('data-grupo');
+  document.getElementById('inc-cie').value=cod+' · '+desc;
+  document.getElementById('inc-cie-cod').value=cod;
+  document.getElementById('inc-cie-desc').value=desc;
+  document.getElementById('inc-cie-grupo').value=grp||'';
+  document.getElementById('inc-cie-drop').style.display='none';
+}
+function incGuardar(){
+  var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
+  var ced=g('inc-ced'), ini=g('inc-ini'), dias=parseInt(g('inc-dias'))||0;
+  if(!ced){ alert('Elige el trabajador'); return; }
+  if(!ini||!dias){ alert('Indica la fecha inicial y los días'); return; }
+  var inc={
+    id:INC_EDIT.id||null, cedula:ced, nombres:g('inc-nom'), tipo:g('inc-tipo'),
+    prorroga:(g('inc-prorroga')==='si'), inicio:ini, dias:dias, fin:g('inc-fin'),
+    diasAcum:parseInt(g('inc-acum'))||0, numero:g('inc-num'), ibc:parseFloat(g('inc-ibc'))||0,
+    cie10:g('inc-cie-cod'), diagnostico:g('inc-cie-desc'), grupo:g('inc-cie-grupo'),
+    entidad:g('inc-entidad'), origen:g('inc-origen'), obsRad:g('inc-obs'), estado:g('inc-estado'),
+    valorEmpresa:(INC_EDIT.pagos||[]).filter(function(p){return p.aCargo==='EMPRESA';}).reduce(function(a,p){return a+(p.valor||0);},0)
+  };
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarIncapacidad', incapacidad:inc, pagos:INC_EDIT.pagos||[], usuario:(typeof S!=='undefined'&&S.u)||''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ var m=document.getElementById('inc-modal'); if(m) m.remove(); incCargar(); }
+    else alert('Error: '+((d&&d.error)||'no se pudo guardar'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+
+// ── Informe de incapacidades por quincena ─────────────────────────────────
+function incInformeInit(){
+  var sel=document.getElementById('inci-qna'); if(!sel||sel.options.length) return;
+  // Quincenas del año en curso y del anterior
+  var hoy=new Date(), op=[];
+  for(var y=hoy.getFullYear(); y>=hoy.getFullYear()-1; y--){
+    for(var m=11;m>=0;m--){
+      op.push('02 QNA '+MESES_CORTO[m]+' '+y);
+      op.push('01 QNA '+MESES_CORTO[m]+' '+y);
+    }
+  }
+  sel.innerHTML=op.map(function(q){return '<option value="'+q+'">'+q+'</option>';}).join('');
+  sel.value=incQnaDe(hoy);
+}
+function incInformeGenerar(){
+  var qna=(document.getElementById('inci-qna')||{}).value||'';
+  var tipo=(document.getElementById('inci-tipo')||{}).value||'';
+  var cont=document.getElementById('inci-cont');
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Generando...</div>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'informeIncapacidades', quincena:qna, tipo:tipo})})
+  .then(function(r){return r.json();}).then(function(d){
+    var filas=(d&&d.ok&&d.data)?d.data:[];
+    // Un trabajador puede tener varias incapacidades en la quincena: se agrupan
+    var porCed={};
+    filas.forEach(function(f){
+      var k=f.cedula+'|'+f.aCargo;
+      if(!porCed[k]) porCed[k]={cedula:f.cedula, nombres:f.nombres, aCargo:f.aCargo, dias:0, valor:0, detalle:[]};
+      porCed[k].dias+=f.dias; porCed[k].valor+=f.valor;
+      porCed[k].detalle.push(f);
+    });
+    var grupos=Object.keys(porCed).map(function(k){return porCed[k];})
+      .sort(function(a,b){ return String(a.nombres).localeCompare(String(b.nombres)); });
+    INC_INF={qna:qna, tipo:tipo, grupos:grupos, filas:filas};
+    if(!grupos.length){
+      cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay incapacidades para pagar en '+gcEsc(qna)+'.</div>';
+      return;
+    }
+    var totD=grupos.reduce(function(a,g){return a+g.dias;},0);
+    var totV=grupos.reduce(function(a,g){return a+g.valor;},0);
+    var emp=grupos.filter(function(g){return g.aCargo==='EMPRESA';}).reduce(function(a,g){return a+g.valor;},0);
+    cont.innerHTML='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">'
+        +'<div class="st"><div class="sl">Trabajadores</div><div class="sv">'+new Set(grupos.map(function(g){return g.cedula;})).size+'</div></div>'
+        +'<div class="st"><div class="sl">Días a pagar</div><div class="sv">'+totD+'</div></div>'
+        +'<div class="st"><div class="sl">Valor total</div><div class="sv gv">'+cop(totV)+'</div></div>'
+        +'<div class="st"><div class="sl">De eso, asume la empresa</div><div class="sv" style="color:var(--a)">'+cop(emp)+'</div></div>'
+      +'</div>'
+      +'<div class="card"><div class="ct">📋 '+gcEsc(qna)+'</div>'
+      +'<div class="tw" style="max-height:60vh;overflow:auto"><table id="inci-t"><thead><tr>'
+        +'<th>Cédula</th><th>Trabajador</th><th>Tipo</th><th style="text-align:center">Días</th>'
+        +'<th>Periodo</th><th>A cargo de</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+      +grupos.map(function(g){
+        var per=g.detalle.map(function(f){return incFecha(f.desde)+' a '+incFecha(f.hasta);}).join(' · ');
+        var tipos=Array.from(new Set(g.detalle.map(function(f){return f.tipo;}))).join(', ');
+        return '<tr>'
+          +'<td><code style="font-size:11px">'+gcEsc(g.cedula)+'</code></td>'
+          +'<td><strong>'+gcEsc(g.nombres)+'</strong></td>'
+          +'<td style="font-size:11px">'+gcEsc(tipos)+'</td>'
+          +'<td style="text-align:center;font-weight:700">'+g.dias+'</td>'
+          +'<td style="font-size:11px">'+per+'</td>'
+          +'<td style="font-size:11px">'+(g.aCargo==='EMPRESA'
+              ?'<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px">EMPRESA</span>'
+              :gcEsc(g.aCargo))+'</td>'
+          +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(g.valor)+'</td></tr>';
+      }).join('')
+      +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td colspan="3">TOTAL</td>'
+        +'<td style="text-align:center">'+totD+'</td><td></td><td></td>'
+        +'<td style="text-align:right">'+cop(totV)+'</td></tr>'
+      +'</tbody></table></div></div>';
+  }).catch(function(e){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
+  });
+}
+function incInformeExcel(){
+  if(!INC_INF||!INC_INF.grupos.length){ alert('Primero genera el informe'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var d=INC_INF, rows=[];
+    rows.push(['INFORME DE INCAPACIDADES A PAGAR']);
+    rows.push([d.qna+(d.tipo?('  ·  '+d.tipo):'  ·  Todos los tipos')]);
+    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Tipo','Días','Desde','Hasta','A cargo de','Valor']);
+    d.filas.forEach(function(f){
+      rows.push([String(f.cedula), f.nombres, f.tipo, f.dias,
+                 incFecha(f.desde), incFecha(f.hasta), f.aCargo, f.valor]);
+    });
+    var totD=d.filas.reduce(function(a,f){return a+f.dias;},0);
+    var totV=d.filas.reduce(function(a,f){return a+f.valor;},0);
+    rows.push([]);
+    rows.push(['','','TOTAL', totD,'','','', totV]);
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:36},{wch:14},{wch:8},{wch:13},{wch:13},{wch:16},{wch:15}];
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDEFGH'.split('').forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    });
+    var n=d.filas.length;
+    for(var i=0;i<n;i++){
+      var r=6+i;
+      if(ws['H'+r]) ws['H'+r].z='$#,##0';
+      if(i%2===1){ 'ABCDEFGH'.split('').forEach(function(c){
+        var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    var rt=6+n+1;
+    est('C'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}}});
+    est('D'+rt,{font:{bold:true}});
+    if(ws['H'+rt]){ ws['H'+rt].z='$#,##0'; ws['H'+rt].s={font:{bold:true,color:{rgb:'2D5A3D'}}}; }
+    ws['!autofilter']={ref:'A5:H'+(5+n)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Incapacidades');
+    XLSX.writeFile(wb, 'Incapacidades_'+String(d.qna).replace(/\s+/g,'_')+'.xlsx');
+  });
+}
+
 function rhVincCargar(cedula){
   var cont=document.getElementById('rh-vinc'); if(!cont) return;
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
