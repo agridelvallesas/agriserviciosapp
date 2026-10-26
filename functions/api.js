@@ -56,6 +56,7 @@ const PORTADAS = new Set([
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
+  'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
 ]);
 
@@ -170,6 +171,11 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
+    else if (accion === 'getIncapacidades')     r = await accionGetIncapacidades(body, env);
+    else if (accion === 'guardarIncapacidad')   r = await accionGuardarIncapacidad(body, env);
+    else if (accion === 'eliminarIncapacidad')  r = await accionEliminarIncapacidad(body, env);
+    else if (accion === 'buscarCie10')          r = await accionBuscarCie10(body, env);
+    else if (accion === 'informeIncapacidades') r = await accionInformeIncapacidades(body, env);
     else if (accion === 'facArchivoSubirUrl')   r = await accionFacArchivoSubirUrl(body, env);
     else if (accion === 'facArchivoRegistrar')  r = await accionFacArchivoRegistrar(body, env);
     else if (accion === 'facArchivos')          r = await accionFacArchivos(body, env);
@@ -2278,4 +2284,140 @@ async function accionEliminarFacResponsable(body, env) {
   if (!body.id) return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `facturacion_responsables?id=eq.${encodeURIComponent(body.id)}`);
   return { ok: true };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INCAPACIDADES (enfermedad general, accidente de trabajo y licencias)
+// ═══════════════════════════════════════════════════════════════════════════
+function incFila(i, pagos) {
+  return {
+    id: i.id, cedula: String(i.cedula || ''), nombres: i.nombres || '',
+    tipo: i.tipo || 'EG', prorroga: !!i.prorroga,
+    inicio: i.fecha_inicio ? String(i.fecha_inicio).slice(0, 10) : '',
+    dias: Number(i.dias || 0),
+    fin: i.fecha_fin ? String(i.fecha_fin).slice(0, 10) : '',
+    diasAcum: Number(i.dias_acum || 0), numero: i.numero || '',
+    ibc: Number(i.ibc || 0), cie10: i.codigo_cie10 || '', diagnostico: i.diagnostico || '',
+    grupo: i.grupo_dx || '', entidad: i.entidad || '', origen: i.origen || '',
+    obsRad: i.observacion_rad || '',
+    valorEmpresa: Number(i.valor_empresa || 0), valorEntidad: Number(i.valor_entidad || 0),
+    notaCredito: Number(i.nota_credito || 0),
+    fechaConsig: i.fecha_consig ? String(i.fecha_consig).slice(0, 10) : '',
+    estado: i.estado || 'REGISTRADA', observacion: i.observacion || '',
+    pagos: pagos || [],
+  };
+}
+async function accionGetIncapacidades(body, env) {
+  let path = 'incapacidades?select=*&order=fecha_inicio.desc';
+  const f = [];
+  if (body.tipo) f.push(`tipo=eq.${encodeURIComponent(body.tipo)}`);
+  if (body.cedula) f.push(`cedula=eq.${encodeURIComponent(String(body.cedula).replace(/[.,\s]/g, ''))}`);
+  if (body.desde) f.push(`fecha_inicio=gte.${encodeURIComponent(body.desde)}`);
+  if (body.hasta) f.push(`fecha_inicio=lte.${encodeURIComponent(body.hasta)}`);
+  if (f.length) path = 'incapacidades?select=*&' + f.join('&') + '&order=fecha_inicio.desc';
+  const rows = await sbAll(env, path);
+  if (!rows.length) return { ok: true, data: [] };
+  // Pagos por quincena de esas incapacidades
+  const ids = rows.map((r) => r.id);
+  const pagosPorInc = {};
+  for (let i = 0; i < ids.length; i += 100) {
+    const lote = ids.slice(i, i + 100).join(',');
+    const ps = await sbAll(env, `incapacidad_pagos?select=*&incapacidad_id=in.(${lote})&order=desde`);
+    ps.forEach((p) => {
+      (pagosPorInc[p.incapacidad_id] = pagosPorInc[p.incapacidad_id] || []).push({
+        id: p.id, quincena: p.quincena || '',
+        desde: p.desde ? String(p.desde).slice(0, 10) : '',
+        hasta: p.hasta ? String(p.hasta).slice(0, 10) : '',
+        dias: Number(p.dias || 0), valor: Number(p.valor || 0),
+        aCargo: p.a_cargo || 'EPS', pagado: !!p.pagado, observacion: p.observacion || '',
+      });
+    });
+  }
+  return { ok: true, data: rows.map((r) => incFila(r, pagosPorInc[r.id] || [])) };
+}
+async function accionGuardarIncapacidad(body, env) {
+  const i = body.incapacidad || {};
+  const ced = String(i.cedula || '').replace(/[.,\s]/g, '').trim();
+  if (!ced || !i.inicio || !i.dias) return { ok: false, error: 'Faltan cédula, fecha de inicio o días' };
+  const fila = {
+    cedula: ced, nombres: String(i.nombres || ''), tipo: String(i.tipo || 'EG'),
+    prorroga: !!i.prorroga, fecha_inicio: fechaONull(i.inicio), dias: parseInt(i.dias) || 0,
+    fecha_fin: fechaONull(i.fin), dias_acum: parseInt(i.diasAcum) || 0,
+    numero: String(i.numero || ''), ibc: parseFloat(i.ibc) || 0,
+    codigo_cie10: String(i.cie10 || '').toUpperCase(), diagnostico: String(i.diagnostico || ''),
+    grupo_dx: String(i.grupo || ''), entidad: String(i.entidad || ''), origen: String(i.origen || ''),
+    observacion_rad: String(i.obsRad || ''),
+    valor_empresa: parseFloat(i.valorEmpresa) || 0, valor_entidad: parseFloat(i.valorEntidad) || 0,
+    nota_credito: parseFloat(i.notaCredito) || 0, fecha_consig: fechaONull(i.fechaConsig),
+    estado: String(i.estado || 'REGISTRADA'), observacion: String(i.observacion || ''),
+    registrado_por: String(body.usuario || ''),
+  };
+  let id = i.id;
+  if (id) await sbWrite(env, 'PATCH', `incapacidades?id=eq.${encodeURIComponent(id)}`, fila);
+  else {
+    await sbWrite(env, 'POST', 'incapacidades', fila);
+    const nueva = await sb(env, `incapacidades?select=id&cedula=eq.${encodeURIComponent(ced)}&fecha_inicio=eq.${encodeURIComponent(fila.fecha_inicio)}&order=id.desc&limit=1`);
+    id = nueva.length ? nueva[0].id : null;
+  }
+  if (!id) return { ok: false, error: 'No se pudo guardar la incapacidad' };
+  // Reemplazar los pagos por quincena
+  await sbWrite(env, 'DELETE', `incapacidad_pagos?incapacidad_id=eq.${encodeURIComponent(id)}`);
+  const pagos = (body.pagos || []).filter((p) => p && (parseInt(p.dias) || 0) > 0);
+  if (pagos.length) {
+    await sbWrite(env, 'POST', 'incapacidad_pagos', pagos.map((p) => ({
+      incapacidad_id: id, quincena: String(p.quincena || ''),
+      desde: fechaONull(p.desde), hasta: fechaONull(p.hasta),
+      dias: parseInt(p.dias) || 0, valor: parseFloat(p.valor) || 0,
+      a_cargo: String(p.aCargo || 'EPS'), pagado: !!p.pagado, observacion: String(p.observacion || ''),
+    })));
+  }
+  return { ok: true, id };
+}
+async function accionEliminarIncapacidad(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `incapacidad_pagos?incapacidad_id=eq.${encodeURIComponent(body.id)}`);
+  await sbWrite(env, 'DELETE', `incapacidades?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
+}
+async function accionBuscarCie10(body, env) {
+  const q = String(body.q || '').trim();
+  if (q.length < 2) return { ok: true, data: [] };
+  const esCodigo = /^[A-Za-z]\d/.test(q);
+  const path = esCodigo
+    ? `cie10?select=codigo,descripcion,grupo&codigo=ilike.${encodeURIComponent(q + '%')}&limit=20`
+    : `cie10?select=codigo,descripcion,grupo&descripcion=ilike.${encodeURIComponent('%' + q + '%')}&limit=20`;
+  const rows = await sb(env, path);
+  return { ok: true, data: rows };
+}
+// Informe por quincena o por mes: lo que se paga en ese periodo
+async function accionInformeIncapacidades(body, env) {
+  const f = [];
+  if (body.quincena) f.push(`quincena=eq.${encodeURIComponent(body.quincena)}`);
+  if (body.desde) f.push(`desde=gte.${encodeURIComponent(body.desde)}`);
+  if (body.hasta) f.push(`hasta=lte.${encodeURIComponent(body.hasta)}`);
+  const pagos = await sbAll(env, `incapacidad_pagos?select=*${f.length ? '&' + f.join('&') : ''}&order=desde`);
+  if (!pagos.length) return { ok: true, data: [] };
+  const ids = Array.from(new Set(pagos.map((p) => p.incapacidad_id)));
+  const incs = {};
+  for (let i = 0; i < ids.length; i += 100) {
+    const lote = ids.slice(i, i + 100).join(',');
+    const rows = await sbAll(env, `incapacidades?select=id,cedula,nombres,tipo,codigo_cie10,diagnostico,entidad,fecha_inicio,fecha_fin,dias&id=in.(${lote})`);
+    rows.forEach((r) => { incs[r.id] = r; });
+  }
+  const data = pagos.map((p) => {
+    const i = incs[p.incapacidad_id] || {};
+    return {
+      cedula: String(i.cedula || ''), nombres: i.nombres || '', tipo: i.tipo || 'EG',
+      quincena: p.quincena || '',
+      desde: p.desde ? String(p.desde).slice(0, 10) : '',
+      hasta: p.hasta ? String(p.hasta).slice(0, 10) : '',
+      dias: Number(p.dias || 0), valor: Number(p.valor || 0), aCargo: p.a_cargo || 'EPS',
+      pagado: !!p.pagado, cie10: i.codigo_cie10 || '', diagnostico: i.diagnostico || '',
+      entidad: i.entidad || '',
+      incInicio: i.fecha_inicio ? String(i.fecha_inicio).slice(0, 10) : '',
+      incDias: Number(i.dias || 0),
+    };
+  }).filter((x) => !body.tipo || x.tipo === body.tipo);
+  return { ok: true, data };
 }
