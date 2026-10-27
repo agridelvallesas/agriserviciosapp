@@ -57,6 +57,7 @@ const PORTADAS = new Set([
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
+  'revisarIncapacidad',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
 ]);
 
@@ -176,6 +177,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarIncapacidad')  r = await accionEliminarIncapacidad(body, env);
     else if (accion === 'buscarCie10')          r = await accionBuscarCie10(body, env);
     else if (accion === 'informeIncapacidades') r = await accionInformeIncapacidades(body, env);
+    else if (accion === 'revisarIncapacidad')   r = await accionRevisarIncapacidad(body, env);
     else if (accion === 'facArchivoSubirUrl')   r = await accionFacArchivoSubirUrl(body, env);
     else if (accion === 'facArchivoRegistrar')  r = await accionFacArchivoRegistrar(body, env);
     else if (accion === 'facArchivos')          r = await accionFacArchivos(body, env);
@@ -2305,6 +2307,9 @@ function incFila(i, pagos) {
     notaCredito: Number(i.nota_credito || 0),
     fechaConsig: i.fecha_consig ? String(i.fecha_consig).slice(0, 10) : '',
     estado: i.estado || 'REGISTRADA', observacion: i.observacion || '',
+    revision: i.revision || 'REVISADA', revisadoPor: i.revisado_por || '',
+    fechaRevision: i.fecha_revision || '', obsRevision: i.obs_revision || '',
+    registradoPor: i.registrado_por || '',
     pagos: pagos || [],
   };
 }
@@ -2353,6 +2358,14 @@ async function accionGuardarIncapacidad(body, env) {
     estado: String(i.estado || 'REGISTRADA'), observacion: String(i.observacion || ''),
     registrado_por: String(body.usuario || ''),
   };
+  // ¿El usuario que registra requiere revisión posterior?
+  if (!i.id) {
+    const cfg = await sb(env, "config_empresa?select=valor&clave=eq.inc_usuarios_revisar&limit=1");
+    const lista = (cfg.length ? String(cfg[0].valor || '') : '').split(',')
+      .map((x) => x.trim().toUpperCase()).filter(Boolean);
+    const quien = String(body.usuario || '').trim().toUpperCase();
+    fila.revision = (quien && lista.indexOf(quien) >= 0) ? 'PENDIENTE' : 'REVISADA';
+  }
   let id = i.id;
   if (id) await sbWrite(env, 'PATCH', `incapacidades?id=eq.${encodeURIComponent(id)}`, fila);
   else {
@@ -2420,4 +2433,18 @@ async function accionInformeIncapacidades(body, env) {
     };
   }).filter((x) => !body.tipo || x.tipo === body.tipo);
   return { ok: true, data };
+}
+
+
+// Marcar una incapacidad como revisada (o devolverla con una observación)
+async function accionRevisarIncapacidad(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  const estado = String(body.revision || 'REVISADA').toUpperCase();
+  await sbWrite(env, 'PATCH', `incapacidades?id=eq.${encodeURIComponent(body.id)}`, {
+    revision: estado,
+    revisado_por: String(body.usuario || ''),
+    fecha_revision: new Date().toISOString(),
+    obs_revision: String(body.observacion || ''),
+  });
+  return { ok: true };
 }
