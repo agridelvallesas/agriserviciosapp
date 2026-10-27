@@ -3198,6 +3198,13 @@ tfoot td{background:var(--gf);font-weight:700}
                 <option value="MATERNIDAD">Licencia maternidad</option>
                 <option value="PATERNIDAD">Licencia paternidad</option>
               </select></div>
+            <div class="fld" style="min-width:160px;margin:0"><label style="font-size:10px">Revisión</label>
+              <select id="inc-f-rev" onchange="incRender()">
+                <option value="">Todas</option>
+                <option value="PENDIENTE">⏳ Pendientes de revisar</option>
+                <option value="REVISADA">✓ Revisadas</option>
+                <option value="DEVUELTA">↩️ Devueltas</option>
+              </select></div>
             <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="inc-f-d1" onchange="incCargar()"/></div>
             <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="inc-f-d2" onchange="incCargar()"/></div>
             <div class="fld" style="flex:1;min-width:190px;margin:0"><label style="font-size:10px">Buscar trabajador</label>
@@ -14441,7 +14448,9 @@ function incRender(){
   var cont=document.getElementById('inc-cont'), kp=document.getElementById('inc-kpis');
   if(!cont) return;
   var q=((document.getElementById('inc-f-emp')||{}).value||'').toLowerCase().trim();
+  var rev=(document.getElementById('inc-f-rev')||{}).value||'';
   var filas=INC_DATA.filter(function(i){
+    if(rev && String(i.revision||'REVISADA')!==rev) return false;
     if(!q) return true;
     return String(i.nombres||'').toLowerCase().indexOf(q)>=0 ||
            String(i.cedula||'').replace(/[.,\s]/g,'').indexOf(q.replace(/[.,\s]/g,''))>=0;
@@ -14452,7 +14461,9 @@ function incRender(){
     var totVal=filas.reduce(function(s,i){return s+(i.pagos||[]).reduce(function(a,p){return a+(p.valor||0);},0);},0);
     var alertas=filas.filter(function(i){return (i.diasAcum||0)>=tope;}).length;
     kp.style.display='grid';
-    kp.innerHTML='<div class="st"><div class="sl">Incapacidades</div><div class="sv">'+filas.length+'</div></div>'
+    var pend=INC_DATA.filter(function(i){return String(i.revision||'')==='PENDIENTE';}).length;
+    kp.innerHTML=(pend?('<div class="st" style="background:#fef3c7;border-color:#f59e0b;cursor:pointer" onclick="document.getElementById(\'inc-f-rev\').value=\'PENDIENTE\';incRender()"><div class="sl" style="color:#92400e">⏳ Pendientes de revisar</div><div class="sv" style="color:#b45309">'+pend+'</div></div>'):'')
+      +'<div class="st"><div class="sl">Incapacidades</div><div class="sv">'+filas.length+'</div></div>'
       +'<div class="st"><div class="sl">Días totales</div><div class="sv">'+totDias+'</div></div>'
       +'<div class="st"><div class="sl">Valor registrado</div><div class="sv gv">'+cop(totVal)+'</div></div>'
       +(alertas?('<div class="st" style="background:#fef3c7;border-color:#f59e0b"><div class="sl" style="color:#92400e">Superan '+tope+' días</div><div class="sv" style="color:#b45309">'+alertas+'</div></div>'):'');
@@ -14466,7 +14477,7 @@ function incRender(){
   cont.innerHTML='<div class="card"><div class="tw" style="max-height:62vh;overflow:auto"><table id="inc-t"><thead><tr>'
     +'<th>Tipo</th><th>Cédula</th><th>Trabajador</th><th>Inicio</th><th style="text-align:center">Días</th>'
     +'<th>Fin</th><th>Diagnóstico</th><th>Entidad</th><th style="text-align:right">Valor</th>'
-    +'<th>Quincenas de pago</th><th class="no-print">Acc.</th></tr></thead><tbody>'
+    +'<th>Revisión</th><th>Quincenas de pago</th><th class="no-print">Acc.</th></tr></thead><tbody>'
     +filas.map(function(i){
       var tb=tipoBdg[i.tipo]||['#f1f5f9','#475569',i.tipo];
       var val=(i.pagos||[]).reduce(function(a,p){return a+(p.valor||0);},0);
@@ -14475,7 +14486,8 @@ function incRender(){
           +gcEsc(p.quincena.replace(' QNA ',' '))+': '+p.dias+'d'+(p.aCargo==='EMPRESA'?' (emp)':'')+'</span>';
       }).join(' ');
       var alerta=(i.diasAcum||0)>=tope;
-      return '<tr'+(alerta?' style="background:#fffbeb"':'')+'>'
+      var pendiente=String(i.revision||'')==='PENDIENTE';
+      return '<tr'+(pendiente?' style="background:#fffbeb;border-left:3px solid #f59e0b"':(alerta?' style="background:#fffbeb"':''))+'>'
         +'<td><span style="font-size:10px;font-weight:700;background:'+tb[0]+';color:'+tb[1]+';padding:2px 7px;border-radius:99px">'+tb[2]+'</span>'
           +(i.prorroga?' <span style="font-size:9px;color:var(--g3)">prórroga</span>':'')+'</td>'
         +'<td><code style="font-size:11px">'+gcEsc(i.cedula)+'</code></td>'
@@ -14485,12 +14497,47 @@ function incRender(){
         +'<td style="font-size:11px">'+(i.cie10?('<code>'+gcEsc(i.cie10)+'</code> '):'')+gcEsc(String(i.diagnostico||'').slice(0,40))+'</td>'
         +'<td style="font-size:11px">'+gcEsc(i.entidad||'—')+'</td>'
         +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(val)+'</td>'
+        +'<td style="font-size:10px;white-space:nowrap">'+incRevisionBadge(i)+'</td>'
         +'<td>'+(qnas||'<span style="color:var(--g3);font-size:10px">sin reparto</span>')+'</td>'
         +'<td class="no-print" style="white-space:nowrap">'
+          +(pendiente?('<button class="btn bv" style="padding:3px 8px;font-size:11px" onclick="incRevisar('+i.id+')" title="Marcar como revisada">✓</button> '):'')
           +'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="incEditar('+i.id+')">✏️</button> '
           +'<button class="btn br" style="padding:3px 8px;font-size:11px" onclick="incEliminar('+i.id+')">🗑️</button></td>'
       +'</tr>';
     }).join('')+'</tbody></table></div></div>';
+}
+// Etiqueta del estado de revisión
+function incRevisionBadge(i){
+  var r=String(i.revision||'REVISADA');
+  if(r==='PENDIENTE')
+    return '<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;font-weight:700">⏳ Por revisar</span>'
+      +(i.registradoPor?('<div style="color:var(--g3);font-size:9px">registró: '+gcEsc(i.registradoPor)+'</div>'):'');
+  if(r==='DEVUELTA')
+    return '<span style="background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:99px;font-weight:700">↩️ Devuelta</span>'
+      +(i.obsRevision?('<div style="color:#b91c1c;font-size:9px">'+gcEsc(i.obsRevision)+'</div>'):'');
+  return '<span style="color:var(--v)">✓ Revisada</span>'
+    +(i.revisadoPor?('<div style="color:var(--g3);font-size:9px">'+gcEsc(i.revisadoPor)+'</div>'):'');
+}
+// Aprobar o devolver una incapacidad registrada por otra persona
+function incRevisar(id){
+  var i=INC_DATA.find(function(x){return x.id===id;}); if(!i) return;
+  var r=confirm('Incapacidad de '+(i.nombres||'')+' ('+incFecha(i.inicio)+', '+i.dias+' días)'
+    +(i.registradoPor?('\nRegistrada por: '+i.registradoPor):'')
+    +'\n\nAceptar = marcarla como REVISADA\nCancelar = devolverla con una observación');
+  if(r) incRevisarEnviar(id,'REVISADA','');
+  else {
+    var obs=prompt('¿Qué debe corregir?','');
+    if(obs===null) return;
+    incRevisarEnviar(id,'DEVUELTA',obs);
+  }
+}
+function incRevisarEnviar(id, estado, obs){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'revisarIncapacidad', id:id, revision:estado,
+      observacion:obs, usuario:(typeof S!=='undefined'&&S.u)||''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok) incCargar(); else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
 }
 function incEliminar(id){
   var i=INC_DATA.find(function(x){return x.id===id;});
@@ -14532,7 +14579,8 @@ function incAbrir(inc){
             +'<select id="inc-prorroga" onchange="incRecalcular()">'+opt('no','No (incapacidad inicial)',i.prorroga?'si':'no')+opt('si','Sí (mismo diagnóstico)',i.prorroga?'si':'no')+'</select></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha inicial *</label><input type="date" id="inc-ini" value="'+(i.inicio||'')+'" onchange="incRecalcular()"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Días *</label><input type="number" id="inc-dias" min="1" value="'+(i.dias||'')+'" oninput="incRecalcular()"/></div>'
-          +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha final</label><input type="date" id="inc-fin" value="'+(i.fin||'')+'" readonly style="background:#f8fafc"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha final</label>'
+            +'<input type="date" id="inc-fin" value="'+(i.fin||'')+'" onchange="incFinCambio()" title="Puedes escribir los días o la fecha final: el otro dato se calcula solo"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor día (sugerido)</label><input type="number" id="inc-vdia" value="'+(i.valorDia||'')+'" oninput="incRecalcular()"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">N.º incapacidad</label><input type="text" id="inc-num" value="'+gcEsc(i.numero||'')+'"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Días acumulados (con esta)</label><input type="number" id="inc-acum" value="'+(i.diasAcum||'')+'"/></div>'
@@ -14579,6 +14627,19 @@ function incAbrir(inc){
     incRecalcular(!inc);
   });
 }
+// Si el usuario escribe la fecha final, se calculan los días (y viceversa)
+function incFinCambio(){
+  var ini=(document.getElementById('inc-ini')||{}).value||'';
+  var fin=(document.getElementById('inc-fin')||{}).value||'';
+  if(!ini||!fin) return;
+  var a=incParse(ini), b=incParse(fin);
+  if(!a||!b) return;
+  if(b<a){ alert('La fecha final no puede ser anterior a la inicial'); 
+           document.getElementById('inc-fin').value=''; return; }
+  var dias=Math.round((b-a)/86400000)+1;
+  var dEl=document.getElementById('inc-dias'); if(dEl) dEl.value=dias;
+  incRecalcular(true);
+}
 // Recalcula fecha final, reparto sugerido y avisos
 function incRecalcular(forzar){
   var ini=(document.getElementById('inc-ini')||{}).value||'';
@@ -14587,9 +14648,9 @@ function incRecalcular(forzar){
   var pro=((document.getElementById('inc-prorroga')||{}).value||'no')==='si';
   var vdia=parseFloat((document.getElementById('inc-vdia')||{}).value)||0;
   // Fecha final
-  var fin='';
-  if(ini&&dias){ var d=incParse(ini); d.setDate(d.getDate()+dias-1); fin=incDiaISO(d); }
-  var fEl=document.getElementById('inc-fin'); if(fEl) fEl.value=fin;
+  var fEl=document.getElementById('inc-fin');
+  if(ini&&dias){ var d=incParse(ini); d.setDate(d.getDate()+dias-1); if(fEl) fEl.value=incDiaISO(d); }
+  else if(fEl && !dias) fEl.value='';
   // Acumulado previo del trabajador (para saber a quién le corresponde cada día)
   var ced=(document.getElementById('inc-ced')||{}).value||'';
   var prev=incAcumPrevio(ced, ini, INC_EDIT.id);
