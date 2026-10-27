@@ -14339,18 +14339,54 @@ function incParse(iso){ var p=String(iso||'').split('-'); return p.length===3?ne
 function incQnaDe(d){
   return (d.getDate()<=15?'01':'02')+' QNA '+MESES_CORTO[d.getMonth()]+' '+d.getFullYear();
 }
-// Reparto SUGERIDO de los días de la incapacidad entre quincenas
-function incSugerirPagos(inicio, dias, tipo, prorroga, valorDia){
+// Quién responde por un día según los días acumulados del trabajador:
+//   1 a 180   → EPS
+//   181 a 540 → fondo de pensiones
+//   541 en adelante → EPS de nuevo
+function incCargoPorAcum(diaAcum, tipo){
+  if(tipo==='AT') return 'ARL';                       // el accidente lo cubre la ARL
+  if(tipo==='MATERNIDAD'||tipo==='PATERNIDAD') return 'EPS';
+  var t1=incCfg('inc_tope_dias',180), t2=incCfg('inc_tope_fondo',540);
+  if(diaAcum<=t1) return 'EPS';
+  if(diaAcum<=t2) return 'FONDO PENSION';
+  return 'EPS';
+}
+// Días que el trabajador ya tenía acumulados ANTES de esta incapacidad
+function incAcumPrevio(ced, inicio, idActual){
+  if(!ced||!inicio) return 0;
+  return (INC_DATA||[]).filter(function(x){
+    if(String(x.cedula)!==String(ced)) return false;
+    if(idActual && x.id===idActual) return false;
+    if(x.tipo==='AT') return false;                   // los de ARL no suman al conteo de EPS
+    return String(x.inicio||'')<String(inicio);
+  }).reduce(function(a,x){ return a+(x.dias||0); }, 0);
+}
+// ¿Quién paga el día número N del acumulado? (regla legal colombiana)
+//   1 a 180   → EPS
+//   181 a 540 → Fondo de pensiones
+//   541 en adelante → EPS de nuevo
+function incCargoPorAcumulado(nAcum){
+  var t1=incCfg('inc_tope_dias',180), t2=incCfg('inc_tope_fondo',540);
+  if(nAcum<=t1) return 'EPS';
+  if(nAcum<=t2) return 'FONDO PENSION';
+  return 'EPS';
+}
+// Reparto SUGERIDO de los días de la incapacidad entre quincenas.
+// acumPrevio = días de incapacidad que el trabajador ya llevaba antes de esta.
+function incSugerirPagos(inicio, dias, tipo, prorroga, valorDia, acumPrevio){
   var ini=incParse(inicio); if(!ini||!dias) return [];
+  acumPrevio=parseInt(acumPrevio)||0;
   var diasEmpresa=prorroga?0:incCfg('inc_dias_empresa',2);
-  if(tipo==='AT') diasEmpresa=0;                 // el accidente lo cubre la ARL
-  if(tipo==='MATERNIDAD'||tipo==='PATERNIDAD') diasEmpresa=0;
-  var entidad=(tipo==='AT')?'ARL':'EPS';
+  if(tipo!=='EG') diasEmpresa=0;                  // AT y licencias no los asume la empresa
   var grupos={};
   for(var i=0;i<dias;i++){
     var d=new Date(ini.getTime()); d.setDate(d.getDate()+i);
     var q=incQnaDe(d);
-    var cargo=(i<diasEmpresa)?'EMPRESA':entidad;
+    var cargo;
+    if(i<diasEmpresa) cargo='EMPRESA';
+    else if(tipo==='AT') cargo='ARL';
+    else if(tipo==='MATERNIDAD'||tipo==='PATERNIDAD') cargo='EPS';
+    else cargo=incCargoPorAcumulado(acumPrevio+i+1);   // EG: según el acumulado
     var k=q+'|'+cargo;
     if(!grupos[k]) grupos[k]={quincena:q, aCargo:cargo, desde:incDiaISO(d), hasta:incDiaISO(d), dias:0};
     grupos[k].hasta=incDiaISO(d); grupos[k].dias++;
@@ -14359,7 +14395,7 @@ function incSugerirPagos(inicio, dias, tipo, prorroga, valorDia){
     var g=grupos[k];
     g.valor=Math.round(g.dias*(valorDia||0));
     return g;
-  }).sort(function(a,b){ return a.desde<b.desde?-1:1; });
+  }).sort(function(a,b){ return a.desde<b.desde?-1:(a.desde>b.desde?1:(a.aCargo<b.aCargo?-1:1)); });
 }
 // Valor día sugerido: salario del trabajador ÷ 30, o el mínimo configurado
 function incValorDiaSugerido(ced){
@@ -14499,7 +14535,7 @@ function incAbrir(inc){
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha final</label><input type="date" id="inc-fin" value="'+(i.fin||'')+'" readonly style="background:#f8fafc"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Valor día (sugerido)</label><input type="number" id="inc-vdia" value="'+(i.valorDia||'')+'" oninput="incRecalcular()"/></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">N.º incapacidad</label><input type="text" id="inc-num" value="'+gcEsc(i.numero||'')+'"/></div>'
-          +'<div class="fld" style="margin:0"><label style="font-size:10px">Días acumulados</label><input type="number" id="inc-acum" value="'+(i.diasAcum||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Días acumulados (con esta)</label><input type="number" id="inc-acum" value="'+(i.diasAcum||'')+'"/></div>'
           +'<div class="fld" style="margin:0;position:relative;grid-column:span 2"><label style="font-size:10px">Diagnóstico CIE-10</label>'
             +'<input type="text" id="inc-cie" value="'+gcEsc(i.cie10?(i.cie10+' · '+i.diagnostico):'')+'" placeholder="Código o descripción..." autocomplete="off" oninput="incCieBuscar()"/>'
             +'<input type="hidden" id="inc-cie-cod" value="'+gcEsc(i.cie10||'')+'"/>'
@@ -14554,17 +14590,32 @@ function incRecalcular(forzar){
   var fin='';
   if(ini&&dias){ var d=incParse(ini); d.setDate(d.getDate()+dias-1); fin=incDiaISO(d); }
   var fEl=document.getElementById('inc-fin'); if(fEl) fEl.value=fin;
+  // Acumulado previo del trabajador (para saber a quién le corresponde cada día)
+  var ced=(document.getElementById('inc-ced')||{}).value||'';
+  var prev=incAcumPrevio(ced, ini, INC_EDIT.id);
+  var acEl=document.getElementById('inc-acum');
+  if(acEl && (forzar || !acEl.value)) acEl.value=prev+dias;
   // Reparto sugerido (solo si no hay uno guardado, o si se pide recalcular)
   if(forzar || !INC_EDIT.pagos || !INC_EDIT.pagos.length){
-    INC_EDIT.pagos=incSugerirPagos(ini, dias, tipo, pro, vdia);
+    INC_EDIT.pagos=incSugerirPagos(ini, dias, tipo, pro, vdia, prev);
   }
   incPagosRender();
   // Avisos legales
   var av=document.getElementById('inc-aviso'); if(!av) return;
   var avisos=[];
-  var acum=parseInt((document.getElementById('inc-acum')||{}).value)||0;
-  var tope=incCfg('inc_tope_dias',180);
-  if(acum>=tope) avisos.push('⚠️ Con '+acum+' días acumulados se supera el tope de '+tope+': a partir de ahí el pago corresponde al fondo de pensión, no a la EPS.');
+  var t1=incCfg('inc_tope_dias',180), t2=incCfg('inc_tope_fondo',540);
+  if(tipo==='EG'){
+    var desdeDia=prev+1, hastaDia=prev+dias;
+    avisos.push('ℹ️ Esta incapacidad cubre los días <strong>'+desdeDia+' al '+hastaDia+'</strong> del acumulado del trabajador.');
+    if(desdeDia<=t1 && hastaDia>t1)
+      avisos.push('⚠️ Cruza el día '+t1+': los días hasta el '+t1+' los paga la EPS y de ahí en adelante el <strong>fondo de pensiones</strong>.');
+    else if(desdeDia>t1 && hastaDia<=t2)
+      avisos.push('⚠️ Todo este periodo está entre los días '+(t1+1)+' y '+t2+': lo paga el <strong>fondo de pensiones</strong>, no la EPS.');
+    else if(desdeDia<=t2 && hastaDia>t2)
+      avisos.push('⚠️ Cruza el día '+t2+': hasta ahí paga el fondo de pensiones y del '+(t2+1)+' en adelante vuelve a pagar la <strong>EPS</strong>.');
+    else if(desdeDia>t2)
+      avisos.push('ℹ️ Supera el día '+t2+' del acumulado: el pago vuelve a corresponder a la <strong>EPS</strong>.');
+  }
   if(tipo==='EG'&&!pro) avisos.push('ℹ️ Los primeros '+incCfg('inc_dias_empresa',2)+' días los asume la empresa por ser incapacidad inicial.');
   if(tipo==='EG'&&pro) avisos.push('ℹ️ Al ser prórroga del mismo diagnóstico, la empresa no asume días: todo va a cargo de la EPS.');
   if(tipo==='AT') avisos.push('ℹ️ El accidente de trabajo lo reconoce la ARL.');
