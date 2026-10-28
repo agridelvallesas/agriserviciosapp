@@ -14552,7 +14552,8 @@ function incNueva(){ incAbrir(null); }
 function incEditar(id){ incAbrir(INC_DATA.find(function(x){return x.id===id;})||null); }
 function incAbrir(inc){
   INC_EDIT=inc?JSON.parse(JSON.stringify(inc)):{tipo:'EG', prorroga:false, dias:0, estado:'REGISTRADA', pagos:[]};
-  acTrabAsegurar(function(){
+  rhCargarCatalogos(function(){
+   acTrabAsegurar(function(){
     var m=document.createElement('div');
     m.id='inc-modal';
     m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px';
@@ -14590,9 +14591,17 @@ function incAbrir(inc){
             +'<input type="hidden" id="inc-cie-desc" value="'+gcEsc(i.diagnostico||'')+'"/>'
             +'<input type="hidden" id="inc-cie-grupo" value="'+gcEsc(i.grupo||'')+'"/>'
             +'<div id="inc-cie-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div></div>'
-          +'<div class="fld" style="margin:0"><label style="font-size:10px">EPS / ARL</label><input type="text" id="inc-entidad" value="'+gcEsc(i.entidad||'')+'"/></div>'
-          +'<div class="fld" style="margin:0"><label style="font-size:10px">IBC</label><input type="number" id="inc-ibc" value="'+(i.ibc||'')+'"/></div>'
-          +'<div class="fld" style="margin:0"><label style="font-size:10px">Origen / sede</label><input type="text" id="inc-origen" value="'+gcEsc(i.origen||'')+'"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px" id="inc-entidad-lbl">EPS</label>'
+            +'<select id="inc-entidad">'+incEntidadOpciones(i.tipo||'EG', i.entidad||'')+'</select></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">IBC</label>'
+            +'<input type="number" id="inc-ibc" value="'+(i.ibc||incIbcSugerido())+'" title="Sugerido: salario mínimo"/></div>'
+          +'<div class="fld" style="margin:0"><label style="font-size:10px">Origen / sede</label>'
+            +'<select id="inc-origen">'
+              +'<option value="">—</option>'
+              +'<option value="NORTE"'+((i.origen||'')==='NORTE'?' selected':'')+'>NORTE</option>'
+              +'<option value="SUR"'+((i.origen||'')==='SUR'?' selected':'')+'>SUR</option>'
+              +((i.origen&&i.origen!=='NORTE'&&i.origen!=='SUR')?('<option value="'+gcEsc(i.origen)+'" selected>'+gcEsc(i.origen)+'</option>'):'')
+            +'</select></div>'
           +'<div class="fld" style="margin:0"><label style="font-size:10px">Estado</label><select id="inc-estado">'
             +opt('REGISTRADA','Registrada',i.estado)+opt('RADICADA','Radicada',i.estado)
             +opt('PAGADA','Pagada por la entidad',i.estado)+opt('NEGADA','Negada',i.estado)+'</select></div>'
@@ -14625,7 +14634,31 @@ function incAbrir(inc){
       if(vd && !vd.value) vd.value=i.cedula?incValorDiaSugerido(i.cedula):incCfg('inc_valor_dia',58364);
     }
     incRecalcular(!inc);
+   });
   });
+}
+// Lista de EPS o ARL según el tipo de incapacidad (toma las listas de RH)
+function incEntidadOpciones(tipo, actual){
+  var cat=(tipo==='AT')?'arl':'eps';
+  var lista=((typeof RH_CAT!=='undefined' && RH_CAT[cat])?RH_CAT[cat]:[]).map(function(x){return x[0];});
+  if(actual && lista.indexOf(actual)<0) lista=[actual].concat(lista);   // conserva lo ya registrado
+  return '<option value="">—</option>'+lista.map(function(e){
+    return '<option value="'+gcEsc(e)+'"'+(actual===e?' selected':'')+'>'+gcEsc(e)+'</option>';
+  }).join('');
+}
+// IBC sugerido: el salario mínimo vigente
+function incIbcSugerido(){
+  var v=(typeof CONFIG_EMPRESA!=='undefined')?parseFloat(CONFIG_EMPRESA.inc_ibc_min):NaN;
+  return isNaN(v)?1750905:v;
+}
+// Al cambiar el tipo, cambia la lista (EPS o ARL) y su etiqueta
+function incEntidadRefrescar(){
+  var tipo=(document.getElementById('inc-tipo')||{}).value||'EG';
+  var sel=document.getElementById('inc-entidad'); if(!sel) return;
+  var actual=sel.value;
+  sel.innerHTML=incEntidadOpciones(tipo, actual);
+  var lbl=document.getElementById('inc-entidad-lbl');
+  if(lbl) lbl.textContent=(tipo==='AT')?'ARL':'EPS';
 }
 // Si el usuario escribe la fecha final, se calculan los días (y viceversa)
 function incFinCambio(){
@@ -14642,6 +14675,7 @@ function incFinCambio(){
 }
 // Recalcula fecha final, reparto sugerido y avisos
 function incRecalcular(forzar){
+  incEntidadRefrescar();
   var ini=(document.getElementById('inc-ini')||{}).value||'';
   var dias=parseInt((document.getElementById('inc-dias')||{}).value)||0;
   var tipo=(document.getElementById('inc-tipo')||{}).value||'EG';
@@ -14792,100 +14826,178 @@ function incInformeGenerar(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({accion:'informeIncapacidades', quincena:qna, tipo:tipo})})
   .then(function(r){return r.json();}).then(function(d){
-    var filas=(d&&d.ok&&d.data)?d.data:[];
-    // Un trabajador puede tener varias incapacidades en la quincena: se agrupan
-    var porCed={};
-    filas.forEach(function(f){
-      var k=f.cedula+'|'+f.aCargo;
-      if(!porCed[k]) porCed[k]={cedula:f.cedula, nombres:f.nombres, aCargo:f.aCargo, dias:0, valor:0, detalle:[]};
-      porCed[k].dias+=f.dias; porCed[k].valor+=f.valor;
-      porCed[k].detalle.push(f);
-    });
-    var grupos=Object.keys(porCed).map(function(k){return porCed[k];})
-      .sort(function(a,b){ return String(a.nombres).localeCompare(String(b.nombres)); });
-    INC_INF={qna:qna, tipo:tipo, grupos:grupos, filas:filas};
-    if(!grupos.length){
-      cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay incapacidades para pagar en '+gcEsc(qna)+'.</div>';
-      return;
-    }
-    var totD=grupos.reduce(function(a,g){return a+g.dias;},0);
-    var totV=grupos.reduce(function(a,g){return a+g.valor;},0);
-    var emp=grupos.filter(function(g){return g.aCargo==='EMPRESA';}).reduce(function(a,g){return a+g.valor;},0);
-    cont.innerHTML='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">'
-        +'<div class="st"><div class="sl">Trabajadores</div><div class="sv">'+new Set(grupos.map(function(g){return g.cedula;})).size+'</div></div>'
-        +'<div class="st"><div class="sl">Días a pagar</div><div class="sv">'+totD+'</div></div>'
-        +'<div class="st"><div class="sl">Valor total</div><div class="sv gv">'+cop(totV)+'</div></div>'
-        +'<div class="st"><div class="sl">De eso, asume la empresa</div><div class="sv" style="color:var(--a)">'+cop(emp)+'</div></div>'
-      +'</div>'
-      +'<div class="card"><div class="ct">📋 '+gcEsc(qna)+'</div>'
-      +'<div class="tw" style="max-height:60vh;overflow:auto"><table id="inci-t"><thead><tr>'
-        +'<th>Cédula</th><th>Trabajador</th><th>Tipo</th><th style="text-align:center">Días</th>'
-        +'<th>Periodo</th><th>A cargo de</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
-      +grupos.map(function(g){
-        var per=g.detalle.map(function(f){return incFecha(f.desde)+' a '+incFecha(f.hasta);}).join(' · ');
-        var tipos=Array.from(new Set(g.detalle.map(function(f){return f.tipo;}))).join(', ');
-        return '<tr>'
-          +'<td><code style="font-size:11px">'+gcEsc(g.cedula)+'</code></td>'
-          +'<td><strong>'+gcEsc(g.nombres)+'</strong></td>'
-          +'<td style="font-size:11px">'+gcEsc(tipos)+'</td>'
-          +'<td style="text-align:center;font-weight:700">'+g.dias+'</td>'
-          +'<td style="font-size:11px">'+per+'</td>'
-          +'<td style="font-size:11px">'+(g.aCargo==='EMPRESA'
-              ?'<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:99px">EMPRESA</span>'
-              :gcEsc(g.aCargo))+'</td>'
-          +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(g.valor)+'</td></tr>';
-      }).join('')
-      +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td colspan="3">TOTAL</td>'
-        +'<td style="text-align:center">'+totD+'</td><td></td><td></td>'
-        +'<td style="text-align:right">'+cop(totV)+'</td></tr>'
-      +'</tbody></table></div></div>';
+    var pagos=(d&&d.ok&&d.data)?d.data:[];
+    INC_INF=incInformeArmar(pagos, qna, tipo);
+    incInformeRender();
   }).catch(function(e){
     cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
   });
 }
+// Arma las dos tablas: detalle (por incapacidad) y resumen (por trabajador)
+function incInformeArmar(pagos, qna, tipoFiltro){
+  // DETALLE: una fila por incapacidad dentro de la quincena, con los valores
+  // separados según quién paga (empresa / EPS / ARL)
+  var det={};
+  pagos.forEach(function(p){
+    var k=p.cedula+'|'+p.incInicio+'|'+p.tipo;
+    if(!det[k]) det[k]={cedula:p.cedula, nombres:p.nombres, tipo:p.tipo,
+      desde:p.desde, hasta:p.hasta, dias:0, empEG:0, eps:0, empAT:0, arl:0};
+    var f=det[k];
+    if(p.desde && (!f.desde || p.desde<f.desde)) f.desde=p.desde;
+    if(p.hasta && (!f.hasta || p.hasta>f.hasta)) f.hasta=p.hasta;
+    f.dias+=p.dias||0;
+    var v=p.valor||0;
+    if(p.tipo==='AT'){ if(p.aCargo==='EMPRESA') f.empAT+=v; else f.arl+=v; }
+    else { if(p.aCargo==='EMPRESA') f.empEG+=v; else f.eps+=v; }
+  });
+  var detalle=Object.keys(det).map(function(k){return det[k];})
+    .sort(function(a,b){ return String(a.nombres).localeCompare(String(b.nombres)) || (a.desde<b.desde?-1:1); });
+
+  // RESUMEN: una fila por trabajador y tipo. Los días se suman aunque las
+  // incapacidades no hayan sido seguidas, y el periodo se muestra corrido
+  // desde la primera fecha (es como lo pide seguridad social).
+  var res={};
+  detalle.forEach(function(f){
+    var k=f.cedula+'|'+f.tipo;
+    if(!res[k]) res[k]={cedula:f.cedula, nombres:f.nombres, tipo:f.tipo,
+      desde:f.desde, dias:0, empEG:0, eps:0, empAT:0, arl:0, trozos:0};
+    var r=res[k];
+    if(f.desde && f.desde<r.desde) r.desde=f.desde;
+    r.dias+=f.dias; r.empEG+=f.empEG; r.eps+=f.eps; r.empAT+=f.empAT; r.arl+=f.arl;
+    r.trozos++;
+  });
+  var resumen=Object.keys(res).map(function(k){
+    var r=res[k];
+    var d=incParse(r.desde);
+    if(d){ d.setDate(d.getDate()+r.dias-1); r.hasta=incDiaISO(d); }
+    return r;
+  }).sort(function(a,b){ return String(a.nombres).localeCompare(String(b.nombres)); });
+
+  return {qna:qna, tipo:tipoFiltro, detalle:detalle, resumen:resumen};
+}
+function incInformeRender(){
+  var cont=document.getElementById('inci-cont'); if(!INC_INF) return;
+  var D=INC_INF.detalle, R=INC_INF.resumen;
+  if(!D.length){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay incapacidades para pagar en '+gcEsc(INC_INF.qna)+'.</div>';
+    return;
+  }
+  var tot=function(arr,c){ return arr.reduce(function(a,x){return a+(x[c]||0);},0); };
+  var totGen=tot(R,'empEG')+tot(R,'eps')+tot(R,'empAT')+tot(R,'arl');
+  var filaDet=function(f){
+    return '<tr>'
+      +'<td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
+      +'<td><strong>'+gcEsc(f.nombres)+'</strong></td>'
+      +'<td>'+incFecha(f.desde)+'</td>'
+      +'<td style="text-align:center;font-weight:700">'+f.dias+'</td>'
+      +'<td>'+incFecha(f.hasta)+'</td>'
+      +'<td style="text-align:right">'+(f.empEG?cop(f.empEG):'—')+'</td>'
+      +'<td style="text-align:right">'+(f.eps?cop(f.eps):'—')+'</td>'
+      +'<td style="text-align:right">'+(f.empAT?cop(f.empAT):'—')+'</td>'
+      +'<td style="text-align:right">'+(f.arl?cop(f.arl):'—')+'</td></tr>';
+  };
+  var encab='<tr><th>Cédula</th><th>Nombres y apellidos</th><th>Fecha inicial</th>'
+    +'<th style="text-align:center">Días</th><th>Fecha final</th>'
+    +'<th style="text-align:right">Incap. empresa</th><th style="text-align:right">Incap. EG</th>'
+    +'<th style="text-align:right">Incap. empr. AT</th><th style="text-align:right">Incap. AT</th></tr>';
+  var totRow=function(arr){
+    return '<tr style="border-top:2px solid var(--bd);font-weight:800">'
+      +'<td colspan="3">TOTAL</td><td style="text-align:center">'+tot(arr,'dias')+'</td><td></td>'
+      +'<td style="text-align:right">'+cop(tot(arr,'empEG'))+'</td>'
+      +'<td style="text-align:right">'+cop(tot(arr,'eps'))+'</td>'
+      +'<td style="text-align:right">'+cop(tot(arr,'empAT'))+'</td>'
+      +'<td style="text-align:right">'+cop(tot(arr,'arl'))+'</td></tr>';
+  };
+  cont.innerHTML='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">'
+      +'<div class="st"><div class="sl">Trabajadores</div><div class="sv">'+R.length+'</div></div>'
+      +'<div class="st"><div class="sl">Días a pagar</div><div class="sv">'+tot(R,'dias')+'</div></div>'
+      +'<div class="st"><div class="sl">Total a pagar</div><div class="sv gv">'+cop(totGen)+'</div></div>'
+      +'<div class="st"><div class="sl">Asume la empresa</div><div class="sv" style="color:var(--a)">'+cop(tot(R,'empEG')+tot(R,'empAT'))+'</div></div>'
+    +'</div>'
+    +'<div class="card" style="margin-bottom:12px"><div class="ct">📋 Detalle por incapacidad — '+gcEsc(INC_INF.qna)+'</div>'
+      +'<div class="tw" style="max-height:44vh;overflow:auto"><table id="inci-t-det"><thead>'+encab+'</thead><tbody>'
+      +D.map(filaDet).join('')+totRow(D)+'</tbody></table></div></div>'
+    +'<div class="card"><div class="ct">📊 Resumen por trabajador '
+      +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Los días del periodo se consolidan corridos desde la primera fecha</span></div>'
+      +'<div class="tw" style="max-height:44vh;overflow:auto"><table id="inci-t-res"><thead>'+encab+'</thead><tbody>'
+      +R.map(function(r){
+        return filaDet(r).replace('<td style="text-align:center;font-weight:700">'+r.dias+'</td>',
+          '<td style="text-align:center;font-weight:700">'+r.dias
+          +(r.trozos>1?(' <span style="font-size:9px;color:var(--a)" title="Suma de '+r.trozos+' incapacidades">('+r.trozos+')</span>'):'')+'</td>');
+      }).join('')+totRow(R)+'</tbody></table></div></div>';
+}
 function incInformeExcel(){
-  if(!INC_INF||!INC_INF.grupos.length){ alert('Primero genera el informe'); return; }
+  if(!INC_INF||!INC_INF.detalle.length){ alert('Primero genera el informe'); return; }
   consCargarSheetJS(function(ok){
     if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
-    var d=INC_INF, rows=[];
-    rows.push(['INFORME DE INCAPACIDADES A PAGAR']);
-    rows.push([d.qna+(d.tipo?('  ·  '+d.tipo):'  ·  Todos los tipos')]);
-    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    var D=INC_INF.detalle, R=INC_INF.resumen;
+    var emp=(typeof CONFIG_EMPRESA!=='undefined')?CONFIG_EMPRESA:{};
+    var fFmt=function(x){ return x?String(x).slice(0,10).split('-').reverse().join('/'):''; };
+    var rows=[];
+    rows.push([ '', emp.nombre||'AGRISERVICIOS DEL VALLE S.A.S.' ]);
+    rows.push([ '', 'NIT. '+(emp.nit||'') ]);
     rows.push([]);
-    rows.push(['Cédula','Trabajador','Tipo','Días','Desde','Hasta','A cargo de','Valor']);
-    d.filas.forEach(function(f){
-      rows.push([String(f.cedula), f.nombres, f.tipo, f.dias,
-                 incFecha(f.desde), incFecha(f.hasta), f.aCargo, f.valor]);
+    rows.push([ '', 'RELACIÓN PAGO DE INCAPACIDADES — '+INC_INF.qna ]);
+    rows.push([]);
+    rows.push([ '', 'DETALLE POR INCAPACIDAD' ]);
+    var enc=['Cédula','Nombres y apellidos','Fecha inicial','Días','Fecha final',
+             'Incap. empresa','Incap. EG','Incap. empr. AT','Incap. AT'];
+    rows.push(enc);
+    var filaDetEnc=rows.length;   // fila del encabezado del detalle (1-based)
+    D.forEach(function(f){
+      rows.push([String(f.cedula), f.nombres, fFmt(f.desde), f.dias, fFmt(f.hasta),
+                 f.empEG||'', f.eps||'', f.empAT||'', f.arl||'']);
     });
-    var totD=d.filas.reduce(function(a,f){return a+f.dias;},0);
-    var totV=d.filas.reduce(function(a,f){return a+f.valor;},0);
-    rows.push([]);
-    rows.push(['','','TOTAL', totD,'','','', totV]);
+    var tot=function(arr,c){ return arr.reduce(function(a,x){return a+(x[c]||0);},0); };
+    rows.push(['','','TOTAL', tot(D,'dias'),'', tot(D,'empEG'), tot(D,'eps'), tot(D,'empAT'), tot(D,'arl')]);
+    var filaTotDet=rows.length;
+    rows.push([]); rows.push([]);
+    rows.push([ '', 'RESUMEN POR TRABAJADOR (días consolidados del periodo)' ]);
+    rows.push(enc);
+    var filaResEnc=rows.length;
+    R.forEach(function(r){
+      rows.push([String(r.cedula), r.nombres, fFmt(r.desde), r.dias, fFmt(r.hasta),
+                 r.empEG||'', r.eps||'', r.empAT||'', r.arl||'']);
+    });
+    rows.push(['','','TOTAL', tot(R,'dias'),'', tot(R,'empEG'), tot(R,'eps'), tot(R,'empAT'), tot(R,'arl')]);
+    var filaTotRes=rows.length;
+
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:14},{wch:36},{wch:14},{wch:8},{wch:13},{wch:13},{wch:16},{wch:15}];
+    ws['!cols']=[{wch:15},{wch:34},{wch:13},{wch:7},{wch:13},{wch:15},{wch:15},{wch:15},{wch:15}];
+    var L='ABCDEFGHI'.split('');
     function est(r,st){ if(ws[r]) ws[r].s=st; }
-    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
-    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
-    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
-    'ABCDEFGH'.split('').forEach(function(c){
-      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    est('B1',{font:{bold:true,sz:13,color:{rgb:'2D5A3D'}}});
+    est('B2',{font:{sz:10,color:{rgb:'64748B'}}});
+    est('B4',{font:{bold:true,sz:12}});
+    est('B6',{font:{bold:true,sz:11,color:{rgb:'2D5A3D'}}});
+    est('B'+(filaResEnc-1),{font:{bold:true,sz:11,color:{rgb:'2D5A3D'}}});
+    [filaDetEnc, filaResEnc].forEach(function(f){
+      L.forEach(function(c){
+        est(c+f,{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},
+                 alignment:{horizontal:'center',vertical:'center',wrapText:true}});
+      });
     });
-    var n=d.filas.length;
-    for(var i=0;i<n;i++){
-      var r=6+i;
-      if(ws['H'+r]) ws['H'+r].z='$#,##0';
-      if(i%2===1){ 'ABCDEFGH'.split('').forEach(function(c){
-        var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    // Valores en pesos y filas alternadas
+    function pintar(desdeFila, n){
+      for(var i=0;i<n;i++){
+        var r=desdeFila+1+i;
+        ['F','G','H','I'].forEach(function(c){ if(ws[c+r]) ws[c+r].z='$#,##0'; });
+        if(ws['D'+r]) ws['D'+r].s={alignment:{horizontal:'center'}};
+        if(i%2===1){ L.forEach(function(c){
+          var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+      }
     }
-    var rt=6+n+1;
-    est('C'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}}});
-    est('D'+rt,{font:{bold:true}});
-    if(ws['H'+rt]){ ws['H'+rt].z='$#,##0'; ws['H'+rt].s={font:{bold:true,color:{rgb:'2D5A3D'}}}; }
-    ws['!autofilter']={ref:'A5:H'+(5+n)};
-    ws['!freeze']={xSplit:0,ySplit:5};
+    pintar(filaDetEnc, D.length);
+    pintar(filaResEnc, R.length);
+    [filaTotDet, filaTotRes].forEach(function(f){
+      L.forEach(function(c){
+        est(c+f,{font:{bold:true,color:{rgb:'2D5A3D'}},fill:{fgColor:{rgb:'ECFDF5'}}});
+        if('FGHI'.indexOf(c)>=0 && ws[c+f]) ws[c+f].z='$#,##0';
+      });
+    });
     var wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Incapacidades');
-    XLSX.writeFile(wb, 'Incapacidades_'+String(d.qna).replace(/\s+/g,'_')+'.xlsx');
+    XLSX.writeFile(wb, 'INFORME_INCAP_'+String(INC_INF.qna).replace(/\s+/g,'')+'.xlsx');
   });
 }
 
