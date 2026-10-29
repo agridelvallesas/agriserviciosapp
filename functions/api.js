@@ -413,16 +413,24 @@ async function accionGuardar(body, env) {
 // GET REGISTROS — lee detalle_dia con filtros y paginación; reconstruye nombres por join
 async function accionGetRegistros(body, env) {
   const filtroSem = String(body.sem || '').trim();
+  const semDesde = parseInt(body.semDesde) || 0;      // rango de semanas (opcional)
+  const semHasta = parseInt(body.semHasta) || 0;
   const filtroCoord = String(body.coord || '').trim();
   const filtroCed = String(body.ced || '').trim();
   const filtroTipo = String(body.tipo || '').trim();
   const desde = parseInt(body.desde) || 2;
-  const lote = filtroSem ? 5000 : 3000;
+  const lote = (filtroSem || semDesde) ? 5000 : 3000;
   const offset = Math.max(0, desde - 2);
 
   const cols = 'id,coordinador_id,semana,cedula,dia,fecha,tipo,id_labor,unidad,cantidad,pago_trabajador,cobro_riopaila,auxilio_alim,novedad,observacion,es_vigilancia,vig_hd,vig_hn,dom_fest,cobro_vigilancia,obs_tarea,fecha_registro,coordinadores(nombre,administrador),trabajadores(nombres)';
   let path = `detalle_dia?select=${cols}&order=fecha_registro`;
-  if (filtroSem) path += `&semana=eq.${parseInt(filtroSem)}`;
+  if (semDesde && semHasta) {
+    path += `&semana=gte.${semDesde}&semana=lte.${semHasta}`;
+  } else if (semDesde) {
+    path += `&semana=eq.${semDesde}`;
+  } else if (filtroSem) {
+    path += `&semana=eq.${parseInt(filtroSem)}`;
+  }
   if (filtroCed) path += `&cedula=eq.${parseInt(filtroCed.replace(/,/g, ''))}`;
   if (filtroTipo) path += `&tipo=eq.${encodeURIComponent(filtroTipo)}`;
   if (filtroCoord) {
