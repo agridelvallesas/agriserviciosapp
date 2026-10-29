@@ -1077,6 +1077,9 @@ tfoot td{background:var(--gf);font-weight:700}
             <div class="fld" style="min-width:110px"><label>Desde semana</label>
               <select id="cob-desde" onchange="carCobertura()"></select>
             </div>
+            <div class="fld" style="min-width:110px"><label>Hasta semana</label>
+              <select id="cob-hasta" onchange="renderCobertura()"><option value="">Hasta la actual</option></select>
+            </div>
             <button class="btn bg" onclick="carCobertura()" style="height:34px">🔄 Actualizar</button>
             <button class="btn bg no-print" onclick="expCobertura()" style="height:34px">📥 Excel</button>
           </div>
@@ -3374,6 +3377,15 @@ tfoot td{background:var(--gf);font-weight:700}
 // ══════════════════════════════════════════
 const APPS_URL='/api';
 const UMBRAL=68091;
+// Eficiencia mínima: cuánto debe hacer el trabajador para alcanzar el umbral.
+// Se muestra con decimales porque hay labores cuya cantidad es menor que 1.
+function efMin(pago){
+  if(!pago||pago<=0) return '—';
+  var v=UMBRAL/pago;
+  if(v>=100) return String(Math.round(v));
+  if(v>=10)  return v.toFixed(1).replace('.',',');
+  return v.toFixed(2).replace('.',',');
+}
 const NOV_AUX=['MB','5','8','14','24'];
 const ADMINS=['JOSE QUICENO','JHON BERNAL','JORGE CASTILLO','JULIAN BONILLA','JUAN MANUEL ESCOBAR','EDILSON ORJUELA','FABIAN RAMIREZ','LUIS HERRAN','VICTOR RINCON','BRIAN PEREA','OSCAR DAVILA','VICTOR ORTEGA','SEBASTIAN RESTREPO','ANDRES SANDOVAL','RAFAEL ALVARADO','ALEXANDER TOBON','ANGELA MONSALVE','ALEXANDER DUQUE','JAIRO CARDENAS','AGRICOLA','LAURA VELEZ','DIEGO BURBANO'];
 
@@ -4504,7 +4516,7 @@ function buildNav(){
   } else if(S.rol==='c'){
     nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'cvf\')"><span class="ni-ico">💵</span>Cobro vs Facturación</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
-    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'nemp\')"><span class="ni-ico">➕</span>Nuevo empleado</button><button class="ni" onclick="go(\'emp\')"><span class="ni-ico">🪪</span>Ver empleados</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
+    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
   } else if(S.rol==='n'){
     nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button>';
@@ -6192,6 +6204,13 @@ function carCobertura(){
         for(var s=17;s<=data.semActual;s++){op+='<option value="'+s+'"'+(s===data.desde?' selected':'')+'>Semana '+s+'</option>';}
         selDesde.innerHTML=op;
       }
+      var selHasta=document.getElementById('cob-hasta');
+      if(selHasta){
+        var cur=selHasta.value, oh='<option value="">Hasta la actual</option>';
+        for(var h=(data.desde||17); h<=data.semActual; h++){ oh+='<option value="'+h+'"'+(String(h)===cur?' selected':'')+'>Semana '+h+'</option>'; }
+        selHasta.innerHTML=oh;
+        if(cur && parseInt(cur)>=(data.desde||17)) selHasta.value=cur;
+      }
       var adms={};data.filas.forEach(function(f){if(f.adm)adms[f.adm]=true;});
       var selAdm=document.getElementById('cob-adm');var cur=selAdm.value;
       selAdm.innerHTML='<option value="">Todos los administradores</option>'+Object.keys(adms).sort().map(function(a){return '<option'+(a===cur?' selected':'')+'>'+a+'</option>';}).join('');
@@ -6805,7 +6824,7 @@ function togCnDet(ced,btn){
   if(!row)return;
   var open=row.style.display!=='none';
   row.style.display=open?'none':'table-row';
-  btn.textContent=open?'+ Detalle':'− Ocultar';
+  if(btn) btn.textContent=open?'+ Detalle':'− Ocultar';
 }
 
 // Precarga en background de las últimas 3 semanas (no bloquea UI)
@@ -7384,7 +7403,7 @@ function togNomDet(uid,btn){
   if(!row) return;
   var open=row.style.display!=='none';
   row.style.display=open?'none':'table-row';
-  btn.textContent=open?'+ Detalle':'− Ocultar';
+  if(btn) btn.textContent=open?'+ Detalle':'− Ocultar';
 }
 
 function renderNomRows(rows){
@@ -7475,7 +7494,8 @@ function renderNomRows(rows){
         +'</td>';
     }).join('');
     // Fila principal
-    html+='<tr>'
+    // La fila completa abre el detalle: no hay que ir hasta el botón del final
+    html+='<tr style="cursor:pointer" title="Clic para ver el detalle" data-uid="'+uid+'" onclick="togNomDet(this.dataset.uid, this.querySelector(\'[data-uid]\'))">'
       +'<td><strong>'+r.emp+'</strong><br><span style="font-size:10px;color:var(--g3)">'+r.ced+'</span></td>'
       +'<td style="font-size:11px">'+detStr+'</td>'
       +semCells
@@ -7492,7 +7512,7 @@ function renderNomRows(rows){
       +'<td style="color:var(--f)">'+((r.auxAlimVig||0)>0?cop(r.auxAlimVig):'&#x2014;')+'</td>'
       +'<td>'+cop(r.auxTotal||r.aux)+'</td>'
       +'<td style="background:var(--vs)"><strong style="color:var(--v)">'+cop(r.tot)+'</strong></td>'
-      +'<td class="no-print"><button class="btn bg" style="padding:2px 8px;font-size:11px" data-uid="'+uid+'" onclick="togNomDet(this.dataset.uid,this)">+ Detalle</button></td>'
+      +'<td class="no-print"><button class="btn bg" style="padding:2px 8px;font-size:11px" data-uid="'+uid+'" onclick="event.stopPropagation();togNomDet(this.dataset.uid,this)">+ Detalle</button></td>'
       +'</tr>';
     // Fila detalle expandible
     var vigHTML='';
@@ -10803,7 +10823,7 @@ function filtTar(){
       +'<td>'+t.d+'</td><td>'+t.u+'</td>'
       +'<td><strong>'+cop(t.p)+'</strong></td>'
       +'<td>'+cop(t.c)+'</td>'
-      +'<td>'+((t.p&&t.p>0)?'<span style="font-size:11px;color:var(--g2)">'+Math.ceil(UMBRAL/t.p)+'</span>':'—')+'</td>'
+      +'<td>'+((t.p&&t.p>0)?'<span style="font-size:12px;color:#14532d;font-weight:700" title="Cantidad que debe hacer para ganar al menos '+cop(UMBRAL)+'">'+efMin(t.p)+'</span>':'—')+'</td>'
       +'<td>'+sdBadge(t.sede)+'</td>'
       +'<td class="no-print">'+(tarPuedeEditar()?'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="tarEditar(\''+t.id+'\',\''+(t.sede||'')+'\')" title="Editar tarifa">✏️</button>':'<span style="color:var(--g3)">—</span>')+'</td>'
       +'</tr>';
