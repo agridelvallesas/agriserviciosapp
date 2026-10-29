@@ -4431,7 +4431,8 @@ function buildRail(){
     b.title=m.nom;
     b.setAttribute('aria-label',m.nom);
     if(m.k===actual) b.style.background=m.col;
-    b.innerHTML='<span>'+m.ico+'</span><span class="sb-mod-lbl">'+m.nom+'</span>';
+    var aviso=(m.k==='c' && m.k!==actual)?' <span style="opacity:.7">· pide usuario</span>':'';
+    b.innerHTML='<span>'+m.ico+'</span><span class="sb-mod-lbl">'+m.nom+aviso+'</span>';
     b.onclick=function(){ cambiarModulo(m.k, m.nom); };
     rail.appendChild(b);
   });
@@ -4439,15 +4440,26 @@ function buildRail(){
 // Cambio de módulo desde el rail
 function cambiarModulo(k, nom){
   if(k===(S.depto||S.rol)) return;
+  // Coordinadores siempre exige identificarse: lo que se registra queda a nombre
+  // de un coordinador concreto, así que hay que elegir sede y usuario.
+  if(k==='c'){
+    if(!confirm('Para entrar a Coordinadores debes iniciar sesión con el usuario del coordinador, porque los registros quedan a su nombre.\n\n¿Cerrar la sesión actual e ir allá?')) return;
+    logout();
+    setTimeout(function(){ if(typeof lSelDep==='function') lSelDep('c'); }, 120);
+    return;
+  }
   if(esSuperAdmin()){
     S.depto=k;
-    if(['c','a','n','f'].indexOf(k)>=0) S.rol=k;
+    if(['a','n','f'].indexOf(k)>=0) S.rol=k;
     buildRail(); buildNav(); identidadModulo();
-    var inicio={c:'dc', a:'da', n:'nom', f:'fac', r:'rrhh', s:'inv'};
+    var inicio={a:'da', n:'nom', f:'fac', r:'rrhh', s:'inv'};
     go(inicio[k]||'da');
     return;
   }
-  if(confirm('Para entrar a '+nom+' necesitas iniciar sesión con el usuario de ese módulo.\n\n¿Cerrar la sesión actual?')) logout();
+  if(confirm('Para entrar a '+nom+' necesitas iniciar sesión con el usuario de ese módulo.\n\n¿Cerrar la sesión actual?')){
+    logout();
+    setTimeout(function(){ if(typeof lSelDep==='function') lSelDep(k); }, 120);
+  }
 }
 // Identidad visual del módulo activo (color, nombre y avatar)
 function identidadModulo(){
