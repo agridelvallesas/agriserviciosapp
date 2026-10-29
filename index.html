@@ -919,7 +919,9 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="page" id="p-todos">
       <div class="card no-print" style="position:sticky;top:0;z-index:20;background:var(--w);box-shadow:0 2px 8px rgba(0,0,0,.07)">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div class="fld" style="flex:1;min-width:110px"><label>Semana</label><select id="td-sem"></select></div>
+          <div class="fld" style="flex:1;min-width:110px"><label>Semana desde</label><select id="td-sem"></select></div>
+          <div class="fld" style="flex:1;min-width:110px"><label>Semana hasta</label>
+            <select id="td-sem2"><option value="">— Solo una —</option></select></div>
           <div class="fld" style="flex:1;min-width:150px"><label>Coordinador</label><select id="td-co"><option value="">Todos</option></select></div>
           <div class="fld" style="flex:1;min-width:110px"><label>Día</label><select id="td-dia"><option value="">Todos</option><option>L</option><option>M</option><option>MI</option><option>J</option><option>V</option><option>S</option><option>D</option></select></div>
           <div class="fld" style="flex:2;min-width:160px"><label>Buscar empleado</label><div style="position:relative">
@@ -4285,7 +4287,7 @@ function logout(){
 // ══════════════════════════════════════════
 function poblarSelsSems(){
   // Semanas
-  var semIds=['r-sem','mr-sem','da-sem','td-sem','ic-s1','ic-s2','ie-s1','ie-s2','il-s1','il-s2','cm-sems','cn-sem','fs-sem','fi-sem','mb-sem','fi2-s1','fi2-s2','me-sem'];
+  var semIds=['r-sem','mr-sem','da-sem','td-sem','td-sem2','ic-s1','ic-s2','ie-s1','ie-s2','il-s1','il-s2','cm-sems','cn-sem','fs-sem','fi-sem','mb-sem','fi2-s1','fi2-s2','me-sem'];
   semIds.forEach(function(id){
     var el=document.getElementById(id); if(!el) return;
     el.innerHTML='';
@@ -4294,6 +4296,12 @@ function poblarSelsSems(){
       var ph=document.createElement('option');
       ph.value=''; ph.textContent='— Elige la semana —'; ph.disabled=true; ph.selected=true;
       el.appendChild(ph);
+    }
+    // "Semana hasta" puede quedar vacío: en ese caso se consulta una sola semana
+    if(id==='td-sem2'){
+      var ph2=document.createElement('option');
+      ph2.value=''; ph2.textContent='— Solo una —'; ph2.selected=true;
+      el.appendChild(ph2);
     }
     for(var i=1;i<=52;i++){
       var v=String(i).padStart(2,'0');
@@ -6190,6 +6198,11 @@ function tdBorrarSeleccionados(){
 }
 function carTodos(desde){
   var sem=document.getElementById('td-sem').value;
+  var sem2=(document.getElementById('td-sem2')||{}).value||'';
+  // Si la semana final es menor que la inicial, se intercambian
+  if(sem2 && parseInt(sem2)<parseInt(sem)){ var _t=sem; sem=sem2; sem2=_t;
+    document.getElementById('td-sem').value=sem;
+    document.getElementById('td-sem2').value=sem2; }
   var co=document.getElementById('td-co').value;
   var dia=document.getElementById('td-dia').value;
   var tdEmpRaw=document.getElementById('td-emp').value||'';
@@ -6213,7 +6226,9 @@ function carTodos(desde){
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     accion:'getRegistros',
-    sem:sem||'',
+    sem:sem2?'':(sem||''),
+    semDesde:sem?parseInt(sem):0,
+    semHasta:sem2?parseInt(sem2):0,
     coord:co||'',
     desde:desde||2
   })})
