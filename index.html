@@ -20310,9 +20310,10 @@ function rsRender(){
   // Agrupar por labor
   var porLab={};
   regs.forEach(function(r){
-    var k=(r.labor||r.id_labor||'—');
-    if(!porLab[k]) porLab[k]={labor:k, unidad:r.unidad||'', cant:0, pago:0, cobro:0, horas:0,
-                              trabs:{}, dias:{}, esVig:!!r.esVig};
+    // Agrupar por código de labor, mostrando su descripción
+    var k=(r.labId||r.lab||'—');
+    if(!porLab[k]) porLab[k]={labor:(r.lab||r.labId||'—'), cod:r.labId||'', unidad:r.u||'',
+                              cant:0, pago:0, cobro:0, horas:0, trabs:{}, dias:{}, esVig:!!r.esVig};
     var g=porLab[k];
     var cant=parseFloat(r.cant)||0;
     g.cant+=cant;
@@ -20320,14 +20321,15 @@ function rsRender(){
     g.cobro+=(r.cobro||0)+(r.cobroVig||0);
     if(r.esVig) g.horas+=(r.vigHd||0)+(r.vigHn||0);
     var c=String(r.ced||'');
-    if(!g.trabs[c]) g.trabs[c]={ced:c, nom:r.nom||'', cant:0, pago:0, cobro:0, dias:{}};
+    if(!g.trabs[c]) g.trabs[c]={ced:c, nom:r.emp||'', cant:0, pago:0, cobro:0, dias:{}};
+    if(!g.trabs[c].nom && r.emp) g.trabs[c].nom=r.emp;
     g.trabs[c].cant+=cant;
     g.trabs[c].pago+=(r.pago||0);
     g.trabs[c].cobro+=(r.cobro||0)+(r.cobroVig||0);
     if(r.dia){ g.trabs[c].dias[r.dia]=1; g.dias[r.dia]=1; }
   });
   var labs=Object.keys(porLab).map(function(k){return porLab[k];})
-    .filter(function(g){ return !q || String(g.labor).toLowerCase().indexOf(q)>=0; })
+    .filter(function(g){ return !q || String(g.labor).toLowerCase().indexOf(q)>=0 || String(g.cod).toLowerCase().indexOf(q)>=0; })
     .sort(function(a,b){ return b.cobro-a.cobro; });
 
   var totPago=labs.reduce(function(a,g){return a+g.pago;},0);
@@ -20361,7 +20363,9 @@ function rsRender(){
             +'<td style="text-align:right;color:var(--f)">'+cop(t.cobro)+'</td><td></td></tr>';
         }).join('');
       return '<tr style="cursor:pointer" onclick="rsTog('+ix+',this)" data-lab="'+gcEsc(g.labor)+'">'
-        +'<td><strong>'+gcEsc(g.labor)+'</strong>'+(g.esVig?' <span style="font-size:9px;background:var(--fs);color:var(--f);padding:1px 6px;border-radius:99px">vigilancia</span>':'')+'</td>'
+        +'<td><strong>'+gcEsc(g.labor)+'</strong>'
+          +(g.cod?(' <span style="font-size:10px;color:var(--g3)">'+gcEsc(g.cod)+'</span>'):'')
+          +(g.esVig?' <span style="font-size:9px;background:var(--fs);color:var(--f);padding:1px 6px;border-radius:99px">vigilancia</span>':'')+'</td>'
         +'<td style="text-align:right;font-weight:700">'+(g.esVig?(g.horas+'h'):(Math.round(g.cant*100)/100+' '+gcEsc(g.unidad)))+'</td>'
         +'<td style="text-align:center">'+nt+'</td>'
         +'<td style="text-align:center">'+nd+'</td>'
