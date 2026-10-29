@@ -76,8 +76,8 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .sb-sec{font-size:9.5px;font-weight:800;color:var(--modcol,var(--v));letter-spacing:.13em;text-transform:uppercase;padding:0 11px;margin:16px 0 6px;opacity:.85}
 .sb-sec:first-child{margin-top:4px}
 .sb-user{padding:12px;border-top:1px solid #eef2f0}
-.sb-user .uname{color:var(--g1)}
-.sb-user .urol{color:var(--g3)}
+.sb-user .uname{color:var(--g1);font-size:14px;font-weight:800;letter-spacing:-0.01em}
+.sb-user .urol{color:var(--g3);font-size:11px}
 .ni.vc,.ni.ac,.ni.nc,.ni.fc{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 var(--v)}
 .ni-ico{font-size:15px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:18px}
 /* Items "Próximamente" en sidebar RRHH */
@@ -772,6 +772,23 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
         <div id="cvf-cards"><div style="text-align:center;padding:30px;color:var(--g3)">⏳ Cargando...</div></div>
       </div>
+    </div>
+
+    <!-- ══════ COORDINADOR — RESUMEN DE LABORES POR SEMANA ══════ -->
+    <div class="page" id="p-res-sem">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct">📊 Resumen de labores por semana
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Qué se hizo, cuánto y quiénes</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Semana</label>
+            <select id="rs-sem" onchange="rsCargar()"></select></div>
+          <div class="fld" style="flex:1;min-width:170px;margin:0"><label style="font-size:10px">Buscar labor</label>
+            <input type="text" id="rs-q" placeholder="Nombre de la labor..." oninput="rsRender()"/></div>
+          <button class="btn bg" onclick="rsCargar(true)" style="height:36px">🔄 Actualizar</button>
+        </div>
+      </div>
+      <div id="rs-kpis" class="sg" style="display:none;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px"></div>
+      <div id="rs-cont"></div>
     </div>
 
     <div class="page" id="p-mis-reg" style="max-width:680px;margin-left:auto;margin-right:auto">
@@ -4525,7 +4542,7 @@ function buildNav(){
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Exámenes médicos ocupacionales\')"><span class="ni-ico">🩺</span>Exámenes médicos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Accidentes e incidentes\')"><span class="ni-ico">⚠️</span>Accidentes <span class="rh-tag">Pronto</span></button>';
   } else if(S.rol==='c'){
-    nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'cvf\')"><span class="ni-ico">💵</span>Cobro vs Facturación</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
+    nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'res-sem\')"><span class="ni-ico">📊</span>Resumen por semana</button><button class="ni" onclick="go(\'cvf\')"><span class="ni-ico">💵</span>Cobro vs Facturación</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
     nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
@@ -4549,7 +4566,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4582,6 +4599,7 @@ function go(pg){
   if(pg==='inv-emp') invEmpInit();
   if(pg==='inv-inf') invInfInit();
   if(pg==='inc') incInit();
+  if(pg==='res-sem') rsInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
@@ -4966,7 +4984,8 @@ function addT(){
   div.innerHTML=
     '<div class="th"><span class="tnum">Tarea '+n+'</span>'
     +'<div style="display:flex;align-items:center;gap:8px">'
-    +'<span style="font-size:13px;font-weight:600;color:var(--v)">Subtotal: <strong id="s'+n+'">$0</strong></span>'
+    +'<span style="font-size:13px;font-weight:600;color:var(--v)">Pago: <strong id="s'+n+'">$0</strong></span>'
+    +'<span style="font-size:13px;font-weight:600;color:var(--f)">Cobro: <strong id="sc'+n+'">$0</strong></span>'
     +(n>1?'<button type="button" class="btn br" style="padding:3px 8px;font-size:11px" onclick="rmT('+n+')">✕</button>':'')
     +'</div></div>'
     // Buscador de tarifa
@@ -5036,12 +5055,16 @@ function calcT(n){
       if(info) info.textContent=ht>0?'Diurnas: '+hd+'h · Nocturnas: '+hn+'h · Total: '+ht+'h · Pago: $'+pagoVig.toLocaleString('es-CO'):'';
       var s=document.getElementById('s'+n);
       if(s) s.textContent=ht>0?cop(pagoVig):'$0';
+      var sc=document.getElementById('sc'+n);
+      if(sc) sc.textContent=ht>0?cop(cobroVig):'$0';
     } else {
       // NORTE: pago se liquida en nómina
       if(info) info.textContent=ht>0?(ht>96?'⚠️ Supera 96h — habrá horas extras':'✅ Dentro de las 96h ordinarias por quincena'):'';
       var s=document.getElementById('s'+n);
       var cobroVigN=Math.round(ht*((parseFloat(o.dataset.c)||0)||vigCobroTarifaVigente()));
-      if(s) s.textContent=ht>0?(ht+'h · Cobro '+cop(cobroVigN)+' (pago en nómina)'):'$0';
+      if(s) s.textContent=ht>0?(ht+'h · en nómina'):'$0';
+      var sc=document.getElementById('sc'+n);
+      if(sc) sc.textContent=ht>0?cop(cobroVigN):'$0';
     }
   } else {
     if(cnorm) cnorm.style.display='';
@@ -5051,6 +5074,8 @@ function calcT(n){
     var q=parseFloat(document.getElementById('q'+n).value)||0;
     var s=document.getElementById('s'+n);
     if(s) s.textContent=cop((parseFloat(o.dataset.p)||0)*q);
+    var sc=document.getElementById('sc'+n);
+    if(sc) sc.textContent=cop((parseFloat(o.dataset.c)||0)*q);
     // Marcar observación obligatoria para AL CONTRATO
     var esContrato=(hid.value==='AG1000001');
     var obsLbl=document.getElementById('obs-lbl'+n);
@@ -20244,6 +20269,123 @@ function dupIdxAgregar(regs){
   (regs||[]).forEach(function(r){ if(r.tipo==='labor'&&r.labId) DUP_IDX[dupKey(r.ced,r.sem,r.dia,r.labId)]=r.coord||S.u||''; });
 }
 // Registros del PROPIO coordinador para una semana (lo que necesita el dashboard)
+
+// ══════════════════════════════════════════════════════════════════════════
+// COORDINADOR — RESUMEN DE LABORES POR SEMANA
+// Qué labores se reportaron esa semana, con qué cantidad, quiénes las
+// hicieron y cuánto representa en pago y en cobro.
+// ══════════════════════════════════════════════════════════════════════════
+var RS_ABIERTAS={};
+function rsInit(){
+  var sel=document.getElementById('rs-sem'); if(!sel) return;
+  if(!sel.options.length){
+    var act=(typeof getSemActualNum==='function')?getSemActualNum():40;
+    var op='';
+    for(var i=act;i>=Math.max(1,act-16);i--) op+='<option value="'+i+'"'+(i===act?' selected':'')+'>Semana '+i+'</option>';
+    sel.innerHTML=op;
+  }
+  rsCargar();
+}
+function rsCargar(forzar){
+  var sem=parseInt((document.getElementById('rs-sem')||{}).value)||0;
+  var cont=document.getElementById('rs-cont');
+  if(!sem){ cont.innerHTML=''; return; }
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando semana '+sem+'...</div>';
+  if(forzar) DC_SEMS_CARGADAS[sem]=false;
+  cargarSemanaCoord(sem, function(){ rsRender(); });
+}
+function rsRender(){
+  var cont=document.getElementById('rs-cont'), kp=document.getElementById('rs-kpis');
+  if(!cont) return;
+  var sem=parseInt((document.getElementById('rs-sem')||{}).value)||0;
+  var q=((document.getElementById('rs-q')||{}).value||'').toLowerCase().trim();
+  var regs=(typeof REGS!=='undefined'?REGS:[]).filter(function(r){
+    return (parseInt(r.sem)||0)===sem && String(r.coord||'')===String(S.u||'');
+  });
+  if(!regs.length){
+    if(kp) kp.style.display='none';
+    cont.innerHTML='<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No tienes registros en la semana '+sem+'.</div>';
+    return;
+  }
+  // Agrupar por labor
+  var porLab={};
+  regs.forEach(function(r){
+    var k=(r.labor||r.id_labor||'—');
+    if(!porLab[k]) porLab[k]={labor:k, unidad:r.unidad||'', cant:0, pago:0, cobro:0, horas:0,
+                              trabs:{}, dias:{}, esVig:!!r.esVig};
+    var g=porLab[k];
+    var cant=parseFloat(r.cant)||0;
+    g.cant+=cant;
+    g.pago+=(r.pago||0);
+    g.cobro+=(r.cobro||0)+(r.cobroVig||0);
+    if(r.esVig) g.horas+=(r.vigHd||0)+(r.vigHn||0);
+    var c=String(r.ced||'');
+    if(!g.trabs[c]) g.trabs[c]={ced:c, nom:r.nom||'', cant:0, pago:0, cobro:0, dias:{}};
+    g.trabs[c].cant+=cant;
+    g.trabs[c].pago+=(r.pago||0);
+    g.trabs[c].cobro+=(r.cobro||0)+(r.cobroVig||0);
+    if(r.dia){ g.trabs[c].dias[r.dia]=1; g.dias[r.dia]=1; }
+  });
+  var labs=Object.keys(porLab).map(function(k){return porLab[k];})
+    .filter(function(g){ return !q || String(g.labor).toLowerCase().indexOf(q)>=0; })
+    .sort(function(a,b){ return b.cobro-a.cobro; });
+
+  var totPago=labs.reduce(function(a,g){return a+g.pago;},0);
+  var totCobro=labs.reduce(function(a,g){return a+g.cobro;},0);
+  var trabsUnicos={}; labs.forEach(function(g){ Object.keys(g.trabs).forEach(function(c){trabsUnicos[c]=1;}); });
+  if(kp){
+    kp.style.display='grid';
+    var margen=totCobro>0?Math.round((totPago/totCobro)*100):0;
+    kp.innerHTML='<div class="st"><div class="sl">Labores distintas</div><div class="sv">'+labs.length+'</div></div>'
+      +'<div class="st"><div class="sl">Trabajadores</div><div class="sv">'+Object.keys(trabsUnicos).length+'</div></div>'
+      +'<div class="st"><div class="sl">Pago a trabajadores</div><div class="sv gv">'+cop(totPago)+'</div></div>'
+      +'<div class="st"><div class="sl">Cobro a Riopaila</div><div class="sv" style="color:var(--f)">'+cop(totCobro)+'</div></div>'
+      +'<div class="st"><div class="sl">Pago sobre cobro</div><div class="sv" style="color:'+(margen>60?'var(--r)':'var(--v)')+'">'+margen+'%</div></div>';
+  }
+  cont.innerHTML='<div class="card"><div class="tw"><table><thead><tr>'
+    +'<th>Labor</th><th style="text-align:right">Cantidad</th><th style="text-align:center">Trabajadores</th>'
+    +'<th style="text-align:center">Días</th><th style="text-align:right">Pago</th><th style="text-align:right">Cobro</th>'
+    +'<th class="no-print"></th></tr></thead><tbody>'
+    +labs.map(function(g,ix){
+      var nt=Object.keys(g.trabs).length, nd=Object.keys(g.dias).length;
+      var abierto=!!RS_ABIERTAS[g.labor];
+      var det=Object.keys(g.trabs).map(function(c){return g.trabs[c];})
+        .sort(function(a,b){return b.cant-a.cant;})
+        .map(function(t){
+          return '<tr style="background:var(--gf);font-size:11.5px">'
+            +'<td style="padding-left:24px">👤 '+gcEsc(t.nom||t.ced)+' <span style="color:var(--g3);font-size:10px">'+gcEsc(t.ced)+'</span></td>'
+            +'<td style="text-align:right">'+(Math.round(t.cant*100)/100)+'</td>'
+            +'<td style="text-align:center;color:var(--g3)">'+Object.keys(t.dias).join(' ')+'</td>'
+            +'<td style="text-align:center">'+Object.keys(t.dias).length+'</td>'
+            +'<td style="text-align:right">'+cop(t.pago)+'</td>'
+            +'<td style="text-align:right;color:var(--f)">'+cop(t.cobro)+'</td><td></td></tr>';
+        }).join('');
+      return '<tr style="cursor:pointer" onclick="rsTog('+ix+',this)" data-lab="'+gcEsc(g.labor)+'">'
+        +'<td><strong>'+gcEsc(g.labor)+'</strong>'+(g.esVig?' <span style="font-size:9px;background:var(--fs);color:var(--f);padding:1px 6px;border-radius:99px">vigilancia</span>':'')+'</td>'
+        +'<td style="text-align:right;font-weight:700">'+(g.esVig?(g.horas+'h'):(Math.round(g.cant*100)/100+' '+gcEsc(g.unidad)))+'</td>'
+        +'<td style="text-align:center">'+nt+'</td>'
+        +'<td style="text-align:center">'+nd+'</td>'
+        +'<td style="text-align:right;font-weight:600">'+cop(g.pago)+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:var(--f)">'+cop(g.cobro)+'</td>'
+        +'<td class="no-print" style="color:var(--g3)">'+(abierto?'▾':'▸')+'</td></tr>'
+        +'<tr class="rs-det" id="rs-det-'+ix+'" style="display:'+(abierto?'table-row':'none')+'"><td colspan="7" style="padding:0">'
+          +'<table style="width:100%;border-collapse:collapse"><tbody>'+det+'</tbody></table></td></tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td>TOTAL</td><td></td>'
+      +'<td style="text-align:center">'+Object.keys(trabsUnicos).length+'</td><td></td>'
+      +'<td style="text-align:right">'+cop(totPago)+'</td>'
+      +'<td style="text-align:right;color:var(--f)">'+cop(totCobro)+'</td><td></td></tr>'
+    +'</tbody></table></div></div>';
+}
+function rsTog(ix, fila){
+  var d=document.getElementById('rs-det-'+ix); if(!d) return;
+  var abrir=(d.style.display==='none');
+  d.style.display=abrir?'table-row':'none';
+  RS_ABIERTAS[fila.dataset.lab]=abrir;
+  var c=fila.lastElementChild; if(c) c.textContent=abrir?'▾':'▸';
+}
+
+function rsInit2(){}
 function cargarSemanaCoord(sem, cb){
   var s=parseInt(sem)||0;
   if(!s||DC_SEMS_CARGADAS[s]){ if(cb)cb(true); return; }
