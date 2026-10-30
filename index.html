@@ -80,6 +80,18 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .sb-user .urol{color:var(--g3);font-size:11px}
 /* Cobro vs Facturación: la columna de la semana queda fija al desplazar en móvil */
 .cvf-t td:first-child,.cvf-t th:first-child{position:sticky;left:0;background:#fff;z-index:2;box-shadow:2px 0 4px -2px rgba(0,0,0,.12)}
+.cvf-movil{display:none}
+@media(max-width:700px){
+  /* En pantallas pequeñas la tabla se reemplaza por fichas: todo visible sin deslizar */
+  .cvf-tabla{display:none}
+  .cvf-movil{display:block;padding:8px 10px 12px}
+  .cvf-f{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;margin-bottom:6px;background:#fff}
+  .cvf-f.mes{background:#f0fdf4;border-color:#bbf7d0;font-weight:800}
+  .cvf-f.cierre{background:#fef3c7;border-color:#fcd34d;font-weight:800}
+  .cvf-f .sem{font-size:12.5px;font-weight:700;color:var(--g1);flex-shrink:0}
+  .cvf-f .nums{text-align:right;font-size:11px;color:var(--g3);line-height:1.5}
+  .cvf-f .nums b{font-size:13px}
+}
 .cvf-t thead th:first-child{background:#f3f4f6;z-index:3}
 .cvf-t tr[style*="fef3c7"] td:first-child{background:#fef3c7}
 .cvf-t tr[style*="ecfdf5"] td:first-child,.cvf-t tr[style*="f0fdf4"] td:first-child{background:#f0fdf4}
@@ -12909,7 +12921,7 @@ function consBuildCard(key, d, s1, s2){
   var colSaldo=saldoFinal>=0?'var(--n)':'var(--r)';
   var bgSaldo=saldoFinal>=0?'#dcfce7':'#fee2e2';
 
-  var html='<div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">';
+  var html='<div class="card" style="margin-bottom:10px;padding:0;overflow:visible">';
   // Header clickeable
   html+='<div onclick="consToggleCard(\''+key.replace(/'/g,"\\'")+'\')" style="padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--vs);border-bottom:'+(expanded?'1px solid var(--gf)':'none')+'">';
   html+='<div style="font-size:18px;color:var(--v)">'+(expanded?'▼':'▶')+'</div>';
@@ -12924,7 +12936,9 @@ function consBuildCard(key, d, s1, s2){
   html+='</div>';
 
   if(expanded){
-    html+='<div style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="cvf-t" style="width:100%;min-width:540px;font-size:11px;border-collapse:collapse">';
+    var movil=[];   // mismas filas, en formato ficha para celular
+    // Vista de escritorio: tabla completa (se desliza si hace falta)
+    html+='<div class="cvf-tabla" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="cvf-t" style="width:100%;min-width:540px;font-size:11px;border-collapse:collapse">';
     html+='<thead style="background:#f3f4f6"><tr>'+
       '<th style="padding:8px;text-align:left">SEMANA</th>'+
       '<th style="padding:8px;text-align:right">REPORTES</th>'+
@@ -12939,6 +12953,8 @@ function consBuildCard(key, d, s1, s2){
     html+='<tr style="background:#fef3c7;font-weight:700"><td style="padding:6px 8px">Saldo cierre 2025</td>'+
       '<td></td><td></td><td></td>'+
       '<td style="padding:6px 8px;text-align:right;color:'+(d.sem0>=0?'var(--n)':'var(--r)')+'">'+cop(d.sem0)+'</td></tr>';
+    movil.push('<div class="cvf-f cierre"><span class="sem">Saldo cierre 2025</span>'
+      +'<span class="nums"><b style="color:'+(d.sem0>=0?'var(--n)':'var(--r)')+'">'+cop(d.sem0)+'</b></span></div>');
 
     // Recorrer meses
     Object.keys(porMes).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(m){
@@ -12957,8 +12973,11 @@ function consBuildCard(key, d, s1, s2){
           '<td style="padding:5px 8px;text-align:right">'+(sd.rep>0?cop(sd.rep):'—')+'</td>'+
           '<td style="padding:5px 8px;text-align:right">'+(sd.fac>0?cop(sd.fac):'—')+'</td>'+
           '<td style="padding:5px 8px;text-align:right;color:'+colSal+';font-weight:'+(saldoSem!==0?'600':'400')+'">'+(saldoSem!==0?cop(saldoSem):'—')+'</td>'+
-          '<td style="padding:5px 8px;text-align:right;color:'+colAc+'">'+cop(acumulado)+'</td>'+
-          '</tr>';
+          '<td style="padding:5px 8px;text-align:right;color:'+colAc+'">'+cop(acumulado)+'</td></tr>';
+        movil.push('<div class="cvf-f"><span class="sem">Sem '+String(s).padStart(2,'0')+'</span>'
+          +'<span class="nums">Reportes '+(sd.rep>0?cop(sd.rep):'—')+' · Factura '+(sd.fac>0?cop(sd.fac):'—')
+          +'<br>Saldo <b style="color:'+colSal+'">'+(saldoSem!==0?cop(saldoSem):'—')+'</b>'
+          +' · Acum. <b style="color:'+colAc+'">'+cop(acumulado)+'</b></span></div>');
       });
       // Subtotal mensual
       var subSaldo=subFac-subRep;
@@ -12969,8 +12988,10 @@ function consBuildCard(key, d, s1, s2){
         '<td style="padding:7px 8px;text-align:right">'+cop(subRep)+'</td>'+
         '<td style="padding:7px 8px;text-align:right">'+cop(subFac)+'</td>'+
         '<td style="padding:7px 8px;text-align:right">'+cop(subSaldo)+'</td>'+
-        '<td style="padding:7px 8px;text-align:right">'+cop(acumulado)+'</td>'+
-        '</tr>';
+        '<td style="padding:7px 8px;text-align:right">'+cop(acumulado)+'</td></tr>';
+      movil.push('<div class="cvf-f mes"><span class="sem">'+MESES_NOM[m]+'</span>'
+        +'<span class="nums">Reportes '+cop(subRep)+' · Factura '+cop(subFac)
+        +'<br>Saldo <b>'+cop(subSaldo)+'</b> · Acum. <b>'+cop(acumulado)+'</b></span></div>');
     });
 
     // Total general
@@ -12982,6 +13003,8 @@ function consBuildCard(key, d, s1, s2){
       '<td style="padding:9px 8px;text-align:right">'+cop(saldoFinal)+'</td>'+
       '</tr>';
     html+='</tbody></table></div>';
+    // Vista de celular: una ficha por semana, sin desplazamiento horizontal
+    html+='<div class="cvf-movil">'+movil.join('')+'</div>';
   }
 
   html+='</div>';
@@ -13582,7 +13605,7 @@ function clBuildCard(key, d, s1, s2){
   var sedeBadge=d.sede?'<span class="bdg '+(d.sede==='NORTE'?'bn':'bs')+'" style="margin-left:6px">'+d.sede+'</span>':'';
   var tieneVig=Object.keys(d.vig).length>0;
 
-  var html='<div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">';
+  var html='<div class="card" style="margin-bottom:10px;padding:0;overflow:visible">';
   // Header clickeable
   html+='<div onclick="clToggleCard(\''+key.replace(/'/g,"\\'")+'\')" style="padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--vs);border-bottom:'+(expanded?'1px solid var(--gf)':'none')+';flex-wrap:wrap">';
   html+='<div style="font-size:18px;color:var(--v)">'+(expanded?'▼':'▶')+'</div>';
