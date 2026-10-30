@@ -78,6 +78,15 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .sb-user{padding:12px;border-top:1px solid #eef2f0}
 .sb-user .uname{color:var(--g1);font-size:14px;font-weight:800;letter-spacing:-0.01em}
 .sb-user .urol{color:var(--g3);font-size:11px}
+/* Cobro vs Facturación: la columna de la semana queda fija al desplazar en móvil */
+.cvf-t td:first-child,.cvf-t th:first-child{position:sticky;left:0;background:#fff;z-index:2;box-shadow:2px 0 4px -2px rgba(0,0,0,.12)}
+.cvf-t thead th:first-child{background:#f3f4f6;z-index:3}
+.cvf-t tr[style*="fef3c7"] td:first-child{background:#fef3c7}
+.cvf-t tr[style*="ecfdf5"] td:first-child,.cvf-t tr[style*="f0fdf4"] td:first-child{background:#f0fdf4}
+@media(max-width:768px){
+  .cvf-t{font-size:10.5px}
+  .cvf-t td,.cvf-t th{padding:6px 7px!important}
+}
 .ni.vc,.ni.ac,.ni.nc,.ni.fc{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 var(--v)}
 .ni-ico{font-size:15px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:18px}
 /* Items "Próximamente" en sidebar RRHH */
@@ -101,11 +110,22 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .card{background:var(--w);border-radius:var(--rad);border:1px solid var(--bd);padding:20px;margin-bottom:12px;box-shadow:0 1px 2px rgba(45,90,61,.04)}
 .ct{font-family:inherit;font-weight:700;letter-spacing:-0.02em;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--g1)}
 .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
-.st{background:var(--w);border:1px solid var(--bd);border-radius:var(--rad);padding:16px;box-shadow:0 1px 2px rgba(45,90,61,.04);transition:box-shadow .2s}
+.st{background:#334155;border:none;border-radius:var(--rad);padding:15px 16px;box-shadow:0 2px 6px rgba(15,23,42,.12);transition:transform .15s,box-shadow .15s;color:#fff}
+.st:hover{box-shadow:0 4px 12px rgba(15,23,42,.18)}
+.st *{color:rgba(255,255,255,.88)!important}
+.st .sv{color:#fff!important}
+/* El color del indicador lo decide su significado, no su posición */
+.st.k-v{background:#15803d}   /* positivo / pagado / a favor */
+.st.k-r{background:#b91c1c}   /* negativo / faltante / alerta */
+.st.k-a{background:#b45309}   /* pendiente / por revisar */
+.st.k-n{background:#1d4ed8}   /* nómina / cobro */
+.st.k-m{background:#6d28d9}   /* recursos humanos */
+.st.k-c{background:#0e7490}   /* información secundaria */
+.st.k-g{background:#334155}   /* informativo neutro */
 .st:hover{box-shadow:0 4px 12px rgba(45,90,61,.08)}
-.sl{font-size:10px;color:var(--g3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.sl{font-size:10px;color:rgba(255,255,255,.8);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
 .sv{font-family:inherit;font-weight:700;letter-spacing:-0.02em;font-size:22px;line-height:1}
-.sv.gv{color:var(--v)}.sv.ga{color:var(--a)}.sv.gn{color:var(--n)}.sv.gf{color:var(--f)}
+.sv.gv{color:#fff}.sv.ga{color:var(--a)}.sv.gn{color:var(--n)}.sv.gf{color:var(--f)}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .full{grid-column:1/-1}
@@ -439,23 +459,23 @@ tfoot td{background:var(--gf);font-weight:700}
           <div class="sl">💵 Cobro a Riopaila</div>
           <div class="sv gn" id="dc-ct" style="font-size:15px">$0</div>
         </div>
-        <div class="st" style="background:#dcfce7;border-color:#16a34a">
+        <div class="st k-v">
           <div class="sl" style="color:#166534">💼 Cobro labores</div>
           <div class="sv" id="dc-cl" style="font-size:15px;color:#166534">$0</div>
         </div>
-        <div class="st" style="background:#dbeafe;border-color:#2563eb">
+        <div class="st k-n">
           <div class="sl" style="color:#1e40af">🛡️ Cobro vigilancia</div>
           <div class="sv" id="dc-cv" style="font-size:15px;color:#1e40af">$0</div>
         </div>
-        <div class="st" style="background:#f3e8ff;border-color:#7c3aed" title="% Costo Laboral = Pago labores / Cobro labores. No incluye vigilancia.">
+        <div class="st k-m" title="% Costo Laboral = Pago labores / Cobro labores. No incluye vigilancia.">
           <div class="sl" style="color:#5b21b6">📊 % Costo Lab.</div>
           <div class="sv" id="dc-pct" style="font-size:18px;color:#5b21b6">0%</div>
         </div>
-        <div class="st" style="background:#fef3c7;border-color:#f59e0b">
+        <div class="st k-a">
           <div class="sl" style="color:#92400e">⚠️ Bajo rendimiento</div>
           <div class="sv" id="dc-br-count" style="font-size:22px;color:#92400e">0</div>
         </div>
-        <div class="st" style="background:#fee2e2;border-color:#dc2626;grid-column:span 2">
+        <div class="st k-r" style="grid-column:span 2">
           <div class="sl" style="color:#991b1b">🔔 Alertas y recordatorios</div>
           <div class="sv" id="dc-alert-count" style="font-size:22px;color:#991b1b">0</div>
         </div>
@@ -842,41 +862,41 @@ tfoot td{background:var(--gf);font-weight:700}
       <!-- ╚══════════════════════════════════════════╝ -->
       <!-- Grupo 1: Resumen actividad (2 KPIs) -->
       <div class="sg" style="grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
-        <div class="st" style="background:#dbeafe;border-color:#2563eb">
+        <div class="st k-n">
           <div class="sl" style="color:#1e40af">👥 Empleados</div>
           <div class="sv" id="mr-e" style="font-size:22px;color:#1e40af">0</div>
         </div>
-        <div class="st" style="background:#f3e8ff;border-color:#7c3aed">
+        <div class="st k-m">
           <div class="sl" style="color:#5b21b6">📝 Tareas</div>
           <div class="sv" id="mr-t" style="font-size:22px;color:#5b21b6">0</div>
         </div>
       </div>
       <!-- Grupo 2: Dinero (4 KPIs) -->
       <div class="sg" style="grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
-        <div class="st" style="background:#fef3c7;border-color:#d97706">
+        <div class="st k-a">
           <div class="sl" style="color:#92400e">💰 Pago trabajadores</div>
           <div class="sv" id="mr-p" style="font-size:15px;color:#92400e">$0</div>
         </div>
-        <div class="st" style="background:#dcfce7;border-color:#16a34a">
+        <div class="st k-v">
           <div class="sl" style="color:#166534">💼 Cobro labores</div>
           <div class="sv" id="mr-c" style="font-size:15px;color:#166534">$0</div>
         </div>
-        <div class="st" style="background:#dbeafe;border-color:#2563eb">
+        <div class="st k-n">
           <div class="sl" style="color:#1e40af">🛡️ Cobro vigilancia</div>
           <div class="sv" id="mr-cv" style="font-size:15px;color:#1e40af">$0</div>
         </div>
-        <div class="st" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#15803d">
+        <div class="st k-g">
           <div class="sl" style="color:#14532d">📊 Cobro total</div>
           <div class="sv" id="mr-ct" style="font-size:15px;color:#14532d;font-weight:800">$0</div>
         </div>
       </div>
       <!-- Grupo 3: Indicadores adicionales (2 KPIs ancho completo en móvil) -->
       <div class="sg" style="grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
-        <div class="st" style="background:#ecfeff;border-color:#0891b2">
+        <div class="st k-c">
           <div class="sl" style="color:#0c4a6e">🍽️ Aux. alimentación</div>
           <div class="sv" id="mr-a" style="font-size:14px;color:#0c4a6e">$0</div>
         </div>
-        <div class="st" style="background:#f3e8ff;border-color:#7c3aed">
+        <div class="st k-m">
           <div class="sl" style="color:#5b21b6">📈 Costo laboral %</div>
           <div class="sv" id="mr-cl" style="font-size:18px;color:#5b21b6">—</div>
         </div>
@@ -1166,19 +1186,19 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <!-- KPIs -->
       <div class="sg" id="dups-kpis" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:10px;display:none">
-        <div class="st" style="background:#fee2e2;border-color:#dc2626">
+        <div class="st k-r">
           <div class="sl" style="color:#991b1b">🚨 Grupos duplicados</div>
           <div class="sv" id="dups-k-grupos" style="font-size:22px;color:#991b1b">0</div>
         </div>
-        <div class="st" style="background:#fef3c7;border-color:#d97706">
+        <div class="st k-a">
           <div class="sl" style="color:#92400e">📋 Registros afectados</div>
           <div class="sv" id="dups-k-regs" style="font-size:22px;color:#92400e">0</div>
         </div>
-        <div class="st" style="background:#dbeafe;border-color:#2563eb">
+        <div class="st k-n">
           <div class="sl" style="color:#1e40af">👥 Coordinadores</div>
           <div class="sv" id="dups-k-coords" style="font-size:22px;color:#1e40af">0</div>
         </div>
-        <div class="st" style="background:#f3e8ff;border-color:#7c3aed">
+        <div class="st k-m">
           <div class="sl" style="color:#5b21b6">💰 $ Duplicado</div>
           <div class="sv" id="dups-k-monto" style="font-size:15px;color:#5b21b6">$0</div>
         </div>
@@ -1418,17 +1438,17 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
         <!-- Fila 2: Desglose del PAGO Labores vs Vigilancia -->
         <div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">
-          <div class="st" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#d97706">
+          <div class="st k-g">
             <div class="sl" style="color:#92400e">💼 Pago Labores</div>
             <div class="sv" id="cl-stat-plab" style="font-size:14px;color:#92400e">$0</div>
             <div style="font-size:10px;color:#92400e;margin-top:2px"><span id="cl-stat-plab-pct">0%</span> del pago</div>
           </div>
-          <div class="st" style="background:linear-gradient(135deg,#ffedd5,#fed7aa);border-color:#ea580c">
+          <div class="st k-g">
             <div class="sl" style="color:#9a3412">🛡️ Pago Vigilancia</div>
             <div class="sv" id="cl-stat-pvig" style="font-size:14px;color:#9a3412">$0</div>
             <div style="font-size:10px;color:#9a3412;margin-top:2px"><span id="cl-stat-pvig-pct">0%</span> del pago</div>
           </div>
-          <div class="st" style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#dc2626">
+          <div class="st k-g">
             <div class="sl" style="color:#991b1b">💰 PAGO TOTAL</div>
             <div class="sv" id="cl-stat-ptot" style="font-size:14px;color:#991b1b">$0</div>
             <div style="font-size:10px;color:#991b1b;margin-top:2px">100% (Lab + Vig)</div>
@@ -1436,22 +1456,22 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
         <!-- Fila 3: Desglose del COBRO Labores vs Vigilancia + Facturado -->
         <div class="sg" style="grid-template-columns:repeat(4,1fr)">
-          <div class="st" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#16a34a">
+          <div class="st k-g">
             <div class="sl" style="color:#166534">💼 Cobro Labores</div>
             <div class="sv" id="cl-stat-clab" style="font-size:14px;color:#166534">$0</div>
             <div style="font-size:10px;color:#15803d;margin-top:2px"><span id="cl-stat-clab-pct">0%</span> del cobro</div>
           </div>
-          <div class="st" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#2563eb">
+          <div class="st k-g">
             <div class="sl" style="color:#1e40af">🛡️ Cobro Vigilancia</div>
             <div class="sv" id="cl-stat-cvig" style="font-size:14px;color:#1e40af">$0</div>
             <div style="font-size:10px;color:#1e40af;margin-top:2px"><span id="cl-stat-cvig-pct">0%</span> del cobro</div>
           </div>
-          <div class="st" style="background:linear-gradient(135deg,#f3e8ff,#e9d5ff);border-color:#7c3aed">
+          <div class="st k-g">
             <div class="sl" style="color:#5b21b6">📊 COBRO TOTAL</div>
             <div class="sv" id="cl-stat-ctot" style="font-size:14px;color:#5b21b6">$0</div>
             <div style="font-size:10px;color:#5b21b6;margin-top:2px">100% (Lab + Vig)</div>
           </div>
-          <div class="st" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#d97706" id="cl-stat-fac-wrap" hidden>
+          <div class="st k-g" id="cl-stat-fac-wrap" hidden>
             <div class="sl" style="color:#92400e">🧾 Total Facturado</div>
             <div class="sv" id="cl-stat-fac" style="font-size:14px;color:#92400e">$0</div>
             <div style="font-size:10px;color:#92400e;margin-top:2px"><span id="cl-stat-fac-pct">0%</span> del cobro</div>
@@ -2400,23 +2420,23 @@ tfoot td{background:var(--gf);font-weight:700}
           <div style="padding:16px 18px 18px">
           <!-- KPIs de detallado -->
           <div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
-            <div class="st" style="background:#dcfce7;border-color:#16a34a">
+            <div class="st k-v">
               <div class="sl" style="color:#166534">✅ Detalladas</div>
               <div class="sv" id="fac-kpi-ok" style="font-size:20px;color:#166534">0</div>
             </div>
-            <div class="st" style="background:#fee2e2;border-color:#dc2626">
+            <div class="st k-r">
               <div class="sl" style="color:#991b1b">🔴 Falta detallar</div>
               <div class="sv" id="fac-kpi-falta" style="font-size:20px;color:#991b1b">0</div>
             </div>
-            <div class="st" style="background:#fef3c7;border-color:#d97706">
+            <div class="st k-a">
               <div class="sl" style="color:#92400e">🟡 Esperando Riopaila</div>
               <div class="sv" id="fac-kpi-esperando" style="font-size:20px;color:#92400e">0</div>
             </div>
-            <div class="st" style="background:#f3f4f6;border-color:#6b7280">
+            <div class="st k-g">
               <div class="sl" style="color:#374151">⏸️ No detallable</div>
               <div class="sv" id="fac-kpi-no-det" style="font-size:20px;color:#374151">0</div>
             </div>
-            <div class="st" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#dc2626">
+            <div class="st k-g">
               <div class="sl" style="color:#991b1b">💰 $ pendiente</div>
               <div class="sv" id="fac-kpi-monto-falta" style="font-size:15px;color:#991b1b">$0</div>
             </div>
@@ -2896,7 +2916,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <select id="hist-fil-coord" onchange="renderCobrosHist()" style="min-width:180px">
               <option value="">Todos los coordinadores</option>
             </select>
-            <div class="st" style="padding:6px 12px;flex:1">
+            <div class="st k-g" style="padding:6px 12px;flex:1">
               <div class="sl">Total cobros históricos</div>
               <div class="sv" id="hist-total" style="font-size:14px;color:var(--f)">$0</div>
             </div>
@@ -4500,6 +4520,42 @@ var MOD_INFO={
   r:{nom:'Recursos Humanos',col:'#7c3aed', suave:'#f5f3ff', ico:'🪪'},
   s:{nom:'SST',             col:'#ea580c', suave:'#fff7ed', ico:'🦺'}
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// COLOR DE LOS INDICADORES SEGÚN SU SIGNIFICADO
+// Los valores que importan llevan color (verde lo que está bien, rojo lo que
+// está mal, naranja lo pendiente, azul el cobro). Los meramente informativos
+// quedan en gris pizarra, para que el color siga siendo información.
+// ══════════════════════════════════════════════════════════════════════════
+function kpiColor(el){
+  if(!el || el.className.indexOf('k-')>=0) return;   // ya tiene color asignado
+  var lbl=(el.querySelector('.sl')||{}).textContent||'';
+  var val=(el.querySelector('.sv')||{}).textContent||'';
+  var t=lbl.toLowerCase();
+  var negativo=/^\s*-|\(\s*-|\$\s*-/.test(val) || val.indexOf('-$')>=0;
+  var cls='k-g';
+  if(/pendiente|falta|por revisar|sin detallar|vencid|atras|alerta|supera/.test(t)) cls='k-a';
+  else if(/saldo|diferencia|descuadre/.test(t)) cls=negativo?'k-r':'k-v';
+  else if(/costo laboral|retenci|deducc|anulad|error/.test(t)) cls='k-r';
+  else if(/cobro|factur/.test(t)) cls='k-n';
+  else if(/total a pagar|liquidad|pagado|neto|devengo|a favor|disponible|total salario|valor total/.test(t)) cls='k-v';
+  else if(negativo) cls='k-r';
+  el.classList.add(cls);
+}
+function kpiColorearTodo(){
+  document.querySelectorAll('.st').forEach(kpiColor);
+}
+// Se aplica también a los indicadores que se crean al vuelo
+(function(){
+  var pend=null;
+  function programar(){ clearTimeout(pend); pend=setTimeout(kpiColorearTodo, 60); }
+  if(window.MutationObserver){
+    new MutationObserver(programar).observe(document.documentElement,{childList:true,subtree:true});
+  }
+  if(document.readyState!=='loading') programar();
+  else document.addEventListener('DOMContentLoaded', programar);
+})();
+
 function identidadModulo(){
   var k=S.depto||S.rol||'c';
   var m=MOD_INFO[k]||MOD_INFO.c;
@@ -12868,7 +12924,7 @@ function consBuildCard(key, d, s1, s2){
   html+='</div>';
 
   if(expanded){
-    html+='<div style="padding:0;overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse">';
+    html+='<div style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="cvf-t" style="width:100%;min-width:540px;font-size:11px;border-collapse:collapse">';
     html+='<thead style="background:#f3f4f6"><tr>'+
       '<th style="padding:8px;text-align:left">SEMANA</th>'+
       '<th style="padding:8px;text-align:right">REPORTES</th>'+
@@ -12876,6 +12932,7 @@ function consBuildCard(key, d, s1, s2){
       '<th style="padding:8px;text-align:right">SALDO</th>'+
       '<th style="padding:8px;text-align:right">SALDO ACUMULADO</th>'+
       '</tr></thead><tbody>';
+    // (en móvil la tabla se desliza; la columna de la semana queda fija)
 
     // Fila Saldo 2025
     var acumulado=d.sem0;
@@ -14646,11 +14703,11 @@ function incRender(){
     var alertas=filas.filter(function(i){return (i.diasAcum||0)>=tope;}).length;
     kp.style.display='grid';
     var pend=INC_DATA.filter(function(i){return String(i.revision||'')==='PENDIENTE';}).length;
-    kp.innerHTML=(pend?('<div class="st" style="background:#fef3c7;border-color:#f59e0b;cursor:pointer" onclick="document.getElementById(\'inc-f-rev\').value=\'PENDIENTE\';incRender()"><div class="sl" style="color:#92400e">⏳ Pendientes de revisar</div><div class="sv" style="color:#b45309">'+pend+'</div></div>'):'')
+    kp.innerHTML=(pend?('<div class="st k-a" style="cursor:pointer" onclick="document.getElementById(\'inc-f-rev\').value=\'PENDIENTE\';incRender()"><div class="sl" style="color:#92400e">⏳ Pendientes de revisar</div><div class="sv" style="color:#b45309">'+pend+'</div></div>'):'')
       +'<div class="st"><div class="sl">Incapacidades</div><div class="sv">'+filas.length+'</div></div>'
       +'<div class="st"><div class="sl">Días totales</div><div class="sv">'+totDias+'</div></div>'
       +'<div class="st"><div class="sl">Valor registrado</div><div class="sv gv">'+cop(totVal)+'</div></div>'
-      +(alertas?('<div class="st" style="background:#fef3c7;border-color:#f59e0b"><div class="sl" style="color:#92400e">Superan '+tope+' días</div><div class="sv" style="color:#b45309">'+alertas+'</div></div>'):'');
+      +(alertas?('<div class="st k-a"><div class="sl" style="color:#92400e">Superan '+tope+' días</div><div class="sv" style="color:#b45309">'+alertas+'</div></div>'):'');
   }
   if(!filas.length){
     cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">No hay incapacidades registradas con esos filtros.</div>';
