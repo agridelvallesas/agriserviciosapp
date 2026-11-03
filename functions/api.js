@@ -55,6 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
+  'getIngresosRetiros', 'guardarMotivoRetiro',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -169,6 +170,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'registrarReingreso')   r = await accionRegistrarReingreso(body, env);
     else if (accion === 'cerrarVinculacion')    r = await accionCerrarVinculacion(body, env);
     else if (accion === 'eliminarVinculacion')  r = await accionEliminarVinculacion(body, env);
+    else if (accion === 'getIngresosRetiros')   r = await accionGetIngresosRetiros(body, env);
+    else if (accion === 'guardarMotivoRetiro')  r = await accionGuardarMotivoRetiro(body, env);
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
@@ -2454,5 +2457,86 @@ async function accionRevisarIncapacidad(body, env) {
     fecha_revision: new Date().toISOString(),
     obs_revision: String(body.observacion || ''),
   });
+  return { ok: true };
+}
+
+
+// ── Ingresos y retiros ─────────────────────────────────────────────────────
+// Combina lo que hay en la ficha del trabajador con el historial de
+// vinculaciones, que es donde queda el motivo del retiro.
+async function accionGetIngresosRetiros(body, env) {
+  const trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado');
+  let vincs = [];
+  try {
+    vincs = await sbAll(env, 'trabajador_vinculaciones?select=cedula,fecha_ingreso,fecha_retiro,motivo_retiro,sede,cargo');
+  } catch (e) { vincs = []; }
+
+  const nombre = new Map();
+  const sedeDe = new Map();
+  trabs.forEach((t) => {
+    nombre.set(String(t.cedula), String(t.nombres || ''));
+    sedeDe.set(String(t.cedula), String(t.sede || ''));
+  });
+
+  const filas = [];
+  const vistos = new Set();
+  const iso = (x) => (x ? String(x).slice(0, 10) : '');
+
+  vincs.forEach((v) => {
+    const ced = String(v.cedula || '');
+    const ing = iso(v.fecha_ingreso);
+    vistos.add(ced + '|' + ing);
+    filas.push({
+      cedula: ced, nombre: nombre.get(ced) || '', ingreso: ing, retiro: iso(v.fecha_retiro),
+      sede: String(v.sede || sedeDe.get(ced) || ''), cargo: String(v.cargo || ''),
+      motivo: String(v.motivo_retiro || ''), origen: 'historial',
+    });
+  });
+  trabs.forEach((t) => {
+    const ced = String(t.cedula);
+    const ing = iso(t.fecha_ingreso);
+    if (!ing || vistos.has(ced + '|' + ing)) return;
+    filas.push({
+      cedula: ced, nombre: String(t.nombres || ''), ingreso: ing, retiro: iso(t.fecha_ret),
+      sede: String(t.sede || ''), cargo: String(t.cargo || ''), motivo: '', origen: 'ficha',
+    });
+  });
+
+  // Filtro por rango de fechas y por tipo de movimiento
+  const d1 = String(body.desde || '').slice(0, 10);
+  const d2 = String(body.hasta || '').slice(0, 10);
+  const tipo = String(body.tipo || '').toUpperCase();   // INGRESO | RETIRO | vacío
+  const enRango = (f) => !!f && (!d1 || f >= d1) && (!d2 || f <= d2);
+
+  const out = filas.filter((f) => {
+    const ingOk = enRango(f.ingreso);
+    const retOk = enRango(f.retiro);
+    if (tipo === 'INGRESO') return ingOk;
+    if (tipo === 'RETIRO') return retOk;
+    return ingOk || retOk;
+  }).sort((a, b) => {
+    const fa = (tipo === 'RETIRO') ? a.retiro : a.ingreso;
+    const fb = (tipo === 'RETIRO') ? b.retiro : b.ingreso;
+    return String(fb).localeCompare(String(fa));
+  });
+  return { ok: true, data: out };
+}
+
+// Registrar o corregir el motivo de un retiro
+async function accionGuardarMotivoRetiro(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  const ing = fechaONull(body.ingreso);
+  if (!ced || !ing) return { ok: false, error: 'Faltan datos de la vinculación' };
+  const motivo = String(body.motivo || '').trim();
+  const ret = fechaONull(body.retiro);
+  const ex = await sb(env, `trabajador_vinculaciones?select=id&cedula=eq.${encodeURIComponent(ced)}&fecha_ingreso=eq.${encodeURIComponent(ing)}&limit=1`);
+  if (ex.length) {
+    await sbWrite(env, 'PATCH', `trabajador_vinculaciones?id=eq.${ex[0].id}`, { motivo_retiro: motivo, fecha_retiro: ret });
+  } else {
+    await sbWrite(env, 'POST', 'trabajador_vinculaciones', {
+      cedula: ced, fecha_ingreso: ing, fecha_retiro: ret, motivo_retiro: motivo,
+      sede: String(body.sede || ''), cargo: String(body.cargo || ''), observacion: 'Motivo registrado desde Ingresos y retiros',
+    });
+  }
   return { ok: true };
 }
