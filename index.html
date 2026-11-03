@@ -3264,6 +3264,37 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- ══════════ SST — ENTREGAS POR EMPLEADO ══════════ -->
+    <!-- ══════ RH — INGRESOS Y RETIROS ══════ -->
+    <div class="page" id="p-iyr">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct">🔄 Ingresos y retiros
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Movimiento de personal por periodo</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:120px;margin:0"><label style="font-size:10px">Año</label>
+            <select id="iyr-anio" onchange="iyrAnioCambio()"></select></div>
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Desde</label>
+            <input type="date" id="iyr-d1" onchange="iyrCargar()"/></div>
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Hasta</label>
+            <input type="date" id="iyr-d2" onchange="iyrCargar()"/></div>
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Mostrar</label>
+            <select id="iyr-tipo" onchange="iyrCargar()">
+              <option value="">Ingresos y retiros</option>
+              <option value="INGRESO">Solo ingresos</option>
+              <option value="RETIRO">Solo retiros</option>
+            </select></div>
+          <div class="fld" style="min-width:120px;margin:0"><label style="font-size:10px">Sede</label>
+            <select id="iyr-sede" onchange="iyrRender()">
+              <option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option>
+            </select></div>
+          <div class="fld" style="flex:1;min-width:170px;margin:0"><label style="font-size:10px">Buscar</label>
+            <input type="text" id="iyr-q" placeholder="Nombre o cédula..." oninput="iyrRender()"/></div>
+          <button class="btn bg" onclick="iyrExcel()" style="height:36px">📥 Excel</button>
+        </div>
+      </div>
+      <div id="iyr-kpis" class="sg" style="display:none;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px"></div>
+      <div id="iyr-cont"></div>
+    </div>
+
     <!-- ══════ RH — INCAPACIDADES ══════ -->
     <div class="page" id="p-inc">
       <div style="display:flex;gap:6px;border-bottom:2px solid var(--gf);margin-bottom:12px;flex-wrap:wrap">
@@ -4592,6 +4623,7 @@ function buildNav(){
       '<button class="ni" onclick="go(\'vacac\')"><span class="ni-ico">🌴</span>Vacaciones</button>'+
       '<button class="ni" onclick="go(\'acum\')"><span class="ni-ico">📊</span>Acumulados</button>'+
       '<button class="ni" onclick="go(\'inc\')"><span class="ni-ico">🏥</span>Incapacidades</button>'+
+      '<button class="ni" onclick="go(\'iyr\')"><span class="ni-ico">🔄</span>Ingresos y retiros</button>'+
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico">📜</span>Cartas</button>'+
       '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico">⚙️</span>Configuración</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico">💰</span>Préstamos <span class="rh-tag">Pronto</span></button>'+
@@ -4634,7 +4666,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4667,6 +4699,7 @@ function go(pg){
   if(pg==='inv-emp') invEmpInit();
   if(pg==='inv-inf') invInfInit();
   if(pg==='inc') incInit();
+  if(pg==='iyr') iyrInit();
   if(pg==='res-sem') rsInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
@@ -14684,6 +14717,156 @@ function incTab(t, btn){
   });
   if(t==='inf') incInformeInit();
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// RH — INGRESOS Y RETIROS
+// Movimiento de personal por periodo, combinando la ficha del trabajador con
+// el historial de vinculaciones (de donde sale el motivo del retiro).
+// ══════════════════════════════════════════════════════════════════════════
+var IYR_DATA=[];
+function iyrInit(){
+  var sel=document.getElementById('iyr-anio');
+  if(sel && !sel.options.length){
+    var y=new Date().getFullYear(), op='<option value="">Todos los años</option>';
+    for(var a=y;a>=y-6;a--) op+='<option value="'+a+'"'+(a===y?' selected':'')+'>'+a+'</option>';
+    sel.innerHTML=op;
+  }
+  acTrabAsegurar(function(){});
+  if(!IYR_DATA.length) iyrAnioCambio();
+}
+// Al elegir un año se llenan las fechas; si se borran, queda el año completo
+function iyrAnioCambio(){
+  var a=(document.getElementById('iyr-anio')||{}).value||'';
+  var d1=document.getElementById('iyr-d1'), d2=document.getElementById('iyr-d2');
+  if(a){ if(d1) d1.value=a+'-01-01'; if(d2) d2.value=a+'-12-31'; }
+  else { if(d1) d1.value=''; if(d2) d2.value=''; }
+  iyrCargar();
+}
+function iyrCargar(){
+  var cont=document.getElementById('iyr-cont');
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Consultando movimiento de personal...</div>';
+  var body={accion:'getIngresosRetiros',
+    desde:(document.getElementById('iyr-d1')||{}).value||'',
+    hasta:(document.getElementById('iyr-d2')||{}).value||'',
+    tipo:(document.getElementById('iyr-tipo')||{}).value||''};
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    IYR_DATA=(d&&d.ok&&d.data)?d.data:[];
+    iyrRender();
+  }).catch(function(e){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
+  });
+}
+function iyrFiltradas(){
+  var sede=(document.getElementById('iyr-sede')||{}).value||'';
+  var q=((document.getElementById('iyr-q')||{}).value||'').toLowerCase().trim();
+  return IYR_DATA.filter(function(f){
+    if(sede && String(f.sede||'').toUpperCase()!==sede) return false;
+    if(!q) return true;
+    return String(f.nombre||'').toLowerCase().indexOf(q)>=0 ||
+           String(f.cedula||'').replace(/[.,\s]/g,'').indexOf(q.replace(/[.,\s]/g,''))>=0;
+  });
+}
+function iyrRender(){
+  var cont=document.getElementById('iyr-cont'), kp=document.getElementById('iyr-kpis');
+  var d1=(document.getElementById('iyr-d1')||{}).value||'';
+  var d2=(document.getElementById('iyr-d2')||{}).value||'';
+  var tipo=(document.getElementById('iyr-tipo')||{}).value||'';
+  var filas=iyrFiltradas();
+  var enRango=function(f){ return !!f && (!d1||f>=d1) && (!d2||f<=d2); };
+  var ingresos=filas.filter(function(f){return enRango(f.ingreso);}).length;
+  var retiros=filas.filter(function(f){return enRango(f.retiro);}).length;
+  if(kp){
+    kp.style.display='grid';
+    var neto=ingresos-retiros;
+    kp.innerHTML='<div class="st k-v"><div class="sl">Ingresos</div><div class="sv">'+ingresos+'</div></div>'
+      +'<div class="st k-r"><div class="sl">Retiros</div><div class="sv">'+retiros+'</div></div>'
+      +'<div class="st '+(neto>=0?'k-v':'k-r')+'"><div class="sl">Variación neta</div><div class="sv">'+(neto>0?'+':'')+neto+'</div></div>'
+      +'<div class="st k-g"><div class="sl">Movimientos</div><div class="sv">'+filas.length+'</div></div>';
+  }
+  if(!filas.length){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal en ese periodo.</div>';
+    return;
+  }
+  cont.innerHTML='<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
+    +'<th>Cédula</th><th>Trabajador</th><th>Fecha de ingreso</th><th>Fecha de retiro</th>'
+    +'<th>Sede</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
+    +filas.map(function(f){
+      var activo=!f.retiro;
+      var esIngreso=enRango(f.ingreso), esRetiro=enRango(f.retiro);
+      return '<tr>'
+        +'<td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
+        +'<td><strong>'+gcEsc(f.nombre||'—')+'</strong>'+(f.cargo?('<div style="font-size:10px;color:var(--g3)">'+gcEsc(f.cargo)+'</div>'):'')+'</td>'
+        +'<td'+(esIngreso?' style="color:var(--v);font-weight:600"':'')+'>'+incFecha(f.ingreso)+'</td>'
+        +'<td'+(esRetiro?' style="color:var(--r);font-weight:600"':'')+'>'+(f.retiro?incFecha(f.retiro):'—')+'</td>'
+        +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+        +'<td style="font-size:11.5px">'
+          +(f.retiro
+            ? ('<span style="cursor:pointer;border-bottom:1px dashed var(--bd)" title="Clic para registrar o cambiar el motivo" '
+               +'onclick="iyrMotivo(\''+f.cedula+'\',\''+f.ingreso+'\',\''+(f.retiro||'')+'\')">'
+               +(f.motivo?gcEsc(f.motivo):'<span style="color:#b45309">sin motivo</span>')+'</span>')
+            : '<span style="color:var(--g3)">—</span>')
+        +'</td>'
+        +'<td>'+(activo
+            ? '<span style="font-size:10px;background:var(--vs);color:var(--v);padding:2px 8px;border-radius:99px;font-weight:700">Activo</span>'
+            : '<span style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:99px;font-weight:700">Retirado</span>')+'</td>'
+      +'</tr>';
+    }).join('')+'</tbody></table></div></div>';
+}
+// Registrar o corregir el motivo del retiro
+function iyrMotivo(ced, ingreso, retiro){
+  var f=IYR_DATA.filter(function(x){return String(x.cedula)===String(ced) && x.ingreso===ingreso;})[0]||{};
+  var m=prompt('Motivo del retiro de '+(f.nombre||ced)+'\n(retiro del '+incFecha(retiro)+')', f.motivo||'');
+  if(m===null) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarMotivoRetiro', cedula:ced, ingreso:ingreso, retiro:retiro,
+      motivo:m, sede:f.sede||'', cargo:f.cargo||''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ f.motivo=m; iyrRender(); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+function iyrExcel(){
+  var filas=iyrFiltradas();
+  if(!filas.length){ alert('No hay movimientos para exportar'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var d1=(document.getElementById('iyr-d1')||{}).value||'';
+    var d2=(document.getElementById('iyr-d2')||{}).value||'';
+    var tipo=(document.getElementById('iyr-tipo')||{}).value||'';
+    var fFmt=function(x){ return x?String(x).slice(0,10).split('-').reverse().join('/'):''; };
+    var rows=[];
+    rows.push(['INGRESOS Y RETIROS DE PERSONAL']);
+    rows.push([(d1||d2)?('Periodo: '+fFmt(d1)+' al '+fFmt(d2)):'Todos los periodos'
+      +(tipo?('  ·  Solo '+(tipo==='INGRESO'?'ingresos':'retiros')):'')]);
+    rows.push([filas.length+' movimiento(s) · Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Cargo','Fecha de ingreso','Fecha de retiro','Sede','Motivo del retiro','Estado']);
+    filas.forEach(function(f){
+      rows.push([String(f.cedula), f.nombre||'', f.cargo||'', fFmt(f.ingreso), fFmt(f.retiro),
+                 f.sede||'', f.motivo||'', f.retiro?'Retirado':'Activo']);
+    });
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:34},{wch:20},{wch:16},{wch:16},{wch:10},{wch:30},{wch:12}];
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDEFGH'.split('').forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    });
+    for(var i=0;i<filas.length;i++){
+      if(i%2===1){ 'ABCDEFGH'.split('').forEach(function(c){
+        var cc=ws[c+(6+i)]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    ws['!autofilter']={ref:'A5:H'+(5+filas.length)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ingresos y retiros');
+    XLSX.writeFile(wb, 'Ingresos_retiros'+(d1?('_'+String(d1).slice(0,4)):'')+'.xlsx');
+  });
+}
+
 function incInit(){
   cargarConfigEmpresa();
   acTrabAsegurar(function(){
