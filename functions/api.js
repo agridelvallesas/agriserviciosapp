@@ -55,7 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
-  'getIngresosRetiros', 'guardarMotivoRetiro',
+  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -172,6 +172,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarVinculacion')  r = await accionEliminarVinculacion(body, env);
     else if (accion === 'getIngresosRetiros')   r = await accionGetIngresosRetiros(body, env);
     else if (accion === 'guardarMotivoRetiro')  r = await accionGuardarMotivoRetiro(body, env);
+    else if (accion === 'informeAusentismo')    r = await accionInformeAusentismo(body, env);
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
@@ -2539,4 +2540,170 @@ async function accionGuardarMotivoRetiro(body, env) {
     });
   }
   return { ok: true };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INFORME DE AUSENTISMO
+//  Días programados (lunes a sábado, sin festivos) frente a días perdidos.
+//  Las vacaciones NO son ausentismo. La vigilancia se mide por horas, porque
+//  sus turnos dejan días sin reporte que no son ausencia.
+// ═══════════════════════════════════════════════════════════════════════════
+const AUS_NOV = {
+  '1':  { nom: 'Incapacidad E.G.',        grupo: 'Salud' },
+  '2':  { nom: 'Incapacidad A.T.',        grupo: 'Salud' },
+  '3':  { nom: 'Cita médica general',     grupo: 'Salud' },
+  '24': { nom: 'Cita médica especialista',grupo: 'Salud' },
+  '15': { nom: 'Exámenes médicos',        grupo: 'Salud' },
+  '4':  { nom: 'Calamidad',               grupo: 'Permisos' },
+  '6':  { nom: 'Permiso',                 grupo: 'Permisos' },
+  '7':  { nom: 'Permiso no remunerado',   grupo: 'Permisos' },
+  '11': { nom: 'Licencia de luto',        grupo: 'Permisos' },
+  '21': { nom: 'Día de reposo',           grupo: 'Permisos' },
+  '9':  { nom: 'Licencia paternidad',     grupo: 'Licencias' },
+  '10': { nom: 'Licencia maternidad',     grupo: 'Licencias' },
+  '16': { nom: 'Varada de moto',          grupo: 'Transporte' },
+  '17': { nom: 'Falta sin causa',         grupo: 'Injustificado' },
+  '12': { nom: 'Suspendido',              grupo: 'Disciplinario' },
+};
+// No son ausentismo: MB (motobomba) y 8 (nocturno) son trabajo; 13 vacaciones;
+// 5 día de familia, 14 reinducción y 20 capacitación son tiempo reconocido;
+// 18 y 19 solo marcan ingreso y retiro.
+const AUS_NO = new Set(['MB', '5', '8', '13', '14', '18', '19', '20']);
+
+function ausDiasHabiles(desde, hasta) {
+  // Días de lunes a sábado que no sean festivos
+  const out = [];
+  const d = new Date(desde + 'T12:00:00Z');
+  const fin = new Date(hasta + 'T12:00:00Z');
+  while (d <= fin) {
+    const dow = d.getUTCDay();                       // 0 = domingo
+    if (dow !== 0 && !FESTIVOS_2026.has(`${d.getUTCDate()}/${d.getUTCMonth() + 1}`)) {
+      out.push(d.toISOString().slice(0, 10));
+    }
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+async function accionInformeAusentismo(body, env) {
+  const d1 = String(body.desde || '').slice(0, 10);
+  const d2 = String(body.hasta || '').slice(0, 10);
+  if (!d1 || !d2) return { ok: false, error: 'Falta el periodo' };
+  const horasDia = parseFloat(body.horasDia) || 7;   // horas de vigilancia que equivalen a un día
+
+  const habiles = ausDiasHabiles(d1, d2);
+  const setHabiles = new Set(habiles);
+
+  const trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado');
+  const regs = await sbAll(env, `detalle_dia?select=cedula,fecha,tipo,novedad,es_vigilancia,vig_hd,vig_hn&fecha=gte.${d1}&fecha=lte.${d2}`);
+  let incaps = [];
+  try {
+    incaps = await sbAll(env, `incapacidades?select=cedula,tipo,fecha_inicio,fecha_fin,dias&fecha_inicio=lte.${d2}`);
+  } catch (e) { incaps = []; }
+
+  // Lo que hizo cada trabajador en el periodo
+  const porCed = {};
+  const base = (c) => (porCed[c] = porCed[c] || { dias: new Set(), horasVig: 0, nov: {}, vac: new Set() });
+  regs.forEach((r) => {
+    const c = String(r.cedula || ''); if (!c) return;
+    const f = String(r.fecha || '').slice(0, 10);
+    if (!setHabiles.has(f)) return;
+    const b = base(c);
+    if (r.es_vigilancia === true) { b.horasVig += (parseFloat(r.vig_hd) || 0) + (parseFloat(r.vig_hn) || 0); return; }
+    if (String(r.tipo || '') === 'labor') { b.dias.add(f); return; }
+    const nv = String(r.novedad || '').trim().toUpperCase();
+    if (nv === '13') { b.vac.add(f); return; }                 // vacaciones aparte
+    if (AUS_NO.has(nv)) { b.dias.add(f); return; }             // cuenta como presente
+    if (AUS_NOV[nv]) { (b.nov[nv] = b.nov[nv] || new Set()).add(f); }
+  });
+
+  // Días de incapacidad del módulo, que mandan sobre la novedad del día
+  const incPorCed = {};
+  incaps.forEach((i) => {
+    const c = String(i.cedula || ''); if (!c) return;
+    const ini = String(i.fecha_inicio || '').slice(0, 10);
+    if (!ini) return;
+    const dias = parseInt(i.dias) || 0;
+    const d = new Date(ini + 'T12:00:00Z');
+    for (let k = 0; k < dias; k++) {
+      const f = d.toISOString().slice(0, 10);
+      if (setHabiles.has(f)) {
+        const t = String(i.tipo || 'EG');
+        const grupo = (t === 'AT') ? 'Salud' : (t === 'MATERNIDAD' || t === 'PATERNIDAD') ? 'Licencias' : 'Salud';
+        const nom = (t === 'AT') ? 'Incapacidad A.T.' : (t === 'MATERNIDAD') ? 'Licencia maternidad'
+                  : (t === 'PATERNIDAD') ? 'Licencia paternidad' : 'Incapacidad E.G.';
+        (incPorCed[c] = incPorCed[c] || {});
+        incPorCed[c][f] = { nom, grupo };
+      }
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+  });
+
+  const sedeF = String(body.sede || '').toUpperCase();
+  const filas = [];
+  const causas = {};
+  trabs.forEach((t) => {
+    const c = String(t.cedula);
+    const ing = t.fecha_ingreso ? String(t.fecha_ingreso).slice(0, 10) : '';
+    const ret = t.fecha_ret ? String(t.fecha_ret).slice(0, 10) : '';
+    if (ing && ing > d2) return;                 // ingresó después del periodo
+    if (ret && ret < d1) return;                 // se retiró antes del periodo
+    if (sedeF && String(t.sede || '').toUpperCase() !== sedeF) return;
+
+    const prog = habiles.filter((f) => (!ing || f >= ing) && (!ret || f <= ret));
+    if (!prog.length) return;
+    const b = porCed[c] || { dias: new Set(), horasVig: 0, nov: {}, vac: new Set() };
+
+    // Ausencias: primero el módulo de incapacidades, luego las novedades del día
+    const ausDias = {};
+    const inc = incPorCed[c] || {};
+    Object.keys(inc).forEach((f) => { if (prog.indexOf(f) >= 0) ausDias[f] = inc[f]; });
+    Object.keys(b.nov).forEach((nv) => {
+      b.nov[nv].forEach((f) => {
+        if (ausDias[f]) return;
+        if (prog.indexOf(f) < 0) return;
+        ausDias[f] = { nom: AUS_NOV[nv].nom, grupo: AUS_NOV[nv].grupo };
+      });
+    });
+    const perdidos = Object.keys(ausDias).length;
+    Object.keys(ausDias).forEach((f) => {
+      const g = ausDias[f].grupo, n = ausDias[f].nom;
+      causas[g] = causas[g] || { grupo: g, dias: 0, detalle: {} };
+      causas[g].dias++;
+      causas[g].detalle[n] = (causas[g].detalle[n] || 0) + 1;
+    });
+
+    const vacac = Array.from(b.vac).filter((f) => prog.indexOf(f) >= 0).length;
+    const diasVig = b.horasVig > 0 ? Math.min(prog.length, Math.round(b.horasVig / horasDia)) : 0;
+    const presentes = Math.min(prog.length, Array.from(b.dias).filter((f) => prog.indexOf(f) >= 0).length + diasVig);
+    const sinReg = Math.max(0, prog.length - presentes - perdidos - vacac);
+
+    filas.push({
+      cedula: c, nombre: String(t.nombres || ''), sede: String(t.sede || ''), cargo: String(t.cargo || ''),
+      programados: prog.length, presentes, perdidos, vacaciones: vacac, sinRegistro: sinReg,
+      horasVig: Math.round(b.horasVig),
+      tasa: prog.length ? Number(((perdidos / prog.length) * 100).toFixed(1)) : 0,
+      causas: Object.keys(ausDias).reduce((acc, f) => {
+        acc[ausDias[f].nom] = (acc[ausDias[f].nom] || 0) + 1; return acc;
+      }, {}),
+    });
+  });
+
+  filas.sort((a, b2) => b2.perdidos - a.perdidos || String(a.nombre).localeCompare(String(b2.nombre)));
+  const totProg = filas.reduce((a, f) => a + f.programados, 0);
+  const totPerd = filas.reduce((a, f) => a + f.perdidos, 0);
+  return {
+    ok: true,
+    data: filas,
+    resumen: {
+      desde: d1, hasta: d2, diasHabiles: habiles.length,
+      trabajadores: filas.length, programados: totProg, perdidos: totPerd,
+      vacaciones: filas.reduce((a, f) => a + f.vacaciones, 0),
+      sinRegistro: filas.reduce((a, f) => a + f.sinRegistro, 0),
+      conAusencia: filas.filter((f) => f.perdidos > 0).length,
+      tasa: totProg ? Number(((totPerd / totProg) * 100).toFixed(2)) : 0,
+      causas: Object.keys(causas).map((g) => causas[g]).sort((a, b3) => b3.dias - a.dias),
+    },
+  };
 }
