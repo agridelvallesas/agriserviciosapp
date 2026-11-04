@@ -14748,7 +14748,7 @@ function incTab(t, btn){
 // Movimiento de personal por periodo, combinando la ficha del trabajador con
 // el historial de vinculaciones (de donde sale el motivo del retiro).
 // ══════════════════════════════════════════════════════════════════════════
-var IYR_DATA=[];
+var IYR_DATA=[], IYR_SIN=[];
 
 // ══════════════════════════════════════════════════════════════════════════
 // RH — INFORME DE AUSENTISMO
@@ -14937,6 +14937,7 @@ function iyrCargar(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
   .then(function(r){return r.json();}).then(function(d){
     IYR_DATA=(d&&d.ok&&d.data)?d.data:[];
+    IYR_SIN=(d&&d.sinFecha)?d.sinFecha:[];
     iyrRender();
   }).catch(function(e){
     cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
@@ -14969,13 +14970,32 @@ function iyrRender(){
       +'<div class="st '+(neto>=0?'k-v':'k-r')+'"><div class="sl">Variación neta</div><div class="sv">'+(neto>0?'+':'')+neto+'</div></div>'
       +'<div class="st k-g"><div class="sl">Movimientos</div><div class="sv">'+filas.length+'</div></div>';
   }
+  // Retirados sin fecha: no se pueden ubicar en ningún periodo hasta completarlos
+  var avisoSin='';
+  if(IYR_SIN.length){
+    avisoSin='<div class="card" style="margin-bottom:12px;border-left:4px solid #b45309">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+        +'<div><strong style="color:#b45309">⚠️ '+IYR_SIN.length+' trabajador(es) marcados como retirados sin fecha de retiro</strong>'
+        +'<div style="font-size:11.5px;color:var(--g3);margin-top:2px">No aparecen en ningún periodo hasta que se les registre la fecha. Haz clic en cada uno para completarlo.</div></div>'
+        +'<button class="btn bg" style="font-size:11px;padding:4px 10px" onclick="iyrTogSin()">Ver lista</button>'
+      +'</div>'
+      +'<div id="iyr-sin-lista" style="display:none;margin-top:10px"><div class="tw" style="max-height:40vh;overflow:auto"><table><thead><tr>'
+        +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th>Ingreso</th><th class="no-print">Acción</th></tr></thead><tbody>'
+      +IYR_SIN.map(function(f){
+        return '<tr><td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
+          +'<td><strong>'+gcEsc(f.nombre)+'</strong></td>'
+          +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+          +'<td>'+incFecha(f.ingreso)+'</td>'
+          +'<td class="no-print"><button class="btn ba" style="padding:3px 9px;font-size:11px" onclick="iyrRegistrarRetiro(\''+f.cedula+'\')">📝 Registrar retiro</button></td></tr>';
+      }).join('')+'</tbody></table></div></div></div>';
+  }
   if(!filas.length){
-    cont.innerHTML='<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal en ese periodo.</div>';
+    cont.innerHTML=avisoSin+'<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal con fecha en ese periodo.</div>';
     return;
   }
-  cont.innerHTML='<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
+  cont.innerHTML=avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
     +'<th>Cédula</th><th>Trabajador</th><th>Fecha de ingreso</th><th>Fecha de retiro</th>'
-    +'<th>Sede</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
+    +'<th>Sede</th><th>Tipo</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
     +filas.map(function(f){
       var activo=!f.retiro;
       var esIngreso=enRango(f.ingreso), esRetiro=enRango(f.retiro);
@@ -14985,10 +15005,11 @@ function iyrRender(){
         +'<td'+(esIngreso?' style="color:var(--v);font-weight:600"':'')+'>'+incFecha(f.ingreso)+'</td>'
         +'<td'+(esRetiro?' style="color:var(--r);font-weight:600"':'')+'>'+(f.retiro?incFecha(f.retiro):'—')+'</td>'
         +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+        +'<td style="font-size:11px">'+(f.tipoRetiro?gcEsc(f.tipoRetiro):'—')+'</td>'
         +'<td style="font-size:11.5px">'
           +(f.retiro
-            ? ('<span style="cursor:pointer;border-bottom:1px dashed var(--bd)" title="Clic para registrar o cambiar el motivo" '
-               +'onclick="iyrMotivo(\''+f.cedula+'\',\''+f.ingreso+'\',\''+(f.retiro||'')+'\')">'
+            ? ('<span style="cursor:pointer;border-bottom:1px dashed var(--bd)" title="Clic para registrar o cambiar los datos del retiro" '
+               +'onclick="iyrRegistrarRetiro(\''+f.cedula+'\')">'
                +(f.motivo?gcEsc(f.motivo):'<span style="color:#b45309">sin motivo</span>')+'</span>')
             : '<span style="color:var(--g3)">—</span>')
         +'</td>'
@@ -14998,17 +15019,63 @@ function iyrRender(){
       +'</tr>';
     }).join('')+'</tbody></table></div></div>';
 }
-// Registrar o corregir el motivo del retiro
-function iyrMotivo(ced, ingreso, retiro){
-  var f=IYR_DATA.filter(function(x){return String(x.cedula)===String(ced) && x.ingreso===ingreso;})[0]||{};
-  var m=prompt('Motivo del retiro de '+(f.nombre||ced)+'\n(retiro del '+incFecha(retiro)+')', f.motivo||'');
-  if(m===null) return;
+// Ver u ocultar la lista de retirados sin fecha
+function iyrTogSin(){
+  var l=document.getElementById('iyr-sin-lista'); if(!l) return;
+  l.style.display=(l.style.display==='none')?'block':'none';
+}
+// Registrar los datos del retiro: fecha, tipo y motivo.
+// El TIPO es el que más adelante define cómo se liquida (si hay indemnización).
+function iyrRegistrarRetiro(ced){
+  var f=IYR_DATA.filter(function(x){return String(x.cedula)===String(ced);})[0]
+      || IYR_SIN.filter(function(x){return String(x.cedula)===String(ced);})[0] || {};
+  var m=document.createElement('div');
+  m.id='iyr-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  var tipos=['RENUNCIA','TERMINACION DE CONTRATO','JUSTA CAUSA','MUTUO ACUERDO','FIN DE OBRA O LABOR','ABANDONO DEL CARGO','PERIODO DE PRUEBA','OTRO'];
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:92vh;overflow:auto">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:#b45309">📝 Registrar retiro</div>'
+      +'<div style="font-size:11px;color:var(--g3)">'+gcEsc(f.nombre||ced)+' · ingresó el '+incFecha(f.ingreso)+'</div></div>'
+      +'<button onclick="document.getElementById(\'iyr-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px">'
+      +'<div class="fld" style="margin-bottom:10px"><label style="font-size:10px">Fecha de retiro *</label>'
+        +'<input type="date" id="iyr-fret" value="'+(f.retiro||'')+'"/></div>'
+      +'<div class="fld" style="margin-bottom:10px"><label style="font-size:10px">Tipo de retiro *</label>'
+        +'<select id="iyr-tipo-ret"><option value="">— Seleccionar —</option>'
+        +tipos.map(function(t){return '<option value="'+t+'"'+((f.tipoRetiro||'')===t?' selected':'')+'>'+t+'</option>';}).join('')
+        +'</select><div style="font-size:10.5px;color:var(--g3);margin-top:3px">Define cómo se liquida: la terminación sin justa causa genera indemnización, la renuncia no.</div></div>'
+      +'<div class="fld" style="margin-bottom:10px"><label style="font-size:10px">Motivo</label>'
+        +'<input type="text" id="iyr-mot" value="'+gcEsc(f.motivo||'')+'" placeholder="Ej: mejor oferta laboral, bajo rendimiento..."/></div>'
+      +'<div class="fld" style="margin-bottom:10px"><label style="font-size:10px">Observación</label>'
+        +'<input type="text" id="iyr-obs" placeholder="Opcional"/></div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+        +'<button class="btn bg" onclick="document.getElementById(\'iyr-modal\').remove()">Cancelar</button>'
+        +'<button class="btn bv" onclick="iyrGuardarRetiro(\''+ced+'\')">💾 Guardar</button>'
+      +'</div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+function iyrGuardarRetiro(ced){
+  var fecha=(document.getElementById('iyr-fret')||{}).value||'';
+  var tipo=(document.getElementById('iyr-tipo-ret')||{}).value||'';
+  if(!fecha){ alert('Indica la fecha de retiro'); return; }
+  if(!tipo){ alert('Elige el tipo de retiro: es lo que define cómo se liquida'); return; }
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify({accion:'guardarMotivoRetiro', cedula:ced, ingreso:ingreso, retiro:retiro,
-      motivo:m, sede:f.sede||'', cargo:f.cargo||''})})
+    body:JSON.stringify({accion:'guardarRetiro', cedula:ced, retiro:fecha, tipoRetiro:tipo,
+      motivo:((document.getElementById('iyr-mot')||{}).value||'').trim(),
+      observacion:((document.getElementById('iyr-obs')||{}).value||'').trim()})})
   .then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ f.motivo=m; iyrRender(); }
-    else alert('Error: '+((d&&d.error)||'?'));
+    if(d&&d.ok){
+      var mm=document.getElementById('iyr-modal'); if(mm) mm.remove();
+      if(typeof RH_DATA!=='undefined'){
+        var t=RH_DATA.find(function(x){return String(x.CEDULA)===String(ced);});
+        if(t){ t.FECHA_RETIRO=fecha; t.ESTADO='RETIRADO'; }
+      }
+      iyrCargar();
+    } else alert('Error: '+((d&&d.error)||'?'));
   }).catch(function(e){ alert('Error de red: '+e.message); });
 }
 function iyrExcel(){
@@ -17357,6 +17424,10 @@ function cartasVarsBase(t){
   return {
     NOMBRES:(t&&t.NOMBRES)||'', CEDULA:cedFmt, CIUDAD_EXP:(t&&t.LUGAR_EXP)||CONFIG_EMPRESA.ciudad,
     CARGO:(t&&t.CARGO)||'', FECHA_INGRESO:(t&&t.FECHA_INGRESO)||'', FECHA_INGRESO_LARGA:fmt(t&&t.FECHA_INGRESO),
+    // Datos del retiro (para cartas de retiro y, más adelante, liquidaciones)
+    FECHA_RETIRO:(t&&t.FECHA_RETIRO)||'', FECHA_RETIRO_LARGA:fmt(t&&t.FECHA_RETIRO),
+    MOTIVO_RETIRO:(t&&t.MOTIVO_RETIRO)||'', TIPO_RETIRO:(t&&t.TIPO_RETIRO)||'',
+    SEDE:(t&&t.SEDE)||'', SALARIO:(t&&t.SALARIO_MENSUAL)?cop(t.SALARIO_MENSUAL):'',
     FECHA_CARTA_LARGA:hoy.getDate()+' de '+meses[hoy.getMonth()]+' de '+hoy.getFullYear(),
     REPRESENTANTE:CONFIG_EMPRESA.representante
   };
@@ -17883,7 +17954,7 @@ var PLT_DATA=[];
 var PLT_CURRENT=null;
 
 // Lista canónica de variables disponibles según tipo de plantilla
-var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','FECHA_INICIO_DIA','FECHA_FIN_DIA','FECHA_REINTEGRO_DIA','DIAS','DIAS_LETRAS','DIAS_HABILES','DIAS_CALENDARIO','VALOR','VALOR_LETRAS','SALARIO','SALARIO_LETRAS','PROMEDIO','PROMEDIO_LETRAS','FECHA_RETIRO','FECHA_RETIRO_LARGA','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
+var PLT_VARS_VAC=['NOMBRES','CEDULA','CIUDAD_EXP','PERIODO_CAUSADO','FECHA_INICIO','FECHA_FIN','FECHA_INICIO_LARGA','FECHA_FIN_LARGA','FECHA_INICIO_DIA','FECHA_FIN_DIA','FECHA_REINTEGRO_DIA','DIAS','DIAS_LETRAS','DIAS_HABILES','DIAS_CALENDARIO','VALOR','VALOR_LETRAS','SALARIO','SALARIO_LETRAS','PROMEDIO','PROMEDIO_LETRAS','FECHA_RETIRO','FECHA_RETIRO_LARGA','MOTIVO_RETIRO','TIPO_RETIRO','SEDE','CARGO','FECHA_INGRESO','FECHA_INGRESO_LARGA','FECHA_CARTA_LARGA','REPRESENTANTE','FIRMA'];
 
 function pltInit(){
   pltCargar();
@@ -17991,6 +18062,7 @@ function pltVistaPrevia(){
     FECHA_REINTEGRO_DIA:'jueves 24 de septiembre de 2026',
     DIAS_HABILES:'15', DIAS_CALENDARIO:'17',
     SALARIO:'$1.300.000',PROMEDIO:'$1.450.000',FECHA_RETIRO:'2024-11-13',
+    MOTIVO_RETIRO:'Renuncia voluntaria', TIPO_RETIRO:'RENUNCIA', SEDE:'NORTE',
     REPRESENTANTE:CONFIG_EMPRESA.representante
   };
   derivarVars(ejemplo);
