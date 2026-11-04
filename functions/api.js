@@ -55,7 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
-  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo',
+  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -173,6 +173,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getIngresosRetiros')   r = await accionGetIngresosRetiros(body, env);
     else if (accion === 'guardarMotivoRetiro')  r = await accionGuardarMotivoRetiro(body, env);
     else if (accion === 'informeAusentismo')    r = await accionInformeAusentismo(body, env);
+    else if (accion === 'guardarRetiro')        r = await accionGuardarRetiro(body, env);
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
@@ -698,6 +699,7 @@ const TRAB_MAP = [
   ['FECHA_EXP','fecha_exp'],['LUGAR_EXP','lugar_exp'],['FECHA_NAC','fecha_nac'],
   ['TELEFONO','telefono'],['DIRECCION','direccion'],['CIUDAD','ciudad'],['DEPARTAMENTO','departamento'],['EMAIL','email'],['CONTACTO_EMERG','contacto_emer'],
   ['SEDE','sede'],['ESTADO','estado'],['FECHA_INGRESO','fecha_ingreso'],['FECHA_RETIRO','fecha_ret'],['CARGO','cargo'],['SALARIO_MENSUAL','salario'],
+  ['MOTIVO_RETIRO','motivo_retiro'],['TIPO_RETIRO','tipo_retiro'],['OBS_RETIRO','obs_retiro'],
   ['BANCO','banco'],['CUENTA','num_cuenta'],
   ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
   ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
@@ -2466,7 +2468,7 @@ async function accionRevisarIncapacidad(body, env) {
 // Combina lo que hay en la ficha del trabajador con el historial de
 // vinculaciones, que es donde queda el motivo del retiro.
 async function accionGetIngresosRetiros(body, env) {
-  const trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado');
+  const trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado,motivo_retiro,tipo_retiro');
   let vincs = [];
   try {
     vincs = await sbAll(env, 'trabajador_vinculaciones?select=cedula,fecha_ingreso,fecha_retiro,motivo_retiro,sede,cargo');
@@ -2499,8 +2501,21 @@ async function accionGetIngresosRetiros(body, env) {
     if (!ing || vistos.has(ced + '|' + ing)) return;
     filas.push({
       cedula: ced, nombre: String(t.nombres || ''), ingreso: ing, retiro: iso(t.fecha_ret),
-      sede: String(t.sede || ''), cargo: String(t.cargo || ''), motivo: '', origen: 'ficha',
+      sede: String(t.sede || ''), cargo: String(t.cargo || ''),
+      motivo: String(t.motivo_retiro || ''), tipoRetiro: String(t.tipo_retiro || ''),
+      estado: String(t.estado || ''), origen: 'ficha',
     });
+  });
+  // Completar el motivo de los que ya lo tienen en la ficha
+  const motFicha = new Map(trabs.map((t) => [String(t.cedula), {
+    m: String(t.motivo_retiro || ''), tp: String(t.tipo_retiro || ''), est: String(t.estado || ''),
+  }]));
+  filas.forEach((f) => {
+    const x = motFicha.get(f.cedula);
+    if (!x) return;
+    if (!f.motivo && x.m) f.motivo = x.m;
+    if (!f.tipoRetiro && x.tp) f.tipoRetiro = x.tp;
+    if (!f.estado) f.estado = x.est;
   });
 
   // Filtro por rango de fechas y por tipo de movimiento
@@ -2520,7 +2535,40 @@ async function accionGetIngresosRetiros(body, env) {
     const fb = (tipo === 'RETIRO') ? b.retiro : b.ingreso;
     return String(fb).localeCompare(String(fa));
   });
-  return { ok: true, data: out };
+  // Marcados como RETIRADO pero sin fecha: no se pueden ubicar en el periodo,
+  // así que van aparte para completarlos desde la pantalla.
+  const sinFecha = trabs.filter((t) => String(t.estado || '').toUpperCase() === 'RETIRADO' && !iso(t.fecha_ret))
+    .map((t) => ({
+      cedula: String(t.cedula), nombre: String(t.nombres || ''),
+      ingreso: iso(t.fecha_ingreso), retiro: '', sede: String(t.sede || ''),
+      cargo: String(t.cargo || ''), motivo: String(t.motivo_retiro || ''),
+      tipoRetiro: String(t.tipo_retiro || ''), estado: 'RETIRADO', sinFecha: true,
+    }));
+  return { ok: true, data: out, sinFecha };
+}
+
+// Registrar la fecha, el tipo y el motivo del retiro (queda en la ficha y en el historial)
+async function accionGuardarRetiro(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  if (!ced) return { ok: false, error: 'Falta la cédula' };
+  const ret = fechaONull(body.retiro);
+  const datos = {
+    motivo_retiro: String(body.motivo || '').trim(),
+    tipo_retiro: String(body.tipoRetiro || '').trim().toUpperCase(),
+    obs_retiro: String(body.observacion || '').trim(),
+  };
+  if (ret) { datos.fecha_ret = ret; datos.estado = 'RETIRADO'; }
+  await sbWrite(env, 'PATCH', `trabajadores?cedula=eq.${parseInt(ced)}`, datos);
+  // Cerrar también la vinculación vigente, para que el historial cuadre
+  try {
+    const ab = await sb(env, `trabajador_vinculaciones?select=id&cedula=eq.${encodeURIComponent(ced)}&fecha_retiro=is.null&order=fecha_ingreso.desc&limit=1`);
+    if (ab.length && ret) {
+      await sbWrite(env, 'PATCH', `trabajador_vinculaciones?id=eq.${ab[0].id}`, {
+        fecha_retiro: ret, motivo_retiro: datos.motivo_retiro,
+      });
+    }
+  } catch (e) { /* si no existe la tabla, no pasa nada */ }
+  return { ok: true };
 }
 
 // Registrar o corregir el motivo de un retiro
