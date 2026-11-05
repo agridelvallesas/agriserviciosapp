@@ -14748,7 +14748,7 @@ function incTab(t, btn){
 // Movimiento de personal por periodo, combinando la ficha del trabajador con
 // el historial de vinculaciones (de donde sale el motivo del retiro).
 // ══════════════════════════════════════════════════════════════════════════
-var IYR_DATA=[], IYR_SIN=[];
+var IYR_DATA=[], IYR_SIN=[], IYR_DIAG=null;
 
 // ══════════════════════════════════════════════════════════════════════════
 // RH — INFORME DE AUSENTISMO
@@ -14938,6 +14938,7 @@ function iyrCargar(){
   .then(function(r){return r.json();}).then(function(d){
     IYR_DATA=(d&&d.ok&&d.data)?d.data:[];
     IYR_SIN=(d&&d.sinFecha)?d.sinFecha:[];
+    IYR_DIAG=(d&&d.diag)?d.diag:null;
     iyrRender();
   }).catch(function(e){
     cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message+'</div>';
@@ -14970,6 +14971,20 @@ function iyrRender(){
       +'<div class="st '+(neto>=0?'k-v':'k-r')+'"><div class="sl">Variación neta</div><div class="sv">'+(neto>0?'+':'')+neto+'</div></div>'
       +'<div class="st k-g"><div class="sl">Movimientos</div><div class="sv">'+filas.length+'</div></div>';
   }
+  // Diagnóstico: explica por qué podrían no aparecer retiros
+  var diag='';
+  if(IYR_DIAG){
+    var D=IYR_DIAG;
+    if(D.faltaSqlRetiros){
+      diag='<div class="card" style="margin-bottom:12px;border-left:4px solid #b91c1c">'
+        +'<strong style="color:#b91c1c">Falta correr el SQL de retiros</strong>'
+        +'<div style="font-size:12px;color:var(--g2);margin-top:4px">La base aún no tiene los campos de motivo y tipo de retiro. Corre <code>23_retiros_motivo.sql</code> en Supabase y vuelve a generar.</div></div>';
+    } else if(!D.conFechaRetiro && D.marcadosRetirados){
+      diag='<div class="card" style="margin-bottom:12px;border-left:4px solid #b45309">'
+        +'<strong style="color:#b45309">Ningún trabajador tiene fecha de retiro registrada</strong>'
+        +'<div style="font-size:12px;color:var(--g2);margin-top:4px">Hay <strong>'+D.marcadosRetirados+'</strong> marcados como retirados de <strong>'+D.trabajadores+'</strong> trabajadores, pero ninguno tiene la fecha. Por eso no aparecen en ningún periodo: complétalos en la lista de abajo.</div></div>';
+    }
+  }
   // Retirados sin fecha: no se pueden ubicar en ningún periodo hasta completarlos
   var avisoSin='';
   if(IYR_SIN.length){
@@ -14990,10 +15005,10 @@ function iyrRender(){
       }).join('')+'</tbody></table></div></div></div>';
   }
   if(!filas.length){
-    cont.innerHTML=avisoSin+'<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal con fecha en ese periodo.</div>';
+    cont.innerHTML=diag+avisoSin+'<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal con fecha en ese periodo.</div>';
     return;
   }
-  cont.innerHTML=avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
+  cont.innerHTML=diag+avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
     +'<th>Cédula</th><th>Trabajador</th><th>Fecha de ingreso</th><th>Fecha de retiro</th>'
     +'<th>Sede</th><th>Tipo</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
     +filas.map(function(f){
