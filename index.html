@@ -14807,6 +14807,13 @@ function ausRender(){
   var cont=document.getElementById('aus-cont'), kp=document.getElementById('aus-kpis');
   if(!AUS_RES) return;
   var R=AUS_RES.resumen, filas=AUS_RES.data;
+  if(R.sinFuncion){
+    cont.innerHTML='<div class="card" style="border-left:4px solid #b91c1c">'
+      +'<strong style="color:#b91c1c">Falta crear la función de ausentismo en la base de datos</strong>'
+      +'<div style="font-size:12px;color:var(--g2);margin-top:5px">Corre <code>25_funcion_ausentismo.sql</code> en Supabase. Esa función hace el cálculo dentro de la base, que es lo que evita el error de límite de peticiones.</div></div>';
+    if(kp) kp.style.display='none';
+    return;
+  }
   if(kp){
     kp.style.display='grid';
     var cls=R.tasa>=5?'k-r':(R.tasa>=3?'k-a':'k-v');
@@ -15036,7 +15043,11 @@ function iyrRender(){
   var diag='';
   if(IYR_DIAG){
     var D=IYR_DIAG;
-    if(D.faltaSqlRetiros){
+    if(D.sinFuncion){
+      diag='<div class="card" style="margin-bottom:12px;border-left:4px solid #b91c1c">'
+        +'<strong style="color:#b91c1c">Falta crear la función de ausentismo en la base</strong>'
+        +'<div style="font-size:12px;color:var(--g2);margin-top:4px">Corre <code>25_funcion_ausentismo.sql</code> en Supabase: hace el cálculo dentro de la base para no superar el límite de peticiones.</div></div>';
+    } else if(D.faltaSqlRetiros){
       diag='<div class="card" style="margin-bottom:12px;border-left:4px solid #b91c1c">'
         +'<strong style="color:#b91c1c">Falta correr el SQL de retiros</strong>'
         +'<div style="font-size:12px;color:var(--g2);margin-top:4px">La base aún no tiene los campos de motivo y tipo de retiro. Corre <code>23_retiros_motivo.sql</code> en Supabase y vuelve a generar.</div></div>';
