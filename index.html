@@ -1637,6 +1637,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <button class="btn ba" onclick="vacAbrirModalNuevo()" style="height:36px">➕ Agregar periodo</button>
           <button class="btn bf" onclick="vacAbrirImportador()" style="height:36px">📥 Importar Excel</button>
           <button class="btn bg" onclick="vacExportar()" style="height:36px">📊 Exportar</button>
+          <button class="btn bn" onclick="vacInformeAbrir()" style="height:36px">📑 Informe por fechas</button>
         </div>
       </div>
 
@@ -16350,6 +16351,139 @@ function rhConfirmarImportacion(){
 
 var VAC_DATA=[];      // lista de periodos cargados
 var VAC_LOADED=false;
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// VACACIONES — Informe por rango de fechas
+// Trae las vacaciones que caen dentro del periodo consultado, aunque empiecen
+// antes o terminen después (se cruzan con el rango, no tienen que estar
+// contenidas por completo).
+// ══════════════════════════════════════════════════════════════════════════
+function vacInformeAbrir(){
+  var hoy=new Date();
+  var ini=new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  var fin=new Date(hoy.getFullYear(), hoy.getMonth()+1, 0);
+  var m=document.createElement('div');
+  m.id='vacinf-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:92vh;display:flex;flex-direction:column">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--v)">📑 Informe de vacaciones por fechas</div>'
+      +'<div style="font-size:11px;color:var(--g3)">Incluye las vacaciones que se cruzan con el periodo</div></div>'
+      +'<button onclick="document.getElementById(\'vacinf-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px;overflow:auto">'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+        +'<div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="vacinf-d1" value="'+incDiaISO(ini)+'" onchange="vacInformeRender()"/></div>'
+        +'<div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Hasta</label><input type="date" id="vacinf-d2" value="'+incDiaISO(fin)+'" onchange="vacInformeRender()"/></div>'
+        +'<div class="fld" style="min-width:120px;margin:0"><label style="font-size:10px">Sede</label>'
+          +'<select id="vacinf-sede" onchange="vacInformeRender()"><option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option></select></div>'
+        +'<button class="btn bg" onclick="vacInformeExcel()" style="height:36px">📥 Excel</button>'
+      +'</div>'
+      +'<div id="vacinf-cont" style="margin-top:14px"></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  vacInformeRender();
+}
+function vacInformeFilas(){
+  var d1=(document.getElementById('vacinf-d1')||{}).value||'';
+  var d2=(document.getElementById('vacinf-d2')||{}).value||'';
+  var sede=(document.getElementById('vacinf-sede')||{}).value||'';
+  return (typeof VAC_DATA!=='undefined'?VAC_DATA:[]).map(function(v){
+    var t=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(x){return String(x.CEDULA)===String(v.CEDULA);}):null;
+    return {
+      cedula:String(v.CEDULA||''), nombre:v.NOMBRES||(t&&t.NOMBRES)||'',
+      periodo:v.PERIODO_CAUSADO||'', inicio:v.FECHA_INICIO||'', fin:v.FECHA_FIN||'',
+      dias:v.DIAS||0, valor:v.VALOR||0, sede:String((t&&t.SEDE)||'').toUpperCase(),
+      qnas:v.PAGO_QUINCENAS||''
+    };
+  }).filter(function(f){
+    if(!f.inicio) return false;
+    // Se cruza con el rango: empieza antes del final y termina después del inicio
+    if(d1 && f.fin && f.fin<d1) return false;
+    if(d1 && !f.fin && f.inicio<d1) return false;
+    if(d2 && f.inicio>d2) return false;
+    if(sede && f.sede!==sede) return false;
+    return true;
+  }).sort(function(a,b){ return String(a.inicio).localeCompare(String(b.inicio)); });
+}
+function vacInformeRender(){
+  var cont=document.getElementById('vacinf-cont'); if(!cont) return;
+  var filas=vacInformeFilas();
+  if(!filas.length){
+    cont.innerHTML='<div style="text-align:center;padding:24px;color:var(--g3)">No hay vacaciones en ese periodo.</div>';
+    return;
+  }
+  var totD=filas.reduce(function(a,f){return a+(f.dias||0);},0);
+  var totV=filas.reduce(function(a,f){return a+(f.valor||0);},0);
+  cont.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<div class="st k-g" style="padding:10px 14px"><div class="sl">Periodos</div><div class="sv" style="font-size:18px">'+filas.length+'</div></div>'
+      +'<div class="st k-g" style="padding:10px 14px"><div class="sl">Días</div><div class="sv" style="font-size:18px">'+totD+'</div></div>'
+      +'<div class="st k-v" style="padding:10px 14px"><div class="sl">Valor total</div><div class="sv" style="font-size:18px">'+cop(totV)+'</div></div>'
+    +'</div>'
+    +'<div class="tw" style="max-height:50vh;overflow:auto"><table style="font-size:12px"><thead><tr>'
+      +'<th>Cédula</th><th>Trabajador</th><th>Periodo</th><th>Inicio</th><th>Fin</th>'
+      +'<th style="text-align:center">Días</th><th style="text-align:right">Pago</th><th>Sede</th></tr></thead><tbody>'
+    +filas.map(function(f){
+      return '<tr><td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
+        +'<td><strong>'+gcEsc(f.nombre)+'</strong></td>'
+        +'<td>'+gcEsc(f.periodo)+'</td>'
+        +'<td>'+incFecha(f.inicio)+'</td><td>'+(f.fin?incFecha(f.fin):'—')+'</td>'
+        +'<td style="text-align:center;font-weight:700">'+f.dias+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(f.valor)+'</td>'
+        +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td></tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td colspan="5">TOTAL</td>'
+      +'<td style="text-align:center">'+totD+'</td>'
+      +'<td style="text-align:right">'+cop(totV)+'</td><td></td></tr>'
+    +'</tbody></table></div>';
+}
+function vacInformeExcel(){
+  var filas=vacInformeFilas();
+  if(!filas.length){ alert('No hay vacaciones en ese periodo'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var d1=(document.getElementById('vacinf-d1')||{}).value||'';
+    var d2=(document.getElementById('vacinf-d2')||{}).value||'';
+    var fF=function(x){ return x?String(x).slice(0,10).split('-').reverse().join('/'):''; };
+    var rows=[];
+    rows.push(['INFORME DE VACACIONES']);
+    rows.push(['Del '+fF(d1)+' al '+fF(d2)+'  ·  '+filas.length+' periodo(s)']);
+    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Periodo causado','Fecha inicio','Fecha final','Días','Pago','Sede']);
+    filas.forEach(function(f){
+      rows.push([String(f.cedula), f.nombre, f.periodo, fF(f.inicio), fF(f.fin), f.dias, f.valor, f.sede]);
+    });
+    rows.push([]);
+    rows.push(['','','','','TOTAL', filas.reduce(function(a,f){return a+(f.dias||0);},0),
+               filas.reduce(function(a,f){return a+(f.valor||0);},0), '']);
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:34},{wch:16},{wch:14},{wch:14},{wch:8},{wch:16},{wch:10}];
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    'ABCDEFGH'.split('').forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center'}});
+    });
+    for(var i=0;i<filas.length;i++){
+      var r=6+i;
+      if(ws['G'+r]) ws['G'+r].z='$#,##0';
+      if(i%2===1){ 'ABCDEFGH'.split('').forEach(function(c){
+        var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'F8FAFC'}}}); }); }
+    }
+    var rt=6+filas.length+1;
+    est('E'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}},alignment:{horizontal:'right'}});
+    est('F'+rt,{font:{bold:true}});
+    if(ws['G'+rt]){ ws['G'+rt].z='$#,##0'; ws['G'+rt].s={font:{bold:true,color:{rgb:'2D5A3D'}}}; }
+    ws['!autofilter']={ref:'A5:H'+(5+filas.length)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Vacaciones');
+    XLSX.writeFile(wb, 'Vacaciones_'+String(d1).replace(/-/g,'')+'_'+String(d2).replace(/-/g,'')+'.xlsx');
+  });
+}
 
 function vacInit(){
   acTrabAsegurar(function(){ acAdjuntarBuscador('vac-buscar', acTrabFuente, function(ced,nom){ var i=document.getElementById('vac-buscar'); if(i){i.value=ced;} vacRender(); }); });
