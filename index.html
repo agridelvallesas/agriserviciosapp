@@ -11840,7 +11840,7 @@ function jefeExcel(){
       rows.push(['TOTAL', Math.round(t[0]), Math.round(t[1]), Math.round(t[2]), Math.round(t[3]), Math.round(t[4]),
         t[3]>0?Number(((t[0]/t[3])*100).toFixed(1)):'', Math.round(t[5]), Math.round(t[6]),
         Math.round(t[5]+t[6]), Math.round(t[7])]);
-      var ws=XLSX.utils.aoa_to_sheet(rows);
+      var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
       ws['!cols']=[{wch:10},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:12},{wch:18},{wch:18},{wch:16},{wch:18}];
       XLSX.utils.book_append_sheet(wb, ws, z);
     });
@@ -13189,6 +13189,29 @@ function consEstilarResumen(ws,nRows){
   }
 }
 // Carga xlsx-js-style (SheetJS con estilos) bajo demanda
+// ── Valores para Excel ────────────────────────────────────────────────────
+// La cédula debe ir como NÚMERO y las fechas como FECHA, no como texto; de lo
+// contrario BUSCARV, los filtros y los ordenamientos no funcionan en Excel.
+function xlCed(v){
+  var n=String(v==null?'':v).replace(/[^\d]/g,'');
+  return n?Number(n):'';
+}
+function xlFecha(iso){
+  if(!iso) return '';
+  var p=String(iso).slice(0,10).split('-');
+  if(p.length<3) return iso;
+  var d=new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  return isNaN(d.getTime())?iso:d;
+}
+// Aplica a una hoja el formato de fecha y de número en las columnas indicadas
+function xlFormato(ws, filaIni, nFilas, colsFecha, colsPesos, colsEnteros){
+  for(var i=0;i<nFilas;i++){
+    var r=filaIni+i;
+    (colsFecha||[]).forEach(function(c){ if(ws[c+r]) ws[c+r].z='dd/mm/yyyy'; });
+    (colsPesos||[]).forEach(function(c){ if(ws[c+r]) ws[c+r].z='$#,##0'; });
+    (colsEnteros||[]).forEach(function(c){ if(ws[c+r]) ws[c+r].z='0'; });
+  }
+}
 function consCargarSheetJS(cb){
   if(window.XLSX&&XLSX.version){cb(true);return;}
   var s=document.createElement('script');
@@ -14955,12 +14978,13 @@ function ausExcel(){
     rows.push(['DETALLE POR TRABAJADOR']);
     rows.push(['Cédula','Trabajador','Sede','Cargo','Días programados','Días presentes','Días perdidos','Tasa %','Causas','Vacaciones','Sin registro']);
     filas.forEach(function(f){
-      rows.push([String(f.cedula), f.nombre, f.sede, f.cargo, f.programados, f.presentes, f.perdidos, f.tasa,
+      rows.push([xlCed(f.cedula), f.nombre, f.sede, f.cargo, f.programados, f.presentes, f.perdidos, f.tasa,
                  Object.keys(f.causas).map(function(n){return n+' ('+f.causas[n]+')';}).join(', '),
                  f.vacaciones, f.sinRegistro]);
     });
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:14},{wch:32},{wch:10},{wch:18},{wch:16},{wch:14},{wch:13},{wch:9},{wch:40},{wch:12},{wch:13}];
+    xlFormato(ws, fEnc+1, filas.length, [], [], ['A']);
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
     ['A2','A3','A4'].forEach(function(r){ est(r,{font:{italic:true,sz:10,color:{rgb:'64748B'}}}); });
@@ -15183,11 +15207,12 @@ function iyrExcel(){
     rows.push([]);
     rows.push(['Cédula','Trabajador','Cargo','Fecha de ingreso','Fecha de retiro','Sede','Motivo del retiro','Estado']);
     filas.forEach(function(f){
-      rows.push([String(f.cedula), f.nombre||'', f.cargo||'', fFmt(f.ingreso), fFmt(f.retiro),
+      rows.push([xlCed(f.cedula), f.nombre||'', f.cargo||'', xlFecha(f.ingreso), xlFecha(f.retiro),
                  f.sede||'', f.motivo||'', f.retiro?'Retirado':'Activo']);
     });
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:14},{wch:34},{wch:20},{wch:16},{wch:16},{wch:10},{wch:30},{wch:12}];
+    xlFormato(ws, 6, filas.length, ['D','E'], [], ['A']);
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
     est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
@@ -15732,7 +15757,7 @@ function incInformeExcel(){
     rows.push(enc);
     var filaDetEnc=rows.length;   // fila del encabezado del detalle (1-based)
     D.forEach(function(f){
-      rows.push([String(f.cedula), f.nombres, fFmt(f.desde), f.dias, fFmt(f.hasta),
+      rows.push([xlCed(f.cedula), f.nombres, xlFecha(f.desde), f.dias, xlFecha(f.hasta),
                  f.empEG||'', f.eps||'', f.empAT||'', f.arl||'']);
     });
     var tot=function(arr,c){ return arr.reduce(function(a,x){return a+(x[c]||0);},0); };
@@ -15743,14 +15768,16 @@ function incInformeExcel(){
     rows.push(enc);
     var filaResEnc=rows.length;
     R.forEach(function(r){
-      rows.push([String(r.cedula), r.nombres, fFmt(r.desde), r.dias, fFmt(r.hasta),
+      rows.push([xlCed(r.cedula), r.nombres, xlFecha(r.desde), r.dias, xlFecha(r.hasta),
                  r.empEG||'', r.eps||'', r.empAT||'', r.arl||'']);
     });
     rows.push(['','','TOTAL', tot(R,'dias'),'', tot(R,'empEG'), tot(R,'eps'), tot(R,'empAT'), tot(R,'arl')]);
     var filaTotRes=rows.length;
 
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:15},{wch:34},{wch:13},{wch:7},{wch:13},{wch:15},{wch:15},{wch:15},{wch:15}];
+    xlFormato(ws, filaDetEnc+1, D.length, ['C','E'], ['F','G','H','I'], ['A']);
+    xlFormato(ws, filaResEnc+1, R.length, ['C','E'], ['F','G','H','I'], ['A']);
     var L='ABCDEFGHI'.split('');
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('B1',{font:{bold:true,sz:13,color:{rgb:'2D5A3D'}}});
@@ -16453,13 +16480,14 @@ function vacInformeExcel(){
     rows.push([]);
     rows.push(['Cédula','Trabajador','Periodo causado','Fecha inicio','Fecha final','Días','Pago','Sede']);
     filas.forEach(function(f){
-      rows.push([String(f.cedula), f.nombre, f.periodo, fF(f.inicio), fF(f.fin), f.dias, f.valor, f.sede]);
+      rows.push([xlCed(f.cedula), f.nombre, f.periodo, xlFecha(f.inicio), xlFecha(f.fin), f.dias, f.valor, f.sede]);
     });
     rows.push([]);
     rows.push(['','','','','TOTAL', filas.reduce(function(a,f){return a+(f.dias||0);},0),
                filas.reduce(function(a,f){return a+(f.valor||0);},0), '']);
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:14},{wch:34},{wch:16},{wch:14},{wch:14},{wch:8},{wch:16},{wch:10}];
+    xlFormato(ws, 6, filas.length, ['D','E'], ['G'], ['A']);
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
     est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
@@ -18898,14 +18926,14 @@ function acumExportarFiltrado(){
     datos.forEach(function(a){
       var v=Number(a.VALOR)||0;
       if(acumEsDevengo(a.TIPO)) totDev+=v; else if(acumEsDeduccion(a.TIPO)) totDed+=v;
-      rows.push([String(a.CEDULA||''), a.NOMBRES||'', a.QNA_LABEL||'', a.MES||'', a.TIPO||'',
+      rows.push([xlCed(a.CEDULA), a.NOMBRES||'', a.QNA_LABEL||'', a.MES||'', a.TIPO||'',
                  a.CATEGORIA||'', a.CONCEPTO||'', v, a.OBS||'']);
     });
     rows.push([]);
     rows.push(['','','','','','','TOTAL DEVENGOS', totDev, '']);
     rows.push(['','','','','','','TOTAL DEDUCCIONES', totDed, '']);
 
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:13},{wch:34},{wch:14},{wch:14},{wch:16},{wch:16},{wch:28},{wch:15},{wch:24}];
     var nf=datos.length;
     // Formato: título, subtítulos, encabezado verde y valores en pesos
@@ -19526,7 +19554,7 @@ function acumInfExcelMulti(d){
     rows.push(r);
   });
 
-  var ws=XLSX.utils.aoa_to_sheet(rows);
+  var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
   var cols=[{wch:14},{wch:36},{wch:9}];
   meses.forEach(function(){ cols.push({wch:15}); });
   cols.push({wch:9}); cols.push({wch:16});
@@ -19584,7 +19612,7 @@ function acumInfExcel(){
     rows.push(['','','','TOTAL ('+d.filas.length+' trabajadores)', tot]);
     rows.push(['','','','PROMEDIO', tot/d.filas.length]);
 
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:14},{wch:38},{wch:10},{wch:34},{wch:16}];
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
@@ -20019,7 +20047,7 @@ function acumAnalisisExportar(){
       rows.push(d.modo==='global' ? [q.qna, q.numTrabs, q.total, q.promedio] : [q.qna, q.total]);
     });
 
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:26},{wch:14},{wch:16},{wch:16},{wch:16},{wch:16}];
     function est(ref,st){ if(ws[ref]) ws[ref].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
@@ -22648,13 +22676,14 @@ function invInfExcel(){
     rows.push([]);
     rows.push(['Cédula','Trabajador','Fecha de entrega','Categoría','Elemento','Cantidad']);
     f.forEach(function(x){
-      rows.push([String(x.cedula||''), x.nombre||'', fFmt(x.fecha), x.categoria||'', x.producto||x.item, x.cantidad||0]);
+      rows.push([xlCed(x.cedula), x.nombre||'', xlFecha(x.fecha), x.categoria||'', x.producto||x.item, x.cantidad||0]);
     });
     rows.push([]);
     rows.push(['','','','','TOTAL UNIDADES', f.reduce(function(s,x){return s+(x.cantidad||0);},0)]);
 
-    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
     ws['!cols']=[{wch:14},{wch:36},{wch:17},{wch:18},{wch:36},{wch:11}];
+    xlFormato(ws, 6, f.length, ['C'], [], ['A','F']);
     function est(r,st){ if(ws[r]) ws[r].s=st; }
     est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
     est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
