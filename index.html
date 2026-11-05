@@ -14506,7 +14506,11 @@ var RH_BLOQUES={
     {k:'SEDE', n:'Sede', tipo:'select', opciones:['NORTE','SUR'], req:true},
     {k:'ESTADO', n:'Estado', tipo:'select', opciones:['ACTIVO','RETIRADO'], req:true},
     {k:'FECHA_INGRESO', n:'Fecha de ingreso', tipo:'date'},
-    {k:'FECHA_RETIRO', n:'Fecha de retiro', tipo:'date'},
+    {k:'FECHA_RETIRO', n:'Fecha de retiro', tipo:'date', dep:{k:'ESTADO', vals:['RETIRADO']}},
+    // El tipo de retiro es el que define cómo se liquida (si hay indemnización)
+    {k:'TIPO_RETIRO', n:'Tipo de retiro', tipo:'select', dep:{k:'ESTADO', vals:['RETIRADO']},
+      opciones:['RENUNCIA','TERMINACION DE CONTRATO','JUSTA CAUSA','MUTUO ACUERDO','FIN DE OBRA O LABOR','ABANDONO DEL CARGO','PERIODO DE PRUEBA','OTRO']},
+    {k:'MOTIVO_RETIRO', n:'Motivo del retiro', tipo:'text', dep:{k:'ESTADO', vals:['RETIRADO']}},
     {k:'CARGO', n:'Cargo', tipo:'select', opciones:['OFICIOS VARIOS','COORDINADOR']},
     {k:'SALARIO_MENSUAL', n:'Salario mensual', tipo:'number'}
   ]},
