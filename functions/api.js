@@ -2468,7 +2468,15 @@ async function accionRevisarIncapacidad(body, env) {
 // Combina lo que hay en la ficha del trabajador con el historial de
 // vinculaciones, que es donde queda el motivo del retiro.
 async function accionGetIngresosRetiros(body, env) {
-  const trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado,motivo_retiro,tipo_retiro');
+  // Si todavía no se ha corrido el SQL de retiros, se consulta sin esas columnas
+  let trabs = [];
+  let faltaSqlRetiros = false;
+  try {
+    trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado,motivo_retiro,tipo_retiro');
+  } catch (e) {
+    faltaSqlRetiros = true;
+    trabs = await sbAll(env, 'trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret,sede,cargo,estado');
+  }
   let vincs = [];
   try {
     vincs = await sbAll(env, 'trabajador_vinculaciones?select=cedula,fecha_ingreso,fecha_retiro,motivo_retiro,sede,cargo');
@@ -2485,14 +2493,21 @@ async function accionGetIngresosRetiros(body, env) {
   const vistos = new Set();
   const iso = (x) => (x ? String(x).slice(0, 10) : '');
 
+  // Datos de la ficha, por cédula, para completar lo que falte en el historial
+  const fichaDe = new Map(trabs.map((t) => [String(t.cedula), t]));
   vincs.forEach((v) => {
     const ced = String(v.cedula || '');
     const ing = iso(v.fecha_ingreso);
     vistos.add(ced + '|' + ing);
+    const t = fichaDe.get(ced);
+    let ret = iso(v.fecha_retiro);
+    // El historial se sembró una sola vez: si la ficha ya tiene la fecha de
+    // retiro de esa misma vinculación y aquí falta, se toma la de la ficha.
+    if (!ret && t && iso(t.fecha_ingreso) === ing) ret = iso(t.fecha_ret);
     filas.push({
-      cedula: ced, nombre: nombre.get(ced) || '', ingreso: ing, retiro: iso(v.fecha_retiro),
+      cedula: ced, nombre: nombre.get(ced) || '', ingreso: ing, retiro: ret,
       sede: String(v.sede || sedeDe.get(ced) || ''), cargo: String(v.cargo || ''),
-      motivo: String(v.motivo_retiro || ''), origen: 'historial',
+      motivo: String(v.motivo_retiro || (t && t.motivo_retiro) || ''), origen: 'historial',
     });
   });
   trabs.forEach((t) => {
@@ -2544,7 +2559,18 @@ async function accionGetIngresosRetiros(body, env) {
       cargo: String(t.cargo || ''), motivo: String(t.motivo_retiro || ''),
       tipoRetiro: String(t.tipo_retiro || ''), estado: 'RETIRADO', sinFecha: true,
     }));
-  return { ok: true, data: out, sinFecha };
+  const conFechaRet = trabs.filter((t) => !!iso(t.fecha_ret)).length;
+  const marcadosRet = trabs.filter((t) => String(t.estado || '').toUpperCase() === 'RETIRADO').length;
+  return {
+    ok: true, data: out, sinFecha,
+    diag: {
+      trabajadores: trabs.length,
+      conFechaRetiro: conFechaRet,
+      marcadosRetirados: marcadosRet,
+      vinculaciones: vincs.length,
+      faltaSqlRetiros,
+    },
+  };
 }
 
 // Registrar la fecha, el tipo y el motivo del retiro (queda en la ficha y en el historial)
