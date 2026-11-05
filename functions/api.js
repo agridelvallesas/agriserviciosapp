@@ -55,7 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
-  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro',
+  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -174,6 +174,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarMotivoRetiro')  r = await accionGuardarMotivoRetiro(body, env);
     else if (accion === 'informeAusentismo')    r = await accionInformeAusentismo(body, env);
     else if (accion === 'guardarRetiro')        r = await accionGuardarRetiro(body, env);
+    else if (accion === 'detalleAusentismo')    r = await accionDetalleAusentismo(body, env);
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
@@ -2780,4 +2781,77 @@ async function accionInformeAusentismo(body, env) {
       causas: Object.keys(causas).map((g) => causas[g]).sort((a, b3) => b3.dias - a.dias),
     },
   };
+}
+
+
+// ── Detalle día por día del ausentismo de un trabajador ────────────────────
+// Permite auditar el cálculo: qué pasó cada día del periodo.
+async function accionDetalleAusentismo(body, env) {
+  const ced = String(body.cedula || '').replace(/[.,\s]/g, '').trim();
+  const d1 = String(body.desde || '').slice(0, 10);
+  const d2 = String(body.hasta || '').slice(0, 10);
+  if (!ced || !d1 || !d2) return { ok: false, error: 'Faltan datos' };
+  const horasDia = parseFloat(body.horasDia) || 7;
+
+  const tr = await sb(env, `trabajadores?select=cedula,nombres,fecha_ingreso,fecha_ret&cedula=eq.${parseInt(ced)}&limit=1`);
+  const t = tr.length ? tr[0] : {};
+  const ing = t.fecha_ingreso ? String(t.fecha_ingreso).slice(0, 10) : '';
+  const ret = t.fecha_ret ? String(t.fecha_ret).slice(0, 10) : '';
+
+  const regs = await sbAll(env, `detalle_dia?select=fecha,tipo,novedad,es_vigilancia,vig_hd,vig_hn,cantidad,id_labor,coordinador_id&cedula=eq.${parseInt(ced)}&fecha=gte.${d1}&fecha=lte.${d2}`);
+  let incaps = [];
+  try {
+    incaps = await sbAll(env, `incapacidades?select=tipo,fecha_inicio,dias&cedula=eq.${encodeURIComponent(ced)}`);
+  } catch (e) { incaps = []; }
+
+  // Qué hay en cada fecha
+  const porDia = {};
+  regs.forEach((r) => {
+    const f = String(r.fecha || '').slice(0, 10); if (!f) return;
+    const d = (porDia[f] = porDia[f] || { labores: 0, horasVig: 0, novs: [] });
+    if (r.es_vigilancia === true) { d.horasVig += (parseFloat(r.vig_hd) || 0) + (parseFloat(r.vig_hn) || 0); return; }
+    if (String(r.tipo || '') === 'labor') { d.labores++; return; }
+    const nv = String(r.novedad || '').trim().toUpperCase();
+    if (nv) d.novs.push(nv);
+  });
+  const incDia = {};
+  incaps.forEach((i) => {
+    const ini = String(i.fecha_inicio || '').slice(0, 10); if (!ini) return;
+    const d = new Date(ini + 'T12:00:00Z');
+    for (let k = 0; k < (parseInt(i.dias) || 0); k++) {
+      incDia[d.toISOString().slice(0, 10)] = String(i.tipo || 'EG');
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+  });
+
+  const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const out = [];
+  const d = new Date(d1 + 'T12:00:00Z');
+  const fin = new Date(d2 + 'T12:00:00Z');
+  while (d <= fin) {
+    const f = d.toISOString().slice(0, 10);
+    const dow = d.getUTCDay();
+    const esFestivo = FESTIVOS_2026.has(`${d.getUTCDate()}/${d.getUTCMonth() + 1}`);
+    const fuera = (ing && f < ing) || (ret && f > ret);
+    let estado, nota = '';
+    if (dow === 0) { estado = 'DOMINGO'; }
+    else if (esFestivo) { estado = 'FESTIVO'; }
+    else if (fuera) { estado = 'FUERA'; nota = (ing && f < ing) ? 'antes del ingreso' : 'después del retiro'; }
+    else {
+      const x = porDia[f] || { labores: 0, horasVig: 0, novs: [] };
+      const inc = incDia[f];
+      if (inc) { estado = 'AUSENCIA'; nota = (inc === 'AT') ? 'Incapacidad A.T.' : (inc === 'EG') ? 'Incapacidad E.G.' : 'Licencia ' + inc.toLowerCase(); }
+      else if (x.novs.some((n) => n === '13')) { estado = 'VACACIONES'; }
+      else if (x.labores > 0) { estado = 'PRESENTE'; nota = x.labores + ' registro(s)'; }
+      else if (x.horasVig > 0) { estado = 'PRESENTE'; nota = x.horasVig + ' horas de vigilancia'; }
+      else if (x.novs.some((n) => AUS_NOV[n])) {
+        const n = x.novs.find((y) => AUS_NOV[y]);
+        estado = 'AUSENCIA'; nota = AUS_NOV[n].nom;
+      } else if (x.novs.some((n) => AUS_NO.has(n))) { estado = 'PRESENTE'; nota = 'novedad reconocida'; }
+      else { estado = 'SIN REGISTRO'; }
+    }
+    out.push({ fecha: f, dia: DIAS[dow], estado, nota });
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return { ok: true, nombre: String(t.nombres || ''), ingreso: ing, retiro: ret, dias: out };
 }
