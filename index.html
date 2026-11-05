@@ -14848,7 +14848,8 @@ function ausRender(){
         +'<span style="color:var(--g3);font-size:11px">Los días sin registro no se cuentan como ausentismo: pueden ser reportes pendientes de subir.</span>'
       +'</div></div>'
     +'</div>'
-    +'<div class="card" style="margin-top:12px"><div class="ct">👥 Detalle por trabajador</div>'
+    +'<div class="card" style="margin-top:12px"><div class="ct">👥 Detalle por trabajador'
+      +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Haz clic en una fila para ver día por día</span></div>'
     +'<div class="tw" style="max-height:56vh;overflow:auto"><table id="aus-t"><thead><tr>'
       +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th style="text-align:center">Programados</th>'
       +'<th style="text-align:center">Presentes</th><th style="text-align:center">Perdidos</th>'
@@ -14857,7 +14858,7 @@ function ausRender(){
     +filas.map(function(f){
       var col=f.tasa>=10?'#b91c1c':(f.tasa>=5?'#b45309':'var(--g2)');
       var cs=Object.keys(f.causas).map(function(n){return gcEsc(n)+' ('+f.causas[n]+')';}).join(', ');
-      return '<tr'+(f.perdidos>0?' style="background:#fffbf5"':'')+'>'
+      return '<tr style="cursor:pointer'+(f.perdidos>0?';background:#fffbf5':'')+'" title="Clic para ver el detalle día por día" onclick="ausDetalle(\''+f.cedula+'\')">'
         +'<td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
         +'<td><strong>'+gcEsc(f.nombre)+'</strong></td>'
         +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
@@ -14870,6 +14871,62 @@ function ausRender(){
       +'</tr>';
     }).join('')+'</tbody></table></div></div>';
 }
+
+// Detalle día por día: para auditar de dónde sale cada número
+function ausDetalle(ced){
+  var d1=(document.getElementById('aus-d1')||{}).value||'';
+  var d2=(document.getElementById('aus-d2')||{}).value||'';
+  var m=document.createElement('div');
+  m.id='ausd-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:92vh;display:flex;flex-direction:column">'
+    +'<div id="ausd-head" style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:16px;font-weight:800;color:var(--v)">📅 Detalle día por día</div>'
+      +'<button onclick="document.getElementById(\'ausd-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div id="ausd-body" style="padding:16px;overflow:auto"><div style="text-align:center;color:var(--g3);padding:20px">⏳ Cargando...</div></div></div>';
+  document.body.appendChild(m);
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'detalleAusentismo', cedula:ced, desde:d1, hasta:d2,
+      horasDia:parseFloat((document.getElementById('aus-hdia')||{}).value)||7})})
+  .then(function(r){return r.json();}).then(function(d){
+    var b=document.getElementById('ausd-body'); if(!b) return;
+    if(!d||!d.ok){ b.innerHTML='<div style="color:var(--r);text-align:center;padding:20px">Error: '+((d&&d.error)||'?')+'</div>'; return; }
+    var h=document.getElementById('ausd-head');
+    if(h) h.firstChild.innerHTML='📅 '+gcEsc(d.nombre||ced)+'<div style="font-size:11px;font-weight:400;color:var(--g3)">Ingresó el '+incFecha(d.ingreso)+(d.retiro?(' · se retiró el '+incFecha(d.retiro)):'')+'</div>';
+    var est={
+      'PRESENTE':     ['#f0fdf4','#15803d','✓ Trabajó'],
+      'AUSENCIA':     ['#fee2e2','#b91c1c','✕ Ausencia'],
+      'SIN REGISTRO': ['#fffbeb','#b45309','? Sin registro'],
+      'VACACIONES':   ['#eff6ff','#1d4ed8','🌴 Vacaciones'],
+      'DOMINGO':      ['#f8fafc','#94a3b8','Domingo'],
+      'FESTIVO':      ['#f8fafc','#94a3b8','Festivo'],
+      'FUERA':        ['#f8fafc','#94a3b8','—']
+    };
+    var cuenta={};
+    d.dias.forEach(function(x){ cuenta[x.estado]=(cuenta[x.estado]||0)+1; });
+    b.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
+      +Object.keys(cuenta).map(function(k){
+        var e=est[k]||['#f1f5f9','#334155',k];
+        return '<span style="background:'+e[0]+';color:'+e[1]+';font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid '+e[1]+'33">'+e[2]+': '+cuenta[k]+'</span>';
+      }).join('')+'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:3px">'
+      +d.dias.map(function(x){
+        var e=est[x.estado]||['#f1f5f9','#334155',x.estado];
+        var tenue=(x.estado==='DOMINGO'||x.estado==='FESTIVO'||x.estado==='FUERA');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:7px;background:'+e[0]+(tenue?';opacity:.6':'')+'">'
+          +'<span style="font-size:11.5px;font-weight:700;color:var(--g1);min-width:92px">'+incFecha(x.fecha)+'</span>'
+          +'<span style="font-size:11px;color:var(--g3);min-width:66px">'+x.dia+'</span>'
+          +'<span style="font-size:11.5px;font-weight:700;color:'+e[1]+';flex:1">'+e[2]+'</span>'
+          +'<span style="font-size:11px;color:var(--g2)">'+gcEsc(x.nota||'')+'</span></div>';
+      }).join('')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">'
+        +'Los domingos y festivos no cuentan como días programados. “Sin registro” no es ausentismo: puede ser un reporte que falta por subir.</div>';
+  }).catch(function(e){
+    var b=document.getElementById('ausd-body'); if(b) b.innerHTML='<div style="color:var(--r);text-align:center;padding:20px">Error: '+e.message+'</div>';
+  });
+}
+
 function ausExcel(){
   if(!AUS_RES||!AUS_RES.data.length){ alert('Primero genera el informe'); return; }
   consCargarSheetJS(function(ok){
