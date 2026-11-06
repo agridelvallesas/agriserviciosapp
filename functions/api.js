@@ -55,7 +55,7 @@ const PORTADAS = new Set([
   'getFotoTrabajador', 'guardarFotoTrabajador',
   'getRhConfig', 'guardarRhConfig',
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
-  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo',
+  'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo', 'clasificarDia',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -175,6 +175,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'informeAusentismo')    r = await accionInformeAusentismo(body, env);
     else if (accion === 'guardarRetiro')        r = await accionGuardarRetiro(body, env);
     else if (accion === 'detalleAusentismo')    r = await accionDetalleAusentismo(body, env);
+    else if (accion === 'clasificarDia')        r = await accionClasificarDia(body, env);
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
@@ -2878,4 +2879,45 @@ async function accionDetalleAusentismo(body, env) {
     d.setUTCDate(d.getUTCDate() + 1);
   }
   return { ok: true, nombre: String(t.nombres || ''), ingreso: ing, retiro: ret, dias: out };
+}
+
+
+// ── Clasificar un día sin registro como novedad ────────────────────────────
+// Convierte el informe de ausentismo en una herramienta de depuración: lo que
+// estaba sin explicar queda documentado y pasa a contar como ausentismo.
+async function accionClasificarDia(body, env) {
+  const ced = parseInt(String(body.cedula || '').replace(/[^\d]/g, '')) || null;
+  const fecha = String(body.fecha || '').slice(0, 10);
+  const nov = String(body.novedad || '').trim().toUpperCase();
+  if (!ced || !fecha || !nov) return { ok: false, error: 'Faltan datos del día' };
+
+  // Semana y día de la semana que corresponden a esa fecha
+  const d = new Date(fecha + 'T12:00:00Z');
+  const DIAS = ['D', 'L', 'M', 'MI', 'J', 'V', 'S'];
+  const dia = DIAS[d.getUTCDay()];
+  const inicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const semana = Math.ceil((((d - inicio) / 86400000) + inicio.getUTCDay() + 1) / 7);
+
+  // No duplicar: si ya hay algo registrado ese día, se informa
+  const ya = await sb(env, `detalle_dia?select=id,tipo,novedad&cedula=eq.${ced}&fecha=eq.${fecha}&limit=1`);
+  if (ya.length) return { ok: false, error: 'Ese día ya tiene un registro (' + (ya[0].tipo || '') + ')' };
+
+  // Se hereda el coordinador con el que estuvo más recientemente
+  let coordId = null;
+  try {
+    const prev = await sb(env, `detalle_dia?select=coordinador_id&cedula=eq.${ced}&fecha=lte.${fecha}&order=fecha.desc&limit=1`);
+    if (prev.length) coordId = prev[0].coordinador_id || null;
+  } catch (e) { /* queda sin coordinador */ }
+
+  await sbWrite(env, 'POST', 'detalle_dia', {
+    id: crypto.randomUUID().slice(0, 8),
+    coordinador_id: coordId,
+    semana, cedula: ced, dia, fecha,
+    tipo: 'novedad', id_labor: '', unidad: '', cantidad: 0,
+    pago_trabajador: 0, cobro_riopaila: 0, auxilio_alim: 0,
+    novedad: nov,
+    observacion: String(body.observacion || 'Clasificado desde el informe de ausentismo'),
+    fecha_registro: new Date().toISOString(),
+  });
+  return { ok: true, semana, dia };
 }
