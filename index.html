@@ -3310,6 +3310,11 @@ tfoot td{background:var(--gf);font-weight:700}
             <select id="iyr-sede" onchange="iyrRender()">
               <option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option>
             </select></div>
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Agrupar</label>
+            <select id="iyr-grp" onchange="iyrRender()">
+              <option value="mes">Por mes</option>
+              <option value="">Sin agrupar</option>
+            </select></div>
           <div class="fld" style="flex:1;min-width:170px;margin:0"><label style="font-size:10px">Buscar</label>
             <input type="text" id="iyr-q" placeholder="Nombre o cédula..." oninput="iyrRender()"/></div>
           <button class="btn bg" onclick="iyrExcel()" style="height:36px">📥 Excel</button>
@@ -14813,7 +14818,7 @@ var IYR_DATA=[], IYR_SIN=[], IYR_DIAG=null;
 // Tasa = días perdidos ÷ días programados. Los días sin registro se muestran
 // aparte: pueden ser ausencias no documentadas o reportes que faltan subir.
 // ══════════════════════════════════════════════════════════════════════════
-var AUS_RES=null;
+var AUS_RES=null, AUS_CED='';
 function ausInit(){
   var sel=document.getElementById('aus-mes');
   if(sel && !sel.options.length){
@@ -14871,11 +14876,16 @@ function ausRender(){
   if(kp){
     kp.style.display='grid';
     var cls=R.tasa>=5?'k-r':(R.tasa>=3?'k-a':'k-v');
-    kp.innerHTML='<div class="st '+cls+'"><div class="sl">Tasa de ausentismo</div><div class="sv">'+R.tasa+'%</div></div>'
+    // Potencial: suma los días sin explicar, que podrían ser ausencias no documentadas
+    var tasaPot=R.programados?Number((((R.perdidos+R.sinRegistro)/R.programados)*100).toFixed(2)):0;
+    var clsPot=tasaPot>=5?'k-r':(tasaPot>=3?'k-a':'k-v');
+    kp.innerHTML='<div class="st '+cls+'"><div class="sl">Ausentismo documentado</div><div class="sv">'+R.tasa+'%</div></div>'
+      +'<div class="st '+clsPot+'"><div class="sl">Ausentismo potencial</div><div class="sv">'+tasaPot+'%</div>'
+        +'<div style="font-size:10px;margin-top:2px;opacity:.85">incluye los días sin explicar</div></div>'
       +'<div class="st k-r"><div class="sl">Días perdidos</div><div class="sv">'+R.perdidos+'</div></div>'
+      +'<div class="st k-a"><div class="sl">Días sin registro</div><div class="sv">'+R.sinRegistro+'</div></div>'
       +'<div class="st k-g"><div class="sl">Días programados</div><div class="sv">'+R.programados+'</div></div>'
-      +'<div class="st k-a"><div class="sl">Trabajadores con ausencias</div><div class="sv">'+R.conAusencia+'</div></div>'
-      +'<div class="st k-g"><div class="sl">Días sin registro</div><div class="sv">'+R.sinRegistro+'</div></div>';
+      +'<div class="st k-g"><div class="sl">Trabajadores con ausencias</div><div class="sv">'+R.conAusencia+'</div></div>';
   }
   if(!filas.length){
     cont.innerHTML='<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay trabajadores activos en ese periodo.</div>';
@@ -14911,7 +14921,7 @@ function ausRender(){
     +'</div>'
     +'<div class="card" style="margin-top:12px"><div class="ct">👥 Detalle por trabajador'
       +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Haz clic en una fila para ver día por día</span></div>'
-    +'<div class="tw" style="max-height:56vh;overflow:auto"><table id="aus-t"><thead><tr>'
+    +'<div class="tw" style="max-height:56vh;overflow:auto"><table class="ordenable" id="aus-t"><thead><tr>'
       +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th style="text-align:center">Programados</th>'
       +'<th style="text-align:center">Presentes</th><th style="text-align:center">Perdidos</th>'
       +'<th style="text-align:center">Tasa</th><th>Causas</th><th style="text-align:center">Sin registro</th>'
@@ -14935,6 +14945,7 @@ function ausRender(){
 
 // Detalle día por día: para auditar de dónde sale cada número
 function ausDetalle(ced){
+  AUS_CED=ced;
   var d1=(document.getElementById('aus-d1')||{}).value||'';
   var d2=(document.getElementById('aus-d2')||{}).value||'';
   var m=document.createElement('div');
@@ -14979,15 +14990,44 @@ function ausDetalle(ced){
           +'<span style="font-size:11.5px;font-weight:700;color:var(--g1);min-width:92px">'+incFecha(x.fecha)+'</span>'
           +'<span style="font-size:11px;color:var(--g3);min-width:66px">'+x.dia+'</span>'
           +'<span style="font-size:11.5px;font-weight:700;color:'+e[1]+';flex:1">'+e[2]+'</span>'
-          +'<span style="font-size:11px;color:var(--g2)">'+gcEsc(x.nota||'')+'</span></div>';
+          +'<span style="font-size:11px;color:var(--g2)">'+gcEsc(x.nota||'')+'</span>'
+          +(x.estado==='SIN REGISTRO'
+            ? ('<button class="btn ba" style="padding:2px 9px;font-size:10.5px" onclick="ausClasificar(\''+AUS_CED+'\',\''+x.fecha+'\')">Clasificar</button>')
+            : '')
+        +'</div>';
       }).join('')+'</div>'
       +'<div style="font-size:10.5px;color:var(--g3);margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px">'
-        +'Los domingos y festivos no cuentan como días programados. “Sin registro” no es ausentismo: puede ser un reporte que falta por subir.</div>';
+        +'Los domingos y festivos no cuentan como días programados. “Sin registro” no es ausentismo todavía: usa <strong>Clasificar</strong> para documentar qué pasó ese día.</div>';
   }).catch(function(e){
     var b=document.getElementById('ausd-body'); if(b) b.innerHTML='<div style="color:var(--r);text-align:center;padding:20px">Error: '+e.message+'</div>';
   });
 }
 
+// Clasificar un día sin registro: queda documentado y pasa a contar como ausencia
+function ausClasificar(ced, fecha){
+  var ops=[['17','Falta sin causa'],['6','Permiso'],['7','Permiso no remunerado'],
+           ['4','Calamidad'],['3','Cita médica general'],['24','Cita médica especialista'],
+           ['16','Varada de moto'],['21','Día de reposo'],['11','Licencia de luto'],
+           ['1','Incapacidad E.G.'],['2','Incapacidad A.T.']];
+  var txt='¿Qué pasó el '+incFecha(fecha)+'?\n\n'
+    +ops.map(function(o,i){return (i+1)+'. '+o[1];}).join('\n')
+    +'\n\nEscribe el número de la opción:';
+  var r=prompt(txt,'1');
+  if(r===null) return;
+  var ix=parseInt(r)-1;
+  if(isNaN(ix)||!ops[ix]){ alert('Opción no válida'); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'clasificarDia', cedula:ced, fecha:fecha, novedad:ops[ix][0],
+      observacion:'Clasificado desde el informe de ausentismo por '+((typeof S!=='undefined'&&S.u)||'')})})
+  .then(function(x){return x.json();}).then(function(d){
+    if(d&&d.ok){
+      // Recargar el detalle y el informe para que el dato quede reflejado
+      var m=document.getElementById('ausd-modal'); if(m) m.remove();
+      ausCargar();
+      setTimeout(function(){ ausDetalle(ced); }, 600);
+    } else alert('No se pudo clasificar: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
 function ausExcel(){
   if(!AUS_RES||!AUS_RES.data.length){ alert('Primero genera el informe'); return; }
   consCargarSheetJS(function(ok){
@@ -15135,10 +15175,42 @@ function iyrRender(){
     cont.innerHTML=diag+avisoSin+'<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay movimientos de personal con fecha en ese periodo.</div>';
     return;
   }
-  cont.innerHTML=diag+avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table id="iyr-t"><thead><tr>'
+  // Agrupación por mes: se usa la fecha del movimiento que cae en el periodo
+  var agrupar=((document.getElementById('iyr-grp')||{}).value||'mes')==='mes';
+  var MES_N=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var mesDe=function(f){
+    var ref=(tipo==='RETIRO')?f.retiro:(enRango(f.ingreso)?f.ingreso:(f.retiro||f.ingreso));
+    var p=String(ref||'').split('-');
+    return (p.length>=2)?(p[0]+'-'+p[1]):'';
+  };
+  var filaMes=function(mk, items){
+    var p=mk.split('-');
+    var ing=items.filter(function(x){return enRango(x.ingreso);}).length;
+    var ret=items.filter(function(x){return enRango(x.retiro);}).length;
+    var nom=(p.length>=2)?(MES_N[parseInt(p[1])-1]+' '+p[0]):'Sin fecha';
+    return '<tr style="background:var(--gf)"><td colspan="8" style="padding:7px 10px;font-weight:800;color:var(--g1);text-transform:capitalize">'
+      +gcEsc(nom)
+      +' <span style="font-weight:600;font-size:11px;color:var(--v);margin-left:8px">▲ '+ing+' ingreso(s)</span>'
+      +' <span style="font-weight:600;font-size:11px;color:var(--r);margin-left:6px">▼ '+ret+' retiro(s)</span>'
+      +' <span style="font-weight:400;font-size:11px;color:var(--g3);margin-left:6px">· neto '+(ing-ret>0?'+':'')+(ing-ret)+'</span>'
+      +'</td></tr>';
+  };
+  var cuerpo='';
+  if(agrupar){
+    var grupos={};
+    filas.forEach(function(f){ var k=mesDe(f); (grupos[k]=grupos[k]||[]).push(f); });
+    Object.keys(grupos).sort().reverse().forEach(function(k){
+      cuerpo+=filaMes(k, grupos[k])+grupos[k].map(iyrFila).join('');
+    });
+  } else {
+    cuerpo=filas.map(iyrFila).join('');
+  }
+  cont.innerHTML=diag+avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table'+(agrupar?'':' class="ordenable"')+' id="iyr-t"><thead><tr>'
     +'<th>Cédula</th><th>Trabajador</th><th>Fecha de ingreso</th><th>Fecha de retiro</th>'
     +'<th>Sede</th><th>Tipo</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
-    +filas.map(function(f){
+    +cuerpo+'</tbody></table></div></div>';
+
+  function iyrFila(f){
       var activo=!f.retiro;
       var esIngreso=enRango(f.ingreso), esRetiro=enRango(f.retiro);
       return '<tr>'
@@ -15159,7 +15231,7 @@ function iyrRender(){
             ? '<span style="font-size:10px;background:var(--vs);color:var(--v);padding:2px 8px;border-radius:99px;font-weight:700">Activo</span>'
             : '<span style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:99px;font-weight:700">Retirado</span>')+'</td>'
       +'</tr>';
-    }).join('')+'</tbody></table></div></div>';
+  }
 }
 // Ver u ocultar la lista de retirados sin fecha
 function iyrTogSin(){
@@ -15316,7 +15388,7 @@ function incRender(){
   }
   var tipoBdg={EG:['#dbeafe','#1e40af','EG'],AT:['#fee2e2','#b91c1c','AT'],
                MATERNIDAD:['#fce7f3','#9d174d','MAT'],PATERNIDAD:['#e0e7ff','#3730a3','PAT']};
-  cont.innerHTML='<div class="card"><div class="tw" style="max-height:62vh;overflow:auto"><table id="inc-t"><thead><tr>'
+  cont.innerHTML='<div class="card"><div class="tw" style="max-height:62vh;overflow:auto"><table class="ordenable" id="inc-t"><thead><tr>'
     +'<th>Tipo</th><th>Cédula</th><th>Trabajador</th><th>Inicio</th><th style="text-align:center">Días</th>'
     +'<th>Fin</th><th>Diagnóstico</th><th>Entidad</th><th style="text-align:right">Valor</th>'
     +'<th>Revisión</th><th>Quincenas de pago</th><th class="no-print">Acc.</th></tr></thead><tbody>'
@@ -15757,11 +15829,11 @@ function incInformeRender(){
       +'<div class="st"><div class="sl">Asume la empresa</div><div class="sv" style="color:var(--a)">'+cop(tot(R,'empEG')+tot(R,'empAT'))+'</div></div>'
     +'</div>'
     +'<div class="card" style="margin-bottom:12px"><div class="ct">📋 Detalle por incapacidad — '+gcEsc(INC_INF.qna)+'</div>'
-      +'<div class="tw" style="max-height:44vh;overflow:auto"><table id="inci-t-det"><thead>'+encab+'</thead><tbody>'
+      +'<div class="tw" style="max-height:44vh;overflow:auto"><table class="ordenable" id="inci-t-det"><thead>'+encab+'</thead><tbody>'
       +D.map(filaDet).join('')+totRow(D)+'</tbody></table></div></div>'
     +'<div class="card"><div class="ct">📊 Resumen por trabajador '
       +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Los días del periodo se consolidan corridos desde la primera fecha</span></div>'
-      +'<div class="tw" style="max-height:44vh;overflow:auto"><table id="inci-t-res"><thead>'+encab+'</thead><tbody>'
+      +'<div class="tw" style="max-height:44vh;overflow:auto"><table class="ordenable" id="inci-t-res"><thead>'+encab+'</thead><tbody>'
       +R.map(function(r){
         return filaDet(r).replace('<td style="text-align:center;font-weight:700">'+r.dias+'</td>',
           '<td style="text-align:center;font-weight:700">'+r.dias
@@ -22679,7 +22751,7 @@ function invInfRender(){
         +gcEsc(r.p)+' <strong style="color:var(--v)">'+r.c+'</strong></span>';
     }).join('')+'</div></div>'
     +'<div class="card"><div class="ct">📋 Detalle de entregas</div>'
-    +'<div class="tw" style="max-height:60vh;overflow:auto"><table id="iinf-t"><thead><tr>'
+    +'<div class="tw" style="max-height:60vh;overflow:auto"><table class="ordenable" id="iinf-t"><thead><tr>'
       +'<th>Cédula</th><th>Trabajador</th><th>Fecha de entrega</th><th>Categoría</th><th>Elemento</th><th style="text-align:center">Cantidad</th>'
     +'</tr></thead><tbody>'
     +f.map(function(x){
@@ -23071,6 +23143,11 @@ function invKardexVer(){
   table.ordenable th{cursor:pointer;user-select:none;white-space:nowrap}
   table.ordenable th:hover{filter:brightness(1.15)}
   .sort-ind{opacity:.7;font-size:.85em}
+  /* Encabezados fijos: al desplazar una tabla larga, los títulos quedan visibles */
+  .tw{position:relative}
+  .tw table thead th{position:sticky;top:0;z-index:5;background:var(--gf);
+    box-shadow:0 2px 3px -2px rgba(0,0,0,.18)}
+  .tw table thead th.no-print{z-index:6}
 </style>
 <script>
 (function(){
