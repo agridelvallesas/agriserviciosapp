@@ -8423,10 +8423,10 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
     if(filtSede&&empSede&&empSede!==filtSede) return;
     // Novedades reportadas en las semanas de la quincena (para revisarlas al liquidar)
     var novsQ={};
-    getAllRegs().forEach(function(reg){
+    allR.forEach(function(reg){
       if(String(reg.ced)!==String(emp.ced)) return;
       if(reg.tipo!=='novedad') return;
-      if(qnaSems.indexOf(String(parseInt(reg.sem)||0))<0) return;
+      if(!semIds.includes(reg.sem)) return;   // solo las semanas de esta quincena
       var cod=String(reg.nov||'').trim().toUpperCase(); if(!cod) return;
       var k=cod;
       if(!novsQ[k]) novsQ[k]={cod:cod, nom:(typeof getNov==='function'?getNov(cod):cod), dias:0, detalle:[]};
