@@ -7374,7 +7374,7 @@ function expNomina(){
   var qnaSems=window.NOM_QNA_SEMS||[];
   var semHeaders=qnaSems.map(function(s){return 'S'+s;});
   var domHeaders=qnaSems.map(function(s){return 'DOM S'+s;});
-  var headers=['NOMBRE','CÉDULA'].concat(semHeaders).concat(domHeaders).concat(['DÍAS TRANSP.','SAL. LABORES','DOM. LABORES','AJ. DOM.','SAL. VIG. N','DOM. VIG. N','AJ. DOM. VIG.','AJ. MÍNIMO','AUX. ALIM. LAB','AUX. ALIM. VIG','AUX. TRANSP.','TOTAL']);
+  var headers=['NOMBRE','CÉDULA'].concat(semHeaders).concat(domHeaders).concat(['NOVEDADES','DÍAS TRANSP.','SAL. LABORES','DOM. LABORES','AJ. DOM.','SAL. VIG. N','DOM. VIG. N','AJ. DOM. VIG.','AJ. MÍNIMO','AUX. ALIM. LAB','AUX. ALIM. VIG','AUX. TRANSP.','TOTAL']);
   // Función para normalizar números: redondea, descarta NaN/Infinity, y elimina precisión flotante
   // También protege contra valores absurdos (>$500M) que indican bugs internos
   function num(v){
@@ -7400,10 +7400,15 @@ function expNomina(){
     });
     var semVals=qnaSems.map(function(s){return num(salPorSem[s]||0);});
     var domVals=qnaSems.map(function(s){return num(domPorSem[s]||0);});
+    // Novedades de la quincena, en una sola celda: "Cita médica (2), Permiso"
+    var novTxt=(r.novs||[]).map(function(n){
+      return n.nom+(n.dias>1?(' ('+n.dias+')'):'');
+    }).join(', ');
     return [
       r.emp,
-      String(r.ced||'') // cédula como texto para no perder ceros iniciales
+      xlCed(r.ced)        // cédula como número, para que BUSCARV la reconozca
     ].concat(semVals).concat(domVals).concat([
+      novTxt,
       num(r.dAuxTot||r.dAux),
       num(r.sal),
       num(r.dom),
@@ -7562,6 +7567,15 @@ function nomEmpClear(){
   if(NOM_ROWS_CACHE.length) renderNomRows(NOM_ROWS_CACHE);
 }
 
+// Novedades de la quincena, en etiquetas compactas
+function nomNovsCelda(novs){
+  if(!novs||!novs.length) return '<span style="color:var(--g3)">&#x2014;</span>';
+  return novs.map(function(n){
+    return '<span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:99px;'
+      +'padding:1px 7px;margin:1px 2px 1px 0;font-size:10px;font-weight:600" title="'+gcEsc(n.detalle.join(', '))+'">'
+      +gcEsc(n.nom)+(n.dias>1?(' ×'+n.dias):'')+'</span>';
+  }).join('');
+}
 function togNomDet(uid,btn){
   var row=document.getElementById(uid);
   if(!row) return;
@@ -7589,6 +7603,7 @@ function renderNomRows(rows){
       +'<th>Cálculo</th>'
       +semColsHead
       +domColsHead
+      +'<th style="color:var(--a)">Novedades</th>'
       +'<th>Días transp.</th>'
       +'<th>Sal. labores</th>'
       +'<th>Dom. labores</th>'
@@ -7604,7 +7619,7 @@ function renderNomRows(rows){
       +'<th class="no-print">Detalle</th>'
       +'</tr>';
   }
-  var totalCols=15+qnaSems.length*2;
+  var totalCols=16+qnaSems.length*2;
   if(!data.length){
     tb.innerHTML='<tr><td colspan="'+totalCols+'" style="text-align:center;padding:20px;color:var(--g3)">Sin datos para esta quincena</td></tr>';
     return;
@@ -7664,6 +7679,7 @@ function renderNomRows(rows){
       +'<td style="font-size:11px">'+detStr+'</td>'
       +semCells
       +domCells
+      +'<td style="font-size:10.5px;max-width:170px">'+nomNovsCelda(r.novs)+'</td>'
       +'<td style="text-align:center;font-size:11px">'+diasStr+'</td>'
       +'<td><strong>'+cop(r.sal)+'</strong></td>'
       +'<td>'+(r.dom>0?cop(r.dom):'&#x2014;')+'</td>'
@@ -8405,7 +8421,21 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
     // Filtrar por sede si aplica
     var empSede=getSedeCo(emp.coord)||'';
     if(filtSede&&empSede&&empSede!==filtSede) return;
-    rows.push({emp:emp.emp,ced:emp.ced,coord:emp.coord,sede:empSede,det:det,dAux:dAuxTotal,dAuxVig:auxVigDias,dAuxTot:dAuxTotal+auxVigDias,
+    // Novedades reportadas en las semanas de la quincena (para revisarlas al liquidar)
+    var novsQ={};
+    getAllRegs().forEach(function(reg){
+      if(String(reg.ced)!==String(emp.ced)) return;
+      if(reg.tipo!=='novedad') return;
+      if(qnaSems.indexOf(String(parseInt(reg.sem)||0))<0) return;
+      var cod=String(reg.nov||'').trim().toUpperCase(); if(!cod) return;
+      var k=cod;
+      if(!novsQ[k]) novsQ[k]={cod:cod, nom:(typeof getNov==='function'?getNov(cod):cod), dias:0, detalle:[]};
+      novsQ[k].dias++;
+      novsQ[k].detalle.push('S'+reg.sem+' '+reg.dia);
+    });
+    var novLista=Object.keys(novsQ).map(function(k){return novsQ[k];})
+      .sort(function(a,b){ return b.dias-a.dias; });
+    rows.push({emp:emp.emp,ced:emp.ced,coord:emp.coord,sede:empSede,det:det,novs:novLista,dAux:dAuxTotal,dAuxVig:auxVigDias,dAuxTot:dAuxTotal+auxVigDias,
       sal:salQ,dom:domQ,ajDom:ajDomQ,ajMin:ajMin,
       vigN:salVigN,domVigN:domVigN,ajDomVigN:ajDomVigN,
       vigDetHoras:vigDetHoras,hVigTotal:hVigTotal,
