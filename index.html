@@ -3265,6 +3265,25 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- ══════════ SST — ENTREGAS POR EMPLEADO ══════════ -->
+    <!-- ══════ FACTURACIÓN — CONTRATOS ══════ -->
+    <div class="page" id="p-contratos">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct">📜 Contratos SAP de prestación de servicios
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Valor contratado, facturado por año y saldo disponible</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Facturado hasta</label>
+            <input type="date" id="ctr-hasta" onchange="ctrRender()"/></div>
+          <div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Prefijo que cuenta</label>
+            <input type="text" id="ctr-pref" value="FE" onchange="ctrRender()" style="text-transform:uppercase"/></div>
+          <button class="btn bg" onclick="ctrCargar()" style="height:36px">🔄 Actualizar</button>
+          <button class="btn bg" onclick="ctrExcel()" style="height:36px">📥 Excel</button>
+          <button class="btn bn" onclick="ctrEditar(null)" style="height:36px">➕ Contrato</button>
+        </div>
+        <div style="font-size:11px;color:var(--g3);margin-top:6px">Solo se cuentan las facturas del prefijo indicado y se excluyen las anuladas. El valor vigente es el inicial más los otrosíes.</div>
+      </div>
+      <div id="ctr-cont"></div>
+    </div>
+
     <!-- ══════ RH — AUSENTISMO ══════ -->
     <div class="page" id="p-aus">
       <div class="card" style="margin-bottom:12px">
@@ -4679,7 +4698,7 @@ function buildNav(){
   } else if(S.rol==='n'){
     nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button>';
   } else {
-    nav.innerHTML='<div class="sb-sec">Facturación</div><button class="ni" onclick="go(\'fac\')"><span class="ni-ico">💰</span>Saldos y facturas</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button>';
+    nav.innerHTML='<div class="sb-sec">Facturación</div><button class="ni" onclick="go(\'fac\')"><span class="ni-ico">💰</span>Saldos y facturas</button><button class="ni" onclick="go(\'contratos\')"><span class="ni-ico">📜</span>Contratos</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button>';
   }
   nav.querySelectorAll('.ni').forEach(function(b){var orig=b.onclick;b.onclick=function(){if(orig) orig.call(this);markNI(this,cc);};});
   // Pintar el ítem activo con el color del módulo
@@ -4696,7 +4715,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'RH — Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'RH — Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4731,6 +4750,7 @@ function go(pg){
   if(pg==='inc') incInit();
   if(pg==='iyr') iyrInit();
   if(pg==='aus') ausInit();
+  if(pg==='contratos') ctrInit();
   if(pg==='res-sem') rsInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
@@ -9048,6 +9068,350 @@ function facEmailResponsable(nombre){
   var r=FAC_RESP.filter(function(x){return String(x.nombre).toUpperCase()===String(nombre||'').toUpperCase();})[0];
   return r?(r.email||''):'';
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// FACTURACIÓN — CONTRATOS
+// Cada contrato tiene un valor inicial que los otrosíes pueden ampliar. Lo
+// facturado se calcula de las facturas (prefijo FE, sin anuladas) agrupadas
+// por año, y de ahí sale el saldo disponible.
+// ══════════════════════════════════════════════════════════════════════════
+var CTR_DATA=[];
+function ctrInit(){
+  var h=document.getElementById('ctr-hasta');
+  if(h && !h.value) h.value=new Date().toISOString().slice(0,10);
+  if(!FACTURAS_CACHE.length) carFacturas(function(){ ctrCargar(); });
+  else ctrCargar();
+}
+function ctrCargar(){
+  var cont=document.getElementById('ctr-cont');
+  cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando contratos...</div>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getContratos'})})
+  .then(function(r){return r.json();}).then(function(d){
+    CTR_DATA=(d&&d.ok&&d.data)?d.data:[];
+    ctrRender();
+  }).catch(function(e){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--r)">Error: '+e.message
+      +'<div style="font-size:12px;color:var(--g3);margin-top:6px">Si es la primera vez, corre <code>26_contratos.sql</code> en Supabase.</div></div>';
+  });
+}
+// Facturado por año de un contrato (según la clave que traen las facturas)
+function ctrFacturado(clave, hasta, pref){
+  var porAnio={}, total=0;
+  (FACTURAS_CACHE||[]).forEach(function(f){
+    if(f.estado==='ANULADA') return;
+    if(String(f.contrato||'').toUpperCase()!==String(clave||'').toUpperCase()) return;
+    if(pref){
+      var p=(String(f.nfac||'').match(/^[A-Za-z]+/)||[''])[0].toUpperCase();
+      if(p!==pref) return;
+    }
+    var ff=facFechaISO(f.ffac); if(!ff) return;
+    if(hasta && ff>hasta) return;
+    var a=ff.slice(0,4);
+    porAnio[a]=(porAnio[a]||0)+(f.val||0);
+    total+=(f.val||0);
+  });
+  return {porAnio:porAnio, total:total};
+}
+function ctrRender(){
+  var cont=document.getElementById('ctr-cont'); if(!cont) return;
+  if(!CTR_DATA.length){
+    cont.innerHTML='<div class="card" style="text-align:center;padding:26px;color:var(--g3)">No hay contratos registrados. Usa “➕ Contrato” para crear el primero.</div>';
+    return;
+  }
+  var hasta=(document.getElementById('ctr-hasta')||{}).value||'';
+  var pref=((document.getElementById('ctr-pref')||{}).value||'').trim().toUpperCase();
+  // Años a mostrar: los de la vigencia más los que tengan facturación
+  var anios={};
+  CTR_DATA.forEach(function(c){
+    var a1=parseInt((c.inicio||'').slice(0,4))||new Date().getFullYear();
+    var a2=parseInt((c.fin||'').slice(0,4))||a1;
+    for(var a=a1;a<=a2;a++) anios[a]=1;
+    c._fac=ctrFacturado(c.clave, hasta, pref);
+    Object.keys(c._fac.porAnio).forEach(function(a){ anios[a]=1; });
+  });
+  var listaAnios=Object.keys(anios).sort();
+
+  var totVig=0, totFac=0;
+  CTR_DATA.forEach(function(c){ totVig+=c.valorVigente; totFac+=c._fac.total; });
+  var totDisp=totVig-totFac;
+  var pctGlobal=totVig?((totFac/totVig)*100):0;
+
+  // ── Indicadores ──
+  var html='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">'
+    +'<div class="st k-g"><div class="sl">Valor de los contratos</div><div class="sv">'+cop(totVig)+'</div></div>'
+    +'<div class="st k-n"><div class="sl">Total facturado</div><div class="sv">'+cop(totFac)+'</div>'
+      +'<div style="font-size:10px;margin-top:2px;opacity:.85">'+pctGlobal.toFixed(2)+'% ejecutado</div></div>'
+    +'<div class="st '+(pctGlobal>90?'k-r':'k-v')+'"><div class="sl">Saldo disponible</div><div class="sv">'+cop(totDisp)+'</div>'
+      +'<div style="font-size:10px;margin-top:2px;opacity:.85">'+(100-pctGlobal).toFixed(2)+'% por ejecutar</div></div>'
+    +'</div>';
+
+  // ── Tarjeta por contrato, con barra de ejecución ──
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:12px">';
+  CTR_DATA.forEach(function(c){
+    var pct=c.valorVigente?((c._fac.total/c.valorVigente)*100):0;
+    var disp=c.valorVigente-c._fac.total;
+    var col=pct>90?'#b91c1c':(pct>70?'#b45309':'#15803d');
+    html+='<div class="card" style="border-top:4px solid '+col+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+        +'<div><div style="font-size:15px;font-weight:800;color:var(--g1)">'+gcEsc(c.planta||c.numero)+'</div>'
+        +'<div style="font-size:11px;color:var(--g3)">Contrato '+gcEsc(c.numero)+' · facturas «'+gcEsc(c.clave)+'»</div>'
+        +'<div style="font-size:10.5px;color:var(--g3)">Vigencia: '+incFecha(c.inicio)+' a '+incFecha(c.fin)
+          +(c.fin!==c.finOriginal?' <span style="color:var(--a)">(prorrogado)</span>':'')+'</div></div>'
+        +'<div style="display:flex;gap:4px">'
+          +'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="ctrEditar('+c.id+')">✏️</button>'
+          +'<button class="btn ba" style="padding:3px 8px;font-size:11px" onclick="ctrOtrosi('+c.id+')" title="Agregar otrosí">➕ Otrosí</button>'
+        +'</div>'
+      +'</div>'
+      +'<div style="margin:12px 0 6px;height:12px;background:var(--gf);border-radius:99px;overflow:hidden">'
+        +'<div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+col+'"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--g2);margin-bottom:10px">'
+        +'<span>Facturado <strong>'+pct.toFixed(2)+'%</strong></span>'
+        +'<span>Disponible <strong style="color:'+col+'">'+cop(disp)+'</strong></span></div>'
+      +'<table style="width:100%;font-size:11.5px;border-collapse:collapse">'
+        +'<tr><td style="padding:3px 0;color:var(--g3)">Valor inicial</td><td style="text-align:right;font-weight:600">'+cop(c.valorInicial)+'</td></tr>'
+        +(c.ampliacion?('<tr><td style="padding:3px 0;color:var(--a)">Otrosíes ('+c.otrosies.length+')</td><td style="text-align:right;font-weight:600;color:var(--a)">'+(c.ampliacion>0?'+':'')+cop(c.ampliacion)+'</td></tr>'):'')
+        +'<tr style="border-top:1px solid var(--bd)"><td style="padding:4px 0;font-weight:700">Valor vigente</td><td style="text-align:right;font-weight:800">'+cop(c.valorVigente)+'</td></tr>'
+      +'</table>'
+      +(c.otrosies.length?('<div style="margin-top:8px;border-top:1px dashed var(--bd);padding-top:7px">'
+        +c.otrosies.map(function(o){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0">'
+            +'<span style="color:var(--g2)">Otrosí '+gcEsc(o.numero||'')+' · '+incFecha(o.fecha)
+              +(o.observacion?(' <span style="color:var(--g3)">'+gcEsc(o.observacion)+'</span>'):'')+'</span>'
+            +'<span><strong style="color:var(--a)">'+(o.valor>0?'+':'')+cop(o.valor)+'</strong> '
+            +'<button class="btn br" style="padding:0 6px;font-size:10px" onclick="ctrOtrosiEliminar('+o.id+')">✕</button></span></div>';
+        }).join('')+'</div>'):'')
+    +'</div>';
+  });
+  html+='</div>';
+
+  // ── Gráfico: facturación por año y contrato ──
+  var maxA=1;
+  listaAnios.forEach(function(a){
+    CTR_DATA.forEach(function(c){ maxA=Math.max(maxA, c._fac.porAnio[a]||0); });
+  });
+  var colores=['#15803d','#b45309','#1d4ed8','#6d28d9'];
+  html+='<div class="card" style="margin-bottom:12px"><div class="ct">📊 Facturación por año</div>'
+    +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px">'
+    +CTR_DATA.map(function(c,i){
+      return '<span style="font-size:11.5px;display:flex;align-items:center;gap:6px">'
+        +'<span style="width:12px;height:12px;border-radius:3px;background:'+colores[i%4]+';display:inline-block"></span>'
+        +gcEsc(c.planta||c.numero)+'</span>';
+    }).join('')+'</div>'
+    +'<div style="display:flex;gap:16px;align-items:flex-end;height:190px;padding:0 4px;overflow-x:auto">'
+    +listaAnios.map(function(a){
+      return '<div style="flex:1;min-width:90px;display:flex;flex-direction:column;align-items:center;gap:5px">'
+        +'<div style="display:flex;gap:5px;align-items:flex-end;height:150px">'
+        +CTR_DATA.map(function(c,i){
+          var v=c._fac.porAnio[a]||0;
+          var h=Math.max(2, Math.round((v/maxA)*145));
+          return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:150px">'
+            +(v?('<span style="font-size:9.5px;color:var(--g2);white-space:nowrap;margin-bottom:2px">'+cop(v)+'</span>'):'')
+            +'<div title="'+gcEsc(c.planta)+' '+a+': '+cop(v)+'" style="width:34px;height:'+h+'px;background:'+colores[i%4]+';border-radius:5px 5px 0 0"></div></div>';
+        }).join('')
+        +'</div><div style="font-size:12px;font-weight:700;color:var(--g1)">'+a+'</div></div>';
+    }).join('')+'</div></div>';
+
+  // ── Tabla consolidada, como la hoja que entrega la empresa ──
+  html+='<div class="card"><div class="ct">📋 Consolidado de contratos</div>'
+    +'<div class="tw"><table id="ctr-t"><thead><tr>'
+      +'<th>Planta</th><th>Contrato SAP</th><th style="text-align:right">Valor del contrato</th>'
+      +listaAnios.map(function(a){return '<th style="text-align:right">Facturado '+a+'</th>';}).join('')
+      +'<th style="text-align:right">Total facturado</th><th style="text-align:right">Disponible</th>'
+      +'<th style="text-align:center">% ejecutado</th></tr></thead><tbody>'
+    +CTR_DATA.map(function(c){
+      var pct=c.valorVigente?((c._fac.total/c.valorVigente)*100):0;
+      return '<tr><td><strong>'+gcEsc(c.planta)+'</strong></td><td>'+gcEsc(c.numero)+'</td>'
+        +'<td style="text-align:right;font-weight:700">'+cop(c.valorVigente)+'</td>'
+        +listaAnios.map(function(a){
+          var v=c._fac.porAnio[a]||0;
+          return '<td style="text-align:right'+(v?'':';color:var(--g3)')+'">'+(v?cop(v):'—')+'</td>';
+        }).join('')
+        +'<td style="text-align:right;font-weight:700;color:var(--n)">'+cop(c._fac.total)+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(c.valorVigente-c._fac.total)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+(pct>90?'var(--r)':'var(--g2)')+'">'+pct.toFixed(2)+'%</td></tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--bd);font-weight:800"><td colspan="2">TOTALES</td>'
+      +'<td style="text-align:right">'+cop(totVig)+'</td>'
+      +listaAnios.map(function(a){
+        var v=CTR_DATA.reduce(function(acc,c){return acc+(c._fac.porAnio[a]||0);},0);
+        return '<td style="text-align:right">'+(v?cop(v):'—')+'</td>';
+      }).join('')
+      +'<td style="text-align:right;color:var(--n)">'+cop(totFac)+'</td>'
+      +'<td style="text-align:right;color:var(--v)">'+cop(totDisp)+'</td>'
+      +'<td style="text-align:center">'+pctGlobal.toFixed(2)+'%</td></tr>'
+    +'</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--g3);margin-top:8px">Facturado '+(hasta?('hasta el '+incFecha(hasta)):'a la fecha')+(pref?(' · solo facturas «'+pref+'»'):'')+'. No se incluyen las anuladas.</div>'
+  +'</div>';
+  cont.innerHTML=html;
+  CTR_ANIOS=listaAnios;
+}
+var CTR_ANIOS=[];
+
+
+// ── Crear o editar un contrato ────────────────────────────────────────────
+function ctrEditar(id){
+  var c=id?CTR_DATA.filter(function(x){return x.id===id;})[0]:null;
+  c=c||{numero:'',planta:'',clave:'',valorInicial:'',inicio:'',fin:'',observacion:''};
+  var m=document.createElement('div');
+  m.id='ctr-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  // Claves de contrato que realmente usan las facturas
+  var claves={};
+  (FACTURAS_CACHE||[]).forEach(function(f){ if(f.contrato) claves[String(f.contrato).toUpperCase()]=1; });
+  var lista=Object.keys(claves).sort();
+  if(c.clave && lista.indexOf(c.clave)<0) lista.unshift(c.clave);
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:92vh;overflow:auto">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:16px;font-weight:800;color:var(--f)">📜 '+(id?'Editar contrato':'Nuevo contrato')+'</div>'
+      +'<button onclick="document.getElementById(\'ctr-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Número SAP *</label><input type="text" id="ctrf-num" value="'+gcEsc(c.numero)+'" placeholder="4100006923"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Planta</label><input type="text" id="ctrf-planta" value="'+gcEsc(c.planta)+'" placeholder="CASTILLA" style="text-transform:uppercase"/></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Cómo aparece en las facturas *</label>'
+          +'<select id="ctrf-clave"><option value="">— Seleccionar —</option>'
+          +lista.map(function(k){return '<option value="'+gcEsc(k)+'"'+(c.clave===k?' selected':'')+'>'+gcEsc(k)+'</option>';}).join('')
+          +'</select><div style="font-size:10.5px;color:var(--g3);margin-top:3px">Es el valor del campo Contrato de las facturas; con eso se suma lo facturado.</div></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Valor inicial del contrato *</label><input type="number" id="ctrf-valor" value="'+(c.valorInicial||'')+'"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Inicio de vigencia</label><input type="date" id="ctrf-ini" value="'+(c.inicio||'')+'"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Fin de vigencia</label><input type="date" id="ctrf-fin" value="'+(c.fin||'')+'"/></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Observación</label><input type="text" id="ctrf-obs" value="'+gcEsc(c.observacion||'')+'"/></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;justify-content:space-between;margin-top:14px">'
+        +(id?('<button class="btn br" onclick="ctrEliminar('+id+')">🗑️ Eliminar</button>'):'<span></span>')
+        +'<span><button class="btn bg" onclick="document.getElementById(\'ctr-modal\').remove()">Cancelar</button> '
+        +'<button class="btn bv" onclick="ctrGuardar('+(id||'null')+')">💾 Guardar</button></span>'
+      +'</div></div></div>';
+  document.body.appendChild(m);
+}
+function ctrGuardar(id){
+  var g=function(x){ var e=document.getElementById(x); return e?e.value.trim():''; };
+  if(!g('ctrf-num')){ alert('Escribe el número del contrato'); return; }
+  if(!g('ctrf-clave')){ alert('Elige cómo aparece el contrato en las facturas'); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarContrato', contrato:{
+      id:id||null, numero:g('ctrf-num'), planta:g('ctrf-planta'), clave:g('ctrf-clave'),
+      valorInicial:parseFloat(g('ctrf-valor'))||0, inicio:g('ctrf-ini'), fin:g('ctrf-fin'),
+      observacion:g('ctrf-obs')}})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ var m=document.getElementById('ctr-modal'); if(m) m.remove(); ctrCargar(); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+function ctrEliminar(id){
+  if(!confirm('¿Eliminar este contrato y sus otrosíes?\n\nLas facturas no se modifican.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarContrato', id:id})})
+  .then(function(r){return r.json();}).then(function(){ var m=document.getElementById('ctr-modal'); if(m) m.remove(); ctrCargar(); });
+}
+// ── Otrosíes: amplían o reducen el valor, y pueden prorrogar la vigencia ──
+function ctrOtrosi(contratoId){
+  var c=CTR_DATA.filter(function(x){return x.id===contratoId;})[0]||{};
+  var m=document.createElement('div');
+  m.id='ctro-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:520px;width:100%">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--a)">➕ Nuevo otrosí</div>'
+      +'<div style="font-size:11px;color:var(--g3)">'+gcEsc(c.planta||'')+' · contrato '+gcEsc(c.numero||'')+'</div></div>'
+      +'<button onclick="document.getElementById(\'ctro-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Número del otrosí</label><input type="text" id="ctro-num" placeholder="Otrosí 1"/></div>'
+        +'<div class="fld" style="margin:0"><label style="font-size:10px">Fecha</label><input type="date" id="ctro-fecha" value="'+new Date().toISOString().slice(0,10)+'"/></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Valor * <span style="font-weight:400;color:var(--g3)">(negativo si reduce)</span></label>'
+          +'<input type="number" id="ctro-valor" placeholder="2000000000"/></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Nueva fecha de fin <span style="font-weight:400;color:var(--g3)">(solo si prorroga)</span></label>'
+          +'<input type="date" id="ctro-fin"/></div>'
+        +'<div class="fld" style="margin:0;grid-column:span 2"><label style="font-size:10px">Observación</label><input type="text" id="ctro-obs" placeholder="Ampliación de presupuesto"/></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+        +'<button class="btn bg" onclick="document.getElementById(\'ctro-modal\').remove()">Cancelar</button>'
+        +'<button class="btn bv" onclick="ctrOtrosiGuardar('+contratoId+')">💾 Guardar</button></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+function ctrOtrosiGuardar(contratoId){
+  var g=function(x){ var e=document.getElementById(x); return e?e.value.trim():''; };
+  var v=parseFloat(g('ctro-valor'));
+  if(isNaN(v)||v===0){ alert('Escribe el valor del otrosí'); return; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'guardarOtrosi', otrosi:{contratoId:contratoId, numero:g('ctro-num'),
+      fecha:g('ctro-fecha'), valor:v, nuevaFin:g('ctro-fin'), observacion:g('ctro-obs')},
+      usuario:(typeof S!=='undefined'&&S.u)||''})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ var m=document.getElementById('ctro-modal'); if(m) m.remove(); ctrCargar(); }
+    else alert('Error: '+((d&&d.error)||'?'));
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+function ctrOtrosiEliminar(id){
+  if(!confirm('¿Eliminar este otrosí? El valor del contrato vuelve a su monto anterior.')) return;
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'eliminarOtrosi', id:id})})
+  .then(function(r){return r.json();}).then(function(){ ctrCargar(); });
+}
+function ctrExcel(){
+  if(!CTR_DATA.length){ alert('No hay contratos'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var hasta=(document.getElementById('ctr-hasta')||{}).value||'';
+    var emp=(typeof CONFIG_EMPRESA!=='undefined')?CONFIG_EMPRESA:{};
+    var rows=[];
+    rows.push([emp.nombre||'AGRISERVICIOS DEL VALLE S.A.S.']);
+    rows.push(['NIT. '+(emp.nit||'')]);
+    rows.push([]);
+    rows.push(['VALORES DE LOS CONTRATOS SAP DE PRESTACIÓN DE SERVICIOS']);
+    rows.push(['Facturado hasta '+(hasta?String(hasta).split('-').reverse().join('/'):'la fecha')]);
+    rows.push([]);
+    rows.push(['Planta','Contrato SAP','Valor del contrato']
+      .concat(CTR_ANIOS.map(function(a){return 'Facturado '+a;}))
+      .concat(['Total facturado','Valor disponible','% ejecutado']));
+    var tv=0, tf=0;
+    CTR_DATA.forEach(function(c){
+      tv+=c.valorVigente; tf+=c._fac.total;
+      rows.push([c.planta, c.numero, c.valorVigente]
+        .concat(CTR_ANIOS.map(function(a){return c._fac.porAnio[a]||0;}))
+        .concat([c._fac.total, c.valorVigente-c._fac.total,
+                 c.valorVigente?Number(((c._fac.total/c.valorVigente)*100).toFixed(2)):0]));
+    });
+    rows.push(['TOTALES','', tv]
+      .concat(CTR_ANIOS.map(function(a){
+        return CTR_DATA.reduce(function(acc,c){return acc+(c._fac.porAnio[a]||0);},0); }))
+      .concat([tf, tv-tf, tv?Number(((tf/tv)*100).toFixed(2)):0]));
+    rows.push([]);
+    rows.push(['OTROSÍES']);
+    rows.push(['Planta','Número','Fecha','Valor','Observación']);
+    CTR_DATA.forEach(function(c){
+      c.otrosies.forEach(function(o){
+        rows.push([c.planta, o.numero, xlFecha(o.fecha), o.valor, o.observacion]);
+      });
+    });
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
+    var cols=[{wch:14},{wch:16},{wch:20}];
+    CTR_ANIOS.forEach(function(){ cols.push({wch:18}); });
+    cols.push({wch:20}); cols.push({wch:20}); cols.push({wch:13});
+    ws['!cols']=cols;
+    var L='ABCDEFGHIJKLMN'.split('');
+    var nCol=3+CTR_ANIOS.length+3;
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:13,color:{rgb:'2D5A3D'}}});
+    est('A4',{font:{bold:true,sz:12}});
+    est('A5',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    for(var c=0;c<nCol;c++) est(L[c]+'7',{font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center',wrapText:true}});
+    for(var i=0;i<CTR_DATA.length+1;i++){
+      var r=8+i;
+      for(var c2=2;c2<nCol-1;c2++) if(ws[L[c2]+r]) ws[L[c2]+r].z='$#,##0';
+      if(ws[L[nCol-1]+r]) ws[L[nCol-1]+r].z='0.00"%"';
+      if(i===CTR_DATA.length) for(var c3=0;c3<nCol;c3++)
+        est(L[c3]+r,{font:{bold:true,color:{rgb:'2D5A3D'}},fill:{fgColor:{rgb:'ECFDF5'}}});
+    }
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contratos');
+    XLSX.writeFile(wb, 'Contratos_'+(hasta||new Date().toISOString().slice(0,10))+'.xlsx');
+  });
+}
+
 function facCfgInit(){
   cargarConfigEmpresa(function(){
     var v=function(id,val){ var e=document.getElementById(id); if(e) e.value=val||''; };
