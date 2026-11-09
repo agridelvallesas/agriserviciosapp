@@ -57,6 +57,7 @@ const PORTADAS = new Set([
   'getVinculaciones', 'registrarReingreso', 'cerrarVinculacion', 'eliminarVinculacion',
   'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo', 'clasificarDia',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
+  'getContratos', 'guardarContrato', 'eliminarContrato', 'guardarOtrosi', 'eliminarOtrosi',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
@@ -179,6 +180,11 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
+    else if (accion === 'getContratos')         r = await accionGetContratos(body, env);
+    else if (accion === 'guardarContrato')      r = await accionGuardarContrato(body, env);
+    else if (accion === 'eliminarContrato')     r = await accionEliminarContrato(body, env);
+    else if (accion === 'guardarOtrosi')        r = await accionGuardarOtrosi(body, env);
+    else if (accion === 'eliminarOtrosi')       r = await accionEliminarOtrosi(body, env);
     else if (accion === 'getIncapacidades')     r = await accionGetIncapacidades(body, env);
     else if (accion === 'guardarIncapacidad')   r = await accionGuardarIncapacidad(body, env);
     else if (accion === 'eliminarIncapacidad')  r = await accionEliminarIncapacidad(body, env);
@@ -2920,4 +2926,77 @@ async function accionClasificarDia(body, env) {
     fecha_registro: new Date().toISOString(),
   });
   return { ok: true, semana, dia };
+}
+
+
+// ── Contratos y otrosíes ───────────────────────────────────────────────────
+async function accionGetContratos(body, env) {
+  const cs = await sbAll(env, 'contratos?select=*&order=orden,numero');
+  let otros = [];
+  try { otros = await sbAll(env, 'contrato_otrosi?select=*&order=fecha'); } catch (e) { otros = []; }
+  const porContrato = {};
+  otros.forEach((o) => {
+    (porContrato[o.contrato_id] = porContrato[o.contrato_id] || []).push({
+      id: o.id, numero: String(o.numero || ''),
+      fecha: o.fecha ? String(o.fecha).slice(0, 10) : '',
+      valor: Number(o.valor || 0),
+      nuevaFin: o.nueva_fecha_fin ? String(o.nueva_fecha_fin).slice(0, 10) : '',
+      observacion: String(o.observacion || ''),
+    });
+  });
+  return { ok: true, data: cs.map((c) => {
+    const os = porContrato[c.id] || [];
+    const ampliacion = os.reduce((a, o) => a + (o.valor || 0), 0);
+    // La vigencia puede extenderse por un otrosí
+    let fin = c.fecha_fin ? String(c.fecha_fin).slice(0, 10) : '';
+    os.forEach((o) => { if (o.nuevaFin && o.nuevaFin > fin) fin = o.nuevaFin; });
+    return {
+      id: c.id, numero: String(c.numero || ''), planta: String(c.planta || ''),
+      clave: String(c.clave_factura || ''), valorInicial: Number(c.valor_inicial || 0),
+      ampliacion, valorVigente: Number(c.valor_inicial || 0) + ampliacion,
+      inicio: c.fecha_inicio ? String(c.fecha_inicio).slice(0, 10) : '',
+      fin, finOriginal: c.fecha_fin ? String(c.fecha_fin).slice(0, 10) : '',
+      activo: c.activo !== false, observacion: String(c.observacion || ''),
+      otrosies: os,
+    };
+  }) };
+}
+async function accionGuardarContrato(body, env) {
+  const c = body.contrato || {};
+  const num = String(c.numero || '').trim();
+  if (!num) return { ok: false, error: 'Falta el número del contrato' };
+  const fila = {
+    numero: num, planta: String(c.planta || '').toUpperCase(),
+    clave_factura: String(c.clave || '').toUpperCase(),
+    valor_inicial: parseFloat(c.valorInicial) || 0,
+    fecha_inicio: fechaONull(c.inicio), fecha_fin: fechaONull(c.fin),
+    activo: c.activo !== false, observacion: String(c.observacion || ''),
+    orden: parseInt(c.orden) || 0,
+  };
+  if (c.id) await sbWrite(env, 'PATCH', `contratos?id=eq.${encodeURIComponent(c.id)}`, fila);
+  else await sbWrite(env, 'POST', 'contratos', fila);
+  return { ok: true };
+}
+async function accionEliminarContrato(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `contratos?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
+}
+async function accionGuardarOtrosi(body, env) {
+  const o = body.otrosi || {};
+  if (!o.contratoId) return { ok: false, error: 'Falta el contrato' };
+  const fila = {
+    contrato_id: o.contratoId, numero: String(o.numero || ''),
+    fecha: fechaONull(o.fecha), valor: parseFloat(o.valor) || 0,
+    nueva_fecha_fin: fechaONull(o.nuevaFin), observacion: String(o.observacion || ''),
+    registrado_por: String(body.usuario || ''),
+  };
+  if (o.id) await sbWrite(env, 'PATCH', `contrato_otrosi?id=eq.${encodeURIComponent(o.id)}`, fila);
+  else await sbWrite(env, 'POST', 'contrato_otrosi', fila);
+  return { ok: true };
+}
+async function accionEliminarOtrosi(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `contrato_otrosi?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
 }
