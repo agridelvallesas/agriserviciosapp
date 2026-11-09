@@ -9096,7 +9096,8 @@ function ctrCargar(){
 }
 // Facturado por año de un contrato (según la clave que traen las facturas)
 function ctrFacturado(clave, hasta, pref){
-  var porAnio={}, total=0;
+  var porAnio={}, total=0, malas=[];
+  var anioMin=2015, anioMax=new Date().getFullYear()+3;
   (FACTURAS_CACHE||[]).forEach(function(f){
     if(f.estado==='ANULADA') return;
     if(String(f.contrato||'').toUpperCase()!==String(clave||'').toUpperCase()) return;
@@ -9107,10 +9108,15 @@ function ctrFacturado(clave, hasta, pref){
     var ff=facFechaISO(f.ffac); if(!ff) return;
     if(hasta && ff>hasta) return;
     var a=ff.slice(0,4);
+    // Una fecha con año imposible (0022, por ejemplo) está mal grabada
+    if(parseInt(a)<anioMin || parseInt(a)>anioMax){
+      malas.push({nfac:f.nfac, fecha:ff, val:f.val||0, id:f.id});
+      return;
+    }
     porAnio[a]=(porAnio[a]||0)+(f.val||0);
     total+=(f.val||0);
   });
-  return {porAnio:porAnio, total:total};
+  return {porAnio:porAnio, total:total, malas:malas};
 }
 function ctrRender(){
   var cont=document.getElementById('ctr-cont'); if(!cont) return;
@@ -9127,6 +9133,13 @@ function ctrRender(){
     var a2=parseInt((c.fin||'').slice(0,4))||a1;
     for(var a=a1;a<=a2;a++) anios[a]=1;
     c._fac=ctrFacturado(c.clave, hasta, pref);
+    // Años cargados a mano (facturas que no están en el sistema)
+    (c.historico||[]).forEach(function(h){
+      if(!h.anio||!h.valor) return;
+      c._fac.porAnio[h.anio]=(c._fac.porAnio[h.anio]||0)+h.valor;
+      c._fac.total+=h.valor;
+      anios[h.anio]=1;
+    });
     Object.keys(c._fac.porAnio).forEach(function(a){ anios[a]=1; });
   });
   var listaAnios=Object.keys(anios).sort();
@@ -9136,8 +9149,24 @@ function ctrRender(){
   var totDisp=totVig-totFac;
   var pctGlobal=totVig?((totFac/totVig)*100):0;
 
+  // ── Aviso de facturas con la fecha mal grabada ──
+  var malas=[];
+  CTR_DATA.forEach(function(c){ (c._fac.malas||[]).forEach(function(m){ malas.push(Object.assign({planta:c.planta},m)); }); });
+  var html='';
+  if(malas.length){
+    html+='<div class="card" style="margin-bottom:12px;border-left:4px solid #b91c1c">'
+      +'<strong style="color:#b91c1c">⚠️ '+malas.length+' factura(s) con la fecha mal grabada</strong>'
+      +'<div style="font-size:12px;color:var(--g2);margin-top:4px">No se cuentan en ningún año hasta corregirles la fecha de facturación:</div>'
+      +'<div style="margin-top:6px;font-size:11.5px">'
+      +malas.map(function(m){
+        return '<div style="padding:3px 0;border-bottom:1px solid var(--bd)">'
+          +'<strong>'+gcEsc(m.nfac||'')+'</strong> · '+gcEsc(m.planta||'')
+          +' · fecha registrada: <span style="color:#b91c1c">'+gcEsc(m.fecha)+'</span>'
+          +' · valor '+cop(m.val)+'</div>';
+      }).join('')+'</div></div>';
+  }
   // ── Indicadores ──
-  var html='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">'
+  html+='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">'
     +'<div class="st k-g"><div class="sl">Valor de los contratos</div><div class="sv">'+cop(totVig)+'</div></div>'
     +'<div class="st k-n"><div class="sl">Total facturado</div><div class="sv">'+cop(totFac)+'</div>'
       +'<div style="font-size:10px;margin-top:2px;opacity:.85">'+pctGlobal.toFixed(2)+'% ejecutado</div></div>'
@@ -9160,6 +9189,7 @@ function ctrRender(){
         +'<div style="display:flex;gap:4px">'
           +'<button class="btn bvs" style="padding:3px 8px;font-size:11px" onclick="ctrEditar('+c.id+')">✏️</button>'
           +'<button class="btn ba" style="padding:3px 8px;font-size:11px" onclick="ctrOtrosi('+c.id+')" title="Agregar otrosí">➕ Otrosí</button>'
+          +'<button class="btn bg" style="padding:3px 8px;font-size:11px" onclick="ctrHistorico('+c.id+')" title="Facturación de años que no están en el sistema">📅 Histórico</button>'
         +'</div>'
       +'</div>'
       +'<div style="margin:12px 0 6px;height:12px;background:var(--gf);border-radius:99px;overflow:hidden">'
@@ -9172,6 +9202,13 @@ function ctrRender(){
         +(c.ampliacion?('<tr><td style="padding:3px 0;color:var(--a)">Otrosíes ('+c.otrosies.length+')</td><td style="text-align:right;font-weight:600;color:var(--a)">'+(c.ampliacion>0?'+':'')+cop(c.ampliacion)+'</td></tr>'):'')
         +'<tr style="border-top:1px solid var(--bd)"><td style="padding:4px 0;font-weight:700">Valor vigente</td><td style="text-align:right;font-weight:800">'+cop(c.valorVigente)+'</td></tr>'
       +'</table>'
+      +((c.historico&&c.historico.length)?('<div style="margin-top:8px;border-top:1px dashed var(--bd);padding-top:7px">'
+        +'<div style="font-size:10px;color:var(--g3);text-transform:uppercase;font-weight:700;margin-bottom:3px">Facturación cargada a mano</div>'
+        +c.historico.map(function(h){
+          return '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">'
+            +'<span style="color:var(--g2)">'+h.anio+'</span>'
+            +'<strong>'+cop(h.valor)+'</strong></div>';
+        }).join('')+'</div>'):'')
       +(c.otrosies.length?('<div style="margin-top:8px;border-top:1px dashed var(--bd);padding-top:7px">'
         +c.otrosies.map(function(o){
           return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0">'
@@ -9224,7 +9261,10 @@ function ctrRender(){
         +'<td style="text-align:right;font-weight:700">'+cop(c.valorVigente)+'</td>'
         +listaAnios.map(function(a){
           var v=c._fac.porAnio[a]||0;
-          return '<td style="text-align:right'+(v?'':';color:var(--g3)')+'">'+(v?cop(v):'—')+'</td>';
+          var man=(c.historico||[]).filter(function(h){return String(h.anio)===String(a);})[0];
+          return '<td style="text-align:right'+(v?'':';color:var(--g3)')+'" '
+            +(man?('title="Incluye '+cop(man.valor)+' cargado a mano"'):'')+'>'
+            +(v?cop(v):'—')+(man?' <span style="font-size:9px;color:var(--a)">M</span>':'')+'</td>';
         }).join('')
         +'<td style="text-align:right;font-weight:700;color:var(--n)">'+cop(c._fac.total)+'</td>'
         +'<td style="text-align:right;font-weight:700;color:var(--v)">'+cop(c.valorVigente-c._fac.total)+'</td>'
@@ -9249,6 +9289,67 @@ var CTR_ANIOS=[];
 
 
 // ── Crear o editar un contrato ────────────────────────────────────────────
+
+// ── Facturación de años que no están en el sistema (se carga a mano) ──────
+function ctrHistorico(contratoId){
+  var c=CTR_DATA.filter(function(x){return x.id===contratoId;})[0]||{};
+  var hoy=new Date().getFullYear();
+  var a1=parseInt((c.inicio||'').slice(0,4))||hoy-1;
+  var a2=parseInt((c.fin||'').slice(0,4))||hoy+1;
+  var anios=[]; for(var a=a1;a<=a2;a++) anios.push(a);
+  var vals={}; (c.historico||[]).forEach(function(h){ vals[h.anio]=h.valor; });
+  var auto={}; // lo que ya hay en el sistema, para no duplicar
+  Object.keys(c._fac?c._fac.porAnio:{}).forEach(function(a){ auto[a]=c._fac.porAnio[a]-(vals[a]||0); });
+
+  var m=document.createElement('div');
+  m.id='ctrh-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:92vh;overflow:auto">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--f)">📅 Facturación cargada a mano</div>'
+      +'<div style="font-size:11px;color:var(--g3)">'+gcEsc(c.planta||'')+' · contrato '+gcEsc(c.numero||'')+'</div></div>'
+      +'<button onclick="document.getElementById(\'ctrh-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px">'
+      +'<div style="font-size:12px;color:var(--g2);background:var(--gf);border-radius:8px;padding:9px 11px;margin-bottom:12px">'
+        +'Escribe aquí el total facturado de los años cuyas facturas <strong>no están en el sistema</strong>. '
+        +'Se suma a lo que la aplicación ya calcula. Si un año ya está completo en el sistema, déjalo en cero.</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+        +'<thead><tr style="background:var(--gf)"><th style="text-align:left;padding:7px 9px">Año</th>'
+        +'<th style="text-align:right;padding:7px 9px">Ya en el sistema</th>'
+        +'<th style="text-align:right;padding:7px 9px">Cargado a mano</th></tr></thead><tbody>'
+        +anios.map(function(a){
+          return '<tr><td style="padding:6px 9px;font-weight:700">'+a+'</td>'
+            +'<td style="padding:6px 9px;text-align:right;color:var(--g3)">'+cop(auto[a]||0)+'</td>'
+            +'<td style="padding:6px 9px;text-align:right">'
+              +'<input type="number" id="ctrh-'+a+'" value="'+(vals[a]||'')+'" placeholder="0" style="width:150px;text-align:right;padding:4px 7px;font-size:12px"/></td></tr>';
+        }).join('')
+      +'</tbody></table>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+        +'<button class="btn bg" onclick="document.getElementById(\'ctrh-modal\').remove()">Cancelar</button>'
+        +'<button class="btn bv" onclick="ctrHistoricoGuardar('+contratoId+',['+anios.join(',')+'])">💾 Guardar</button></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+function ctrHistoricoGuardar(contratoId, anios){
+  var pend=anios.map(function(a){
+    var el=document.getElementById('ctrh-'+a);
+    return {anio:a, valor:parseFloat(el&&el.value)||0};
+  });
+  var i=0;
+  (function siguiente(){
+    if(i>=pend.length){
+      var m=document.getElementById('ctrh-modal'); if(m) m.remove();
+      ctrCargar(); return;
+    }
+    var p=pend[i++];
+    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({accion:'guardarHistoricoContrato', contratoId:contratoId,
+        anio:p.anio, valor:p.valor, observacion:'Cargado manualmente'})})
+    .then(function(r){return r.json();}).then(siguiente).catch(siguiente);
+  })();
+}
+
 function ctrEditar(id){
   var c=id?CTR_DATA.filter(function(x){return x.id===id;})[0]:null;
   c=c||{numero:'',planta:'',clave:'',valorInicial:'',inicio:'',fin:'',observacion:''};
