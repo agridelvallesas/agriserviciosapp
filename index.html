@@ -10543,25 +10543,27 @@ function calcInfFac(){
   var usaFecha=!!(fec1||fec2);
   facInfPoblarPrefijos();
   var nAnuladas=0;
+  // Cuántas descarta cada filtro, para poder explicar un resultado inesperado
+  var desc={estado:0, contrato:0, resp:0, prefijo:0, sinFecha:0, fecha:0, semana:0};
   var data=FACTURAS_CACHE.filter(function(f){
     if(f.estado==='ANULADA'){ nAnuladas++; if(!incAnul) return false; }
-    if(filtEstado && f.estado!==filtEstado) return false;
-    if(filtC&&f.contrato!==filtC) return false;
-    if(filtR&&f.resp!==filtR) return false;
+    if(filtEstado && f.estado!==filtEstado){ desc.estado++; return false; }
+    if(filtC&&f.contrato!==filtC){ desc.contrato++; return false; }
+    if(filtR&&f.resp!==filtR){ desc.resp++; return false; }
     if(filtPref){
       var pref=(String(f.nfac||'').match(/^[A-Za-z]+/)||[''])[0].toUpperCase();
-      if(pref!==filtPref) return false;
+      if(pref!==filtPref){ desc.prefijo++; return false; }
     }
     if(usaFecha){
       // Las fechas mandan sobre las semanas
       var ff=facFechaISO(f.ffac);
-      if(!ff) return false;                       // sin fecha y hay filtro de fecha → excluir
-      if(fec1 && ff<fec1) return false;
-      if(fec2 && ff>fec2) return false;
+      if(!ff){ desc.sinFecha++; return false; }   // sin fecha y hay filtro de fecha → excluir
+      if(fec1 && ff<fec1){ desc.fecha++; return false; }
+      if(fec2 && ff>fec2){ desc.fecha++; return false; }
     } else if(s1||s2<99){
       var sems=String(f.sems||'').replace(/[-–]/g,',').split(',').map(function(s){return parseInt(s.trim());}).filter(Boolean);
-      if(!sems.length) return false;              // sin semana y hay filtro de semana → excluir
-      if(!sems.some(function(s){return s>=s1&&s<=s2;})) return false;
+      if(!sems.length){ desc.semana++; return false; }   // sin semana y hay filtro de semana → excluir
+      if(!sems.some(function(s){return s>=s1&&s<=s2;})){ desc.semana++; return false; }
     }
     return true;
   }).sort(function(a,b){return(a.sems||'').localeCompare(b.sems||'');});
@@ -10582,6 +10584,17 @@ function calcInfFac(){
     var partes=[];
     partes.push('<strong>Pagado + Pendiente + Retención = Total facturado</strong> ('+cop(tPagado)+' + '+cop(tPendiente)+' + '+cop(tRet)+' = '+cop(tPagado+tPendiente+tRet)+')');
     partes.push(incAnul?('⚠️ Incluyendo '+nAnuladas+' factura(s) ANULADA(S)'):('Se excluyen '+nAnuladas+' factura(s) anulada(s)'));
+    // Qué descartó cada filtro (ayuda cuando el resultado no es el esperado)
+    var motivos=[];
+    if(desc.estado)   motivos.push(desc.estado+' por estado');
+    if(desc.contrato) motivos.push(desc.contrato+' por contrato');
+    if(desc.resp)     motivos.push(desc.resp+' por responsable');
+    if(desc.prefijo)  motivos.push(desc.prefijo+' por prefijo');
+    if(desc.fecha)    motivos.push(desc.fecha+' fuera del rango de fechas');
+    if(desc.sinFecha) motivos.push(desc.sinFecha+' sin fecha de facturación');
+    if(desc.semana)   motivos.push(desc.semana+' fuera del rango de semanas');
+    if(motivos.length) partes.push('<span style="color:#92400e">Descartadas: '+motivos.join(', ')+'</span>');
+    partes.push('Total en el sistema: '+FACTURAS_CACHE.length);
     if(filtPref) partes.push('Solo prefijo <strong>'+filtPref+'</strong>');
     if(filtEstado) partes.push('Solo <strong>'+filtEstado+'</strong>');
     nota.innerHTML=partes.join('  ·  ');
