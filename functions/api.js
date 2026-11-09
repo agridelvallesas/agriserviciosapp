@@ -1,3 +1,4 @@
+
 // =====================================================================
 //  AGRISERVICIOS · API (Cloudflare Pages Function)   ·   ruta: /api
 //  Reemplaza progresivamente a Google Apps Script contra Supabase.
@@ -58,6 +59,7 @@ const PORTADAS = new Set([
   'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo', 'clasificarDia',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getContratos', 'guardarContrato', 'eliminarContrato', 'guardarOtrosi', 'eliminarOtrosi',
+  'guardarHistoricoContrato',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
@@ -185,6 +187,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'eliminarContrato')     r = await accionEliminarContrato(body, env);
     else if (accion === 'guardarOtrosi')        r = await accionGuardarOtrosi(body, env);
     else if (accion === 'eliminarOtrosi')       r = await accionEliminarOtrosi(body, env);
+    else if (accion === 'guardarHistoricoContrato') r = await accionGuardarHistoricoContrato(body, env);
     else if (accion === 'getIncapacidades')     r = await accionGetIncapacidades(body, env);
     else if (accion === 'guardarIncapacidad')   r = await accionGuardarIncapacidad(body, env);
     else if (accion === 'eliminarIncapacidad')  r = await accionEliminarIncapacidad(body, env);
@@ -2934,6 +2937,13 @@ async function accionGetContratos(body, env) {
   const cs = await sbAll(env, 'contratos?select=*&order=orden,numero');
   let otros = [];
   try { otros = await sbAll(env, 'contrato_otrosi?select=*&order=fecha'); } catch (e) { otros = []; }
+  let hist = [];
+  try { hist = await sbAll(env, 'contrato_historico?select=*&order=anio'); } catch (e) { hist = []; }
+  const histPorContrato = {};
+  hist.forEach((h) => {
+    (histPorContrato[h.contrato_id] = histPorContrato[h.contrato_id] || [])
+      .push({ id: h.id, anio: parseInt(h.anio) || 0, valor: Number(h.valor || 0), observacion: String(h.observacion || '') });
+  });
   const porContrato = {};
   otros.forEach((o) => {
     (porContrato[o.contrato_id] = porContrato[o.contrato_id] || []).push({
@@ -2957,7 +2967,7 @@ async function accionGetContratos(body, env) {
       inicio: c.fecha_inicio ? String(c.fecha_inicio).slice(0, 10) : '',
       fin, finOriginal: c.fecha_fin ? String(c.fecha_fin).slice(0, 10) : '',
       activo: c.activo !== false, observacion: String(c.observacion || ''),
-      otrosies: os,
+      otrosies: os, historico: histPorContrato[c.id] || [],
     };
   }) };
 }
@@ -2998,5 +3008,24 @@ async function accionGuardarOtrosi(body, env) {
 async function accionEliminarOtrosi(body, env) {
   if (!body.id) return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `contrato_otrosi?id=eq.${encodeURIComponent(body.id)}`);
+  return { ok: true };
+}
+
+
+// Facturación de años anteriores, cargada a mano (lo que no está en el sistema)
+async function accionGuardarHistoricoContrato(body, env) {
+  const cid = body.contratoId;
+  const anio = parseInt(body.anio) || 0;
+  if (!cid || !anio) return { ok: false, error: 'Falta el contrato o el año' };
+  const valor = parseFloat(body.valor) || 0;
+  const ex = await sb(env, `contrato_historico?select=id&contrato_id=eq.${encodeURIComponent(cid)}&anio=eq.${anio}&limit=1`);
+  if (ex.length) {
+    if (valor === 0) await sbWrite(env, 'DELETE', `contrato_historico?id=eq.${ex[0].id}`);
+    else await sbWrite(env, 'PATCH', `contrato_historico?id=eq.${ex[0].id}`, { valor, observacion: String(body.observacion || '') });
+  } else if (valor !== 0) {
+    await sbWrite(env, 'POST', 'contrato_historico', {
+      contrato_id: cid, anio, valor, observacion: String(body.observacion || 'Cargado manualmente'),
+    });
+  }
   return { ok: true };
 }
