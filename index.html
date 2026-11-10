@@ -14920,10 +14920,10 @@ function rhHojaPDF(t, foto){
 
   var dd={
     pageSize:'LETTER',
-    pageMargins:[42, logo?96:70, 42, 46],
+    pageMargins:[42, logo?118:70, 42, 46],
     header:function(){
       var st=[];
-      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,24,0,2]});
+      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,18,0,2]});
       st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
       if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
       st.push(cartaSeparador('encabezado'));
@@ -18689,7 +18689,7 @@ function cartaMembrete(){
     logo:logo, emp:emp,
     header:function(){
       var st=[];
-      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,24,0,2]});
+      if(logo) st.push({image:logo, fit:[140,36], alignment:'center', margin:[0,18,0,2]});
       st.push({text:emp.nombre||'', fontSize:13, bold:true, color:'#2d5a3d', alignment:'center'});
       if(emp.nit) st.push({text:'NIT. '+emp.nit, fontSize:9, color:'#64748b', alignment:'center', margin:[0,1,0,4]});
       st.push(cartaSeparador('encabezado'));
@@ -18722,7 +18722,7 @@ function cartaPDF(htmlBody, titulo){
   });
   var dd={
     pageSize:'LETTER',
-    pageMargins:[56, m.logo?96:70, 56, 52],
+    pageMargins:[56, m.logo?120:70, 56, 52],
     header:m.header, footer:m.footer,
     content:contenido,
     defaultStyle:{font:'Roboto', fontSize:11, color:'#111827', lineHeight:1.15}
