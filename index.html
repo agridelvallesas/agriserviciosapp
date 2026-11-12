@@ -693,8 +693,8 @@ tfoot td{background:var(--gf);font-weight:700}
               </select>
             </div>
             <div class="fld" style="margin-top:12px">
-              <label style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px;display:block">📝 Observación (opcional)</label>
-              <input type="text" id="r-obs" placeholder="Ej: Incapacidad por 3 días..." style="font-size:14px;border:2px solid #fbbf24;border-radius:10px;padding:12px 14px;background:#fffbeb;color:#92400e"/>
+              <label style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px;display:block">📝 Observación <span style="color:#b91c1c">*</span></label>
+              <input type="text" id="r-obs" required placeholder="Obligatorio: describe la novedad" style="font-size:14px;border:2px solid #fbbf24;border-radius:10px;padding:12px 14px;background:#fffbeb;color:#92400e"/>
             </div>
             <div id="alrt-aux" style="display:none;margin-top:12px;padding:12px 14px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:2px solid #16a34a;border-radius:10px;color:#166534;display:flex;align-items:center;gap:8px">
               <span style="font-size:18px">✅</span><span>Esta novedad <strong>cuenta</strong> para auxilio de transporte.</span>
@@ -3054,7 +3054,17 @@ tfoot td{background:var(--gf);font-weight:700}
             <input type="hidden" id="rc-ced"/>
             <input type="hidden" id="rc-emp-nom"/>
           </div>
-          <div class="fld full"><label>Labor <span style="font-size:10px;color:var(--g3)">(N=Norte, S=Sur — el sistema filtra por la sede del coordinador)</span></label>
+          <div class="fld full"><label>Tipo de registro</label>
+            <select id="rc-tipo" onchange="rcTipoCambio()">
+              <option value="labor">Labor realizada</option>
+              <option value="novedad">Novedad</option>
+            </select>
+          </div>
+          <div class="fld full" id="rc-nov-wrap" style="display:none">
+            <label>Tipo de novedad <span style="color:#b91c1c">*</span></label>
+            <select id="rc-nov"><option value="">— Seleccionar novedad —</option></select>
+          </div>
+          <div class="fld full" id="rc-lab-wrap"><label>Labor <span style="font-size:10px;color:var(--g3)">(N=Norte, S=Sur — el sistema filtra por la sede del coordinador)</span></label>
             <div style="position:relative">
               <input type="text" id="rc-lab-q" placeholder="Buscar labor..." autocomplete="off" style="width:100%"/>
               <div id="rc-lab-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--w);border:1px solid var(--bd);border-radius:var(--rads);max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
@@ -3081,7 +3091,8 @@ tfoot td{background:var(--gf);font-weight:700}
             <input type="number" id="rc-alim" step="100" min="0" placeholder="0"/>
             <div style="font-size:10px;color:var(--g3);margin-top:2px">No salarial. Se prorratea igual que el salario en quincenas.</div>
           </div>
-          <div class="fld full"><label>Observación (opcional)</label><input type="text" id="rc-obs" placeholder="Ej: Permiso médico, ajuste, etc."/></div>
+          <div class="fld full"><label id="rc-obs-lbl">Observación (opcional)</label>
+            <input type="text" id="rc-obs" placeholder="Ej: Permiso médico, ajuste, etc."/></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:14px">
           <button class="btn bf" onclick="rcGuardar()" style="flex:1">💾 Guardar registro</button>
@@ -3692,7 +3703,9 @@ let EMP=[];
 let TAR=[];
 let QNAS=[];
 
-const NOVNOM={'MB':'Motobomba','1':'Incapacidad E.G.','2':'Incapacidad A.T.','3':'Cita médica general','4':'Calamidad','5':'Día familia','6':'Permiso','7':'Permiso no remunerado','8':'Nocturno','9':'Lic. paternidad','10':'Lic. maternidad','11':'Lic. luto','12':'Suspendido','13':'Vacaciones','14':'Reinducción','15':'Exámenes médicos','16':'Varada moto','17':'Falta sin causa','18':'Ingreso','19':'Retiro','20':'Capacitación','21':'Día de reposo','24':'Cita médica especialista'};
+// Novedades: se cargan de la tabla "referencias" de la base de datos.
+// Esta lista queda como respaldo si la consulta falla.
+var NOVNOM={'MB':'Motobomba','1':'Incapacidad E.G.','2':'Incapacidad A.T.','3':'Cita médica general','4':'Calamidad','5':'Día familia','6':'Permiso','7':'Permiso no remunerado','8':'Nocturno','9':'Lic. paternidad','10':'Lic. maternidad','11':'Lic. luto','12':'Suspendido','13':'Vacaciones','14':'Reinducción','15':'Exámenes médicos','16':'Varada moto','17':'Falta sin causa','18':'Ingreso','19':'Retiro','20':'Capacitación','21':'Día de reposo','24':'Cita médica especialista'};
 
 // Estado
 let S={u:null,rol:null,ltab:'c',diaSel:null,tc:0,editId:null,adm:''};
@@ -3949,6 +3962,7 @@ function completarLogin(){
   // También poblar en el campo de semana label
   var radm=document.getElementById('r-admin'); if(radm&&!radm.value&&S.adm) radm.value=S.adm;
   buildNav();
+  cargarNovedades();
   buildRail();
   identidadModulo();
   poblarSelsSems();
@@ -5351,8 +5365,15 @@ async function agregarAlLote(){
     }
   } else if(tipo==='novedad'){
     var nov=document.getElementById('r-nov').value;
-    var obs=document.getElementById('r-obs').value;
+    var obs=(document.getElementById('r-obs').value||'').trim();
     if(!nov){msgR('⚠ Selecciona el tipo de novedad','r');return;}
+    // La observación es obligatoria: deja constancia de qué ocurrió
+    if(obs.length<4){
+      msgR('⚠ Escribe la observación de la novedad (obligatoria)','r');
+      var oe=document.getElementById('r-obs');
+      if(oe){ oe.focus(); oe.style.borderColor='var(--r)'; }
+      return;
+    }
     regs.push({id:'r'+Date.now(),coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,dia:dia,tipo:'novedad',
       labId:'',lab:'',u:'',cant:0,pago:0,cobro:0,cobroVig:0,nov:nov,obs:obs,alim:0,obsTarea:'',esVig:false,vigHd:0,vigHn:0,domFest:false});
   } else {
@@ -12471,6 +12492,33 @@ function togSection(wrapId, icoId){
   if(ico) ico.textContent=open?'▼ expandir':'▲ contraer';
 }
 function getNov(c){return NOVNOM[c]||c||'—';}
+// ── Catálogo de novedades desde la base de datos ──────────────────────────
+var NOV_LISTA=[];
+function cargarNovedades(cb){
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getReferencias'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok&&d.data&&d.data.length){
+      NOV_LISTA=d.data;
+      // El diccionario de nombres pasa a ser el de la base
+      NOV_LISTA.forEach(function(n){ NOVNOM[n.cod]=n.nom; });
+      pintarSelectNovedades();
+    }
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); });
+}
+// Llena los desplegables de novedades que haya en pantalla
+function pintarSelectNovedades(){
+  if(!NOV_LISTA.length) return;
+  ['r-nov','rc-nov','me-nov'].forEach(function(id){
+    var sel=document.getElementById(id); if(!sel) return;
+    var actual=sel.value;
+    sel.innerHTML='<option value="">— Seleccionar novedad —</option>'
+      +NOV_LISTA.map(function(n){
+        return '<option value="'+n.cod+'">'+gcEsc(n.cod+' - '+n.nom.toUpperCase())+'</option>';
+      }).join('');
+    if(actual) sel.value=actual;
+  });
+}
 function detectAlts(regs){var by={};regs.forEach(function(r){if(r.tipo!=='labor')return;var k=r.ced+'|'+r.coord+'|'+r.dia+'|'+r.sem;if(!by[k])by[k]={emp:r.emp,coord:r.coord,dia:r.dia,pago:0};by[k].pago+=r.pago;});return Object.values(by).filter(function(x){return x.pago>0&&x.pago<UMBRAL;});}
 
 // ══════════════════════════════════════════
@@ -13121,6 +13169,28 @@ function rcCalc(){
   document.getElementById('rc-cobro').value=cop(Math.round(tar.c*cant));
 }
 
+// Cambia el formulario entre labor y novedad
+function rcTipoCambio(){
+  var t=((document.getElementById('rc-tipo')||{}).value)||'labor';
+  var esNov=(t==='novedad');
+  var mostrar=function(id,ver){ var e=document.getElementById(id); if(e) e.style.display=ver?'':'none'; };
+  mostrar('rc-nov-wrap', esNov);
+  mostrar('rc-lab-wrap', !esNov);
+  ['rc-u-wrap','rc-cant-wrap','rc-pago-wrap','rc-cobro-wrap'].forEach(function(id){ mostrar(id,!esNov); });
+  mostrar('rc-vig-panel', false);
+  var lbl=document.getElementById('rc-obs-lbl');
+  if(lbl) lbl.innerHTML=esNov?'Observación <span style="color:#b91c1c">*</span>':'Observación (opcional)';
+  var obs=document.getElementById('rc-obs');
+  if(obs) obs.placeholder=esNov?'Obligatorio: describe la novedad':'Ej: Permiso médico, ajuste, etc.';
+  if(esNov) pintarSelectNovedades();
+}
+// Mensaje de estado del formulario administrativo
+function rcMsg(t,tipo){
+  var m=document.getElementById('rc-msg'); if(!m) return;
+  var col={v:['#dcfce7','#166534'],r:['#fee2e2','#991b1b'],n:['#dbeafe','#1e40af']}[tipo]||['#f1f5f9','#334155'];
+  m.style.display='block'; m.style.background=col[0]; m.style.color=col[1]; m.textContent=t;
+}
+
 async function rcGuardar(){
   var coord=document.getElementById('rc-coord').value;
   var adm=document.getElementById('rc-adm').value;
@@ -13132,8 +13202,31 @@ async function rcGuardar(){
   var labNom=document.getElementById('rc-lab-q').value;
   var u=document.getElementById('rc-u').value;
   var alim=parseFloat(document.getElementById('rc-alim')&&document.getElementById('rc-alim').value)||0;
-  var obs=document.getElementById('rc-obs').value;
+  var obs=(document.getElementById('rc-obs').value||'').trim();
   var msg=document.getElementById('rc-msg');
+  var tipoReg=((document.getElementById('rc-tipo')||{}).value)||'labor';
+
+  // ── Registro de NOVEDAD (no lleva labor ni cantidad) ──
+  if(tipoReg==='novedad'){
+    var novCod=((document.getElementById('rc-nov')||{}).value)||'';
+    if(!coord||!sem||!dia||!ced){ rcMsg('⚠ Completa coordinador, semana, día y trabajador','r'); return; }
+    if(!novCod){ rcMsg('⚠ Selecciona el tipo de novedad','r'); return; }
+    if(obs.length<4){ rcMsg('⚠ Escribe la observación de la novedad (obligatoria)','r'); return; }
+    var regNov={id:'r'+Date.now(),coord:coord,adm:adm,ced:ced,emp:nom,sem:sem,dia:dia,tipo:'novedad',
+      labId:'',lab:'',u:'',cant:0,pago:0,cobro:0,cobroVig:0,nov:novCod,obs:obs,alim:0,
+      obsTarea:'',esVig:false,vigHd:0,vigHn:0,domFest:false};
+    rcMsg('⏳ Guardando novedad...','n');
+    try{
+      var rN=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({accion:'guardar',registros:[regNov]})});
+      var dN=await rN.json();
+      if(dN&&dN.ok){
+        rcMsg('✓ Novedad registrada: '+getNov(novCod)+' · '+nom,'v');
+        rcLimpiar();
+      } else rcMsg('✕ Error: '+((dN&&dN.error)||'no se pudo guardar'),'r');
+    }catch(e){ rcMsg('✕ Error de red: '+e.message,'r'); }
+    return;
+  }
 
   // Detectar si es vigilancia maquinaria NORTE
   var labText=(labNom||'').toUpperCase();
