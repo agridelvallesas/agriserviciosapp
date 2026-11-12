@@ -770,7 +770,10 @@ tfoot td{background:var(--gf);font-weight:700}
               <span style="font-size:22px">📦</span>
               <span>Lote de registros</span>
             </div>
-            <div style="font-size:11px;color:#1e40af;opacity:.85;margin-top:3px;font-weight:600">Empleados pendientes de enviar</div>
+            <div id="lote-aviso-recuperado" style="display:none;background:#dcfce7;border:2px solid #16a34a;color:#166534;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700">
+            ✓ Se recuperaron los registros que tenías pendientes antes de recargar la página.
+          </div>
+          <div style="font-size:11px;color:#1e40af;opacity:.85;margin-top:3px;font-weight:600">Empleados pendientes de enviar</div>
           </div>
           <span id="lote-count" style="font-size:12px;color:#fff;font-weight:800;background:linear-gradient(135deg,#2563eb,#1e40af);padding:6px 14px;border-radius:999px;box-shadow:0 2px 6px rgba(37,99,235,.3)">0 pendientes</span>
         </div>
@@ -3750,6 +3753,10 @@ let FACTS=[],MOBS=[];
 // ══════════════════════════════════════════
 window.onload=function(){
   var ll=document.getElementById('l-logo-img'); if(ll) ll.src=LOGO_ICONO;
+  // Si había una sesión abierta, se retoma donde estaba, con su lote pendiente
+  setTimeout(function(){
+    try{ if(sesionRestaurar()) setTimeout(function(){ try{ loteRestaurar(); }catch(e){} }, 400); }catch(e){}
+  }, 60);
   document.getElementById('tfecha').textContent=new Date().toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'});
   // No precargamos usuarios — el wizard los carga al elegir departamento
   // Poblar select de empleados en el registro
@@ -3881,6 +3888,39 @@ function swLT(t){
   if(L_DEPS[t]) lSelDep(t);
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// SESIÓN PERSISTENTE
+// Si el usuario refresca la página o el celular recarga al deslizar hacia
+// abajo, la sesión se restaura y vuelve a la misma pantalla donde estaba.
+// ══════════════════════════════════════════════════════════════════════════
+var SES_CLAVE='agri_sesion_v1';
+var SES_HORAS=14;            // la sesión caduca al final de la jornada
+function sesionGuardar(){
+  if(!S.u) return;
+  try{
+    localStorage.setItem(SES_CLAVE, JSON.stringify({
+      u:S.u, rol:S.rol, depto:S.depto, ltab:S.ltab, adm:S.adm||'', sede:S.sede||'',
+      pagina:(typeof PG_ACTUAL!=='undefined'?PG_ACTUAL:''), t:Date.now()
+    }));
+  }catch(e){/* almacenamiento lleno */}
+}
+function sesionBorrar(){ try{ localStorage.removeItem(SES_CLAVE); }catch(e){} }
+function sesionRestaurar(){
+  var raw=null;
+  try{ raw=localStorage.getItem(SES_CLAVE); }catch(e){ return false; }
+  if(!raw) return false;
+  var d; try{ d=JSON.parse(raw); }catch(e){ return false; }
+  if(!d||!d.u) return false;
+  // Caducidad: evita que quede abierta indefinidamente en un equipo compartido
+  if(!d.t || (Date.now()-d.t) > SES_HORAS*3600*1000){ sesionBorrar(); return false; }
+  S.u=d.u; S.rol=d.rol; S.depto=d.depto||d.rol; S.ltab=d.ltab||d.depto||d.rol;
+  S.adm=d.adm||''; S.sede=d.sede||'TODAS';
+  completarLogin();
+  // Volver a la pantalla donde estaba
+  if(d.pagina){ try{ go(d.pagina); }catch(e){} }
+  return true;
+}
+
 function login(){
   var u=document.getElementById('luser').value;
   var p=document.getElementById('lpass').value;
@@ -3991,6 +4031,7 @@ function completarLogin(){
   // También poblar en el campo de semana label
   var radm=document.getElementById('r-admin'); if(radm&&!radm.value&&S.adm) radm.value=S.adm;
   buildNav();
+  sesionGuardar();
   cargarNovedades();
   buildRail();
   identidadModulo();
@@ -4485,6 +4526,7 @@ function logout(){
   document.getElementById('app').style.display='none';
   document.getElementById('lscreen').style.display='flex';
 
+  sesionBorrar();
   var ci=document.getElementById('coord-id'); if(ci) ci.style.display='none';
   // Volver SIEMPRE al paso 1 (selección de departamento)
   var p1=document.getElementById('l-paso1');
@@ -4756,7 +4798,10 @@ function rhProximamente(nombre){
   alert('🚧 El módulo "'+nombre+'" estará disponible próximamente.\n\nSi necesitas adelantar este módulo, contacta al administrador del sistema.');
 }
 
+var PG_ACTUAL='';
 function go(pg){
+  PG_ACTUAL=pg;
+  if(S&&S.u) sesionGuardar();
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
@@ -4838,6 +4883,29 @@ function closeSB(){document.getElementById('sidebar').classList.remove('on');doc
 // ══════════════════════════════════════════
 // ── LOTE DE REGISTROS ──
 var LOTE = []; // registros pendientes de enviar
+// El lote se conserva si la página se refresca o el celular recarga al deslizar
+var LOTE_CLAVE='agri_lote_v1';
+function loteGuardar(){
+  try{
+    if(LOTE.length) localStorage.setItem(LOTE_CLAVE, JSON.stringify({u:S.u, t:Date.now(), lote:LOTE}));
+    else localStorage.removeItem(LOTE_CLAVE);
+  }catch(e){/* almacenamiento lleno */}
+}
+function loteRestaurar(){
+  var raw=null;
+  try{ raw=localStorage.getItem(LOTE_CLAVE); }catch(e){ return; }
+  if(!raw) return;
+  var d; try{ d=JSON.parse(raw); }catch(e){ return; }
+  if(!d||!d.lote||!d.lote.length) return;
+  // Solo del mismo usuario y del mismo día
+  if(String(d.u||'')!==String(S.u||'')) return;
+  if(!d.t || (Date.now()-d.t) > 24*3600*1000){ try{localStorage.removeItem(LOTE_CLAVE);}catch(e){} return; }
+  LOTE.length=0;
+  d.lote.forEach(function(r){ LOTE.push(r); });
+  renderLote();
+  var av=document.getElementById('lote-aviso-recuperado');
+  if(av){ av.style.display='block'; setTimeout(function(){ av.style.display='none'; }, 9000); }
+}
 
 function initReg(){
   // Si los datos aún no cargaron, esperar
@@ -4963,6 +5031,7 @@ function selDiaActualizar(sem, dia){
 }
 
 function renderLote(){
+  loteGuardar();
   var lista=document.getElementById('lote-lista');
   var btns=document.getElementById('lote-btns');
   var count=document.getElementById('lote-count');
