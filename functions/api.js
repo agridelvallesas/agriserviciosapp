@@ -1,4 +1,3 @@
-
 // =====================================================================
 //  AGRISERVICIOS · API (Cloudflare Pages Function)   ·   ruta: /api
 //  Reemplaza progresivamente a Google Apps Script contra Supabase.
@@ -59,6 +58,7 @@ const PORTADAS = new Set([
   'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo', 'clasificarDia',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getContratos', 'guardarContrato', 'eliminarContrato', 'guardarOtrosi', 'eliminarOtrosi',
+  'getReferencias', 'guardarReferencia', 'eliminarReferencia',
   'guardarHistoricoContrato',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
@@ -182,6 +182,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getFacResponsables')   r = await accionGetFacResponsables(body, env);
     else if (accion === 'guardarFacResponsable') r = await accionGuardarFacResponsable(body, env);
     else if (accion === 'eliminarFacResponsable') r = await accionEliminarFacResponsable(body, env);
+    else if (accion === 'getReferencias')       r = await accionGetReferencias(body, env);
+    else if (accion === 'guardarReferencia')    r = await accionGuardarReferencia(body, env);
+    else if (accion === 'eliminarReferencia')   r = await accionEliminarReferencia(body, env);
     else if (accion === 'getContratos')         r = await accionGetContratos(body, env);
     else if (accion === 'guardarContrato')      r = await accionGuardarContrato(body, env);
     else if (accion === 'eliminarContrato')     r = await accionEliminarContrato(body, env);
@@ -3027,5 +3030,41 @@ async function accionGuardarHistoricoContrato(body, env) {
       contrato_id: cid, anio, valor, observacion: String(body.observacion || 'Cargado manualmente'),
     });
   }
+  return { ok: true };
+}
+
+
+// ── Novedades (tabla "referencias") ────────────────────────────────────────
+// El texto viene como "3 - CITA MEDICA GENERAL": de ahí se separan el código
+// y el nombre que ve el usuario.
+function partirReferencia(txt) {
+  const t = String(txt || '').trim();
+  const m = t.match(/^\s*([A-Za-z0-9]+)\s*[-–]\s*(.+)$/);
+  if (m) return { cod: m[1].toUpperCase(), nom: m[2].trim() };
+  return { cod: t.toUpperCase(), nom: t };
+}
+async function accionGetReferencias(body, env) {
+  const rows = await sbAll(env, 'referencias?select=id,referencia&order=id');
+  return { ok: true, data: rows.map((r) => {
+    const p = partirReferencia(r.referencia);
+    return { id: r.id, cod: p.cod, nom: p.nom, texto: String(r.referencia || '') };
+  }) };
+}
+async function accionGuardarReferencia(body, env) {
+  const texto = String(body.texto || '').trim();
+  if (!texto) return { ok: false, error: 'Falta el texto de la novedad' };
+  if (body.id) {
+    await sbWrite(env, 'PATCH', `referencias?id=eq.${encodeURIComponent(body.id)}`, { referencia: texto });
+    return { ok: true };
+  }
+  // Id siguiente disponible
+  const ult = await sb(env, 'referencias?select=id&order=id.desc&limit=1');
+  const nuevo = parseInt(body.idNuevo) || ((ult.length ? parseInt(ult[0].id) : 0) + 1);
+  await sbWrite(env, 'POST', 'referencias', { id: nuevo, referencia: texto });
+  return { ok: true, id: nuevo };
+}
+async function accionEliminarReferencia(body, env) {
+  if (!body.id) return { ok: false, error: 'Falta id' };
+  await sbWrite(env, 'DELETE', `referencias?id=eq.${encodeURIComponent(body.id)}`);
   return { ok: true };
 }
