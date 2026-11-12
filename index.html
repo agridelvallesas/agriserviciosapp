@@ -429,6 +429,21 @@ tfoot td{background:var(--gf);font-weight:700}
   </aside>
   <div class="ovl" id="ovl" onclick="closeSB()"></div>
   <main class="main">
+    <!-- Identidad del coordinador: evita que se registre con el usuario equivocado -->
+    <div id="coord-id" style="display:none;background:linear-gradient(135deg,#14532d,#166534);color:#fff;padding:11px 18px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;font-weight:700">Coordinador</div>
+          <div id="coord-id-nom" style="font-size:21px;font-weight:800;line-height:1.15;letter-spacing:-0.01em">—</div>
+        </div>
+        <div style="width:1px;align-self:stretch;background:rgba(255,255,255,.25)"></div>
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;font-weight:700">Administrador</div>
+          <div id="coord-id-adm" style="font-size:21px;font-weight:800;line-height:1.15;letter-spacing:-0.01em">—</div>
+        </div>
+        <div id="coord-id-sede" style="font-size:13px;font-weight:800;background:rgba(255,255,255,.2);padding:6px 14px;border-radius:99px">—</div>
+      </div>
+    </div>
     <div class="topbar">
       <div class="tb-l">
         <button class="hbg" onclick="toggleSB()">☰</button>
@@ -543,9 +558,10 @@ tfoot td{background:var(--gf);font-weight:700}
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           <div style="background:rgba(255,255,255,.2);width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">📋</div>
           <div style="flex:1">
-            <div style="font-size:11px;opacity:.85;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Sesión activa</div>
-            <div style="font-size:15px;font-weight:800;line-height:1.2"><span id="r-coord-show">—</span></div>
-            <div style="font-size:11px;opacity:.9;margin-top:1px">📍 Admin: <strong id="r-admin-show">—</strong></div>
+            <div style="font-size:10px;opacity:.8;font-weight:700;letter-spacing:.1em;text-transform:uppercase">Coordinador</div>
+            <div style="font-size:19px;font-weight:800;line-height:1.15;letter-spacing:-0.01em"><span id="r-coord-show">—</span></div>
+            <div style="font-size:10px;opacity:.8;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:6px">Administrador</div>
+            <div style="font-size:19px;font-weight:800;line-height:1.15;letter-spacing:-0.01em"><span id="r-admin-show">—</span></div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:8px">
@@ -3956,6 +3972,7 @@ function completarLogin(){
   document.getElementById('rbdg').style.background=esRRHH?'#7c3aed':esSST?'#ea580c':cols[rol].replace('var(','').replace(')','');
   document.getElementById('r-coord').value=u;
   document.getElementById('r-admin').value=S.adm||'';
+  pintarIdentidadCoord();
   // Mostrar también en el header visible del rediseño
   var rCoordShow=document.getElementById('r-coord-show'); if(rCoordShow) rCoordShow.textContent=u;
   var rAdmShow=document.getElementById('r-admin-show'); if(rAdmShow) rAdmShow.textContent=S.adm||'—';
@@ -4319,6 +4336,7 @@ function cargarDatosSheets(){
         if(miCoord){
           S.adm=miCoord.admin||'';
           S.sede=miCoord.sede||S.sede;
+          pintarIdentidadCoord();
           document.getElementById('sb-rl').textContent='Coordinador'+(S.sede&&S.sede!=='TODAS'?' · '+S.sede:'');
           document.getElementById('sb-rn').textContent='Coordinador'+(S.sede&&S.sede!=='TODAS'?' · '+S.sede:'');
           var adminEl=document.getElementById('r-admin');
@@ -4455,6 +4473,7 @@ function logout(){
   document.getElementById('app').style.display='none';
   document.getElementById('lscreen').style.display='flex';
 
+  var ci=document.getElementById('coord-id'); if(ci) ci.style.display='none';
   // Volver SIEMPRE al paso 1 (selección de departamento)
   var p1=document.getElementById('l-paso1');
   var p2=document.getElementById('l-paso2');
@@ -4774,6 +4793,21 @@ function go(pg){
   if(pg==='registro') initReg();
 }
 
+// Franja con el coordinador y su administrador, siempre visible en el módulo
+// de campo: hay coordinadores con varios administradores y se confunden de usuario.
+function pintarIdentidadCoord(){
+  var b=document.getElementById('coord-id'); if(!b) return;
+  var esCoord=((S.depto||S.rol)==='c') && !esSuperAdmin();
+  if(!esCoord){ b.style.display='none'; return; }
+  b.style.display='block';
+  var n=document.getElementById('coord-id-nom'); if(n) n.textContent=S.u||'—';
+  var a=document.getElementById('coord-id-adm'); if(a) a.textContent=S.adm||'Sin administrador asignado';
+  var sd=document.getElementById('coord-id-sede');
+  if(sd){
+    sd.textContent=(S.sede&&S.sede!=='TODAS')?S.sede:'';
+    sd.style.display=(S.sede&&S.sede!=='TODAS')?'block':'none';
+  }
+}
 function markNI(el,cc){
   document.querySelectorAll('.ni').forEach(function(b){
     b.classList.remove('on','vc','ac','nc','fc'); b.style.background=''; b.style.color=''; b.style.boxShadow='';
