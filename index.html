@@ -6700,9 +6700,16 @@ function carTodos(desde){
     TD_HAY_MAS=data.hayMas||false;
     TD_SIGUIENTE_FILA=data.siguienteFila||2;
 
-    // Acumular en caché sin duplicados por ID
-    var idsExistentes=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-    var nuevos=regs.filter(function(r){return!idsExistentes.has(r.id);});
+    // Acumular en caché sin duplicados.
+    // OJO: no basta con el id. Los ids antiguos son de 8 caracteres y con
+    // cientos de miles de registros llegan a repetirse, de modo que un
+    // registro válido desaparecía por compartir id con otro. La clave
+    // combina los datos que identifican al registro de verdad.
+    var claveReg=function(r){
+      return [r.id, r.ced, r.sem, r.dia, r.labId||'', r.nov||'', r.cant||0, r.fReg||''].join('|');
+    };
+    var clavesExistentes=new Set(TD_REGS_CACHE.map(claveReg));
+    var nuevos=regs.filter(function(r){return !clavesExistentes.has(claveReg(r));});
     TD_REGS_CACHE=TD_REGS_CACHE.concat(nuevos);
 
     // Aplicar filtros locales
@@ -7953,15 +7960,24 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
 
   allR.forEach(function(r){
     if(!byE[r.ced]) byE[r.ced]={emp:r.emp,ced:r.ced,coord:r.coord,sems:{}};
+    function nuevaSemana(){
+      return {dias:new Set(),diasVig:new Set(),novs:new Set(),novDiasBloq:new Set(),pago:0,pagoFest:0,
+              alim:0,domingos:{},festivos:new Set(),festivosTrabajados:new Set(),pagoPorDia:{},alimPorDia:{}};
+    }
     if(r.esVig){
-      // Solo incluir si el día cae en el rango de esta quincena
+      // El día de vigilancia SÍ es un día trabajado: se anota aparte para que
+      // cuente en la semana completa y en el auxilio de transporte, aunque su
+      // pago se liquide por el lado de vigilancia.
+      if(!byE[r.ced].sems[r.sem]) byE[r.ced].sems[r.sem]=nuevaSemana();
+      byE[r.ced].sems[r.sem].diasVig.add(r.dia);
+      // Para el PAGO solo se toma si el día cae en el rango de esta quincena
       var checker=semDiasEnQna[r.sem.padStart(2,'0')];
       if(checker&&!checker(r.dia)) return; // este día no cae en la quincena
       if(!vigNorteByEmp[r.ced]) vigNorteByEmp[r.ced]=[];
       vigNorteByEmp[r.ced].push(r);
       return;
     }
-    if(!byE[r.ced].sems[r.sem]) byE[r.ced].sems[r.sem]={dias:new Set(),novs:new Set(),novDiasBloq:new Set(),pago:0,pagoFest:0,alim:0,domingos:{},festivos:new Set(),festivosTrabajados:new Set(),pagoPorDia:{},alimPorDia:{}};
+    if(!byE[r.ced].sems[r.sem]) byE[r.ced].sems[r.sem]=nuevaSemana();
     if(r.tipo==='labor'){
       // Recalcular domFest por fecha real (no confiar en lo guardado en Sheets)
       var fechaReal=getFecha(r.sem,r.dia);
@@ -8163,13 +8179,19 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
       }).length;
       // Si labor real + novedades AUX completan los 6 días L-S, es como si fuera completo
       var diasLSCubiertosTotal=diasLSCubiertosReal + novAuxCount;
+      // Los días de vigilancia también cubren la semana (el trabajador sí fue)
+      var diasVigSem=sD.diasVig||new Set();
+      var diasLSCubiertosConVig=diasLS.filter(function(d){
+        return diasSet.has(d) || festivosTrabajados.has(d) || diasVigSem.has(d);
+      }).length;
+      if(diasLSCubiertosConVig>diasLSCubiertosTotal) diasLSCubiertosTotal=diasLSCubiertosConVig;
       var trabajoLaS=diasLSCubiertosTotal>=6; // los 6 días L-S cubiertos
       // ¿Caso especial: festivo no laborado pero el resto de L-S sí trabajado?
       // Condición: tiene al menos un festivo vacío Y trabajó todos los otros días L-S
       var hayFestivoVacio=festivosVaciosSem.size>0;
       var diasLSnoFestivo=diasLS.filter(function(d){return !festivosVaciosSem.has(d);});
       var diasLSnoFestCubiertos=diasLSnoFestivo.filter(function(d){
-        return (diasSet.has(d) && !festivosVaciosSem.has(d)) || festivosTrabajados.has(d);
+        return (diasSet.has(d) && !festivosVaciosSem.has(d)) || festivosTrabajados.has(d) || diasVigSem.has(d);
       }).length;
       // Con novedades AUX también puede completar
       var completoSinFestivos=hayFestivoVacio && (diasLSnoFestCubiertos+novAuxCount)>=diasLSnoFestivo.length;
@@ -8358,6 +8380,11 @@ function calcNomRender(qna, semIds, filtCo, filtSede){
         // Semana parcial cruzando quincenas: contar días reales (laborados + festivos + nov AUX) en ventana
         var diasLabFestEnVentana=Array.from(diasSet).filter(function(d){return checker(d);}).length;
         var festTrabEnVentana=Array.from(festivosTrabajados).filter(function(d){return checker(d);}).length;
+        // Días de vigilancia de la ventana que no estén ya contados
+        var vigEnVentana=Array.from(diasVigSem).filter(function(d){
+          return checker(d) && !diasSet.has(d) && !festivosTrabajados.has(d);
+        }).length;
+        festTrabEnVentana+=vigEnVentana;
         var novAuxEnVentanaAux=Math.round(novAuxDias*dQna/7);
         dAuxSem=Math.min(diasLabFestEnVentana+festTrabEnVentana+novAuxEnVentanaAux, dQna);
       } else {
