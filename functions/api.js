@@ -401,7 +401,7 @@ async function accionGuardar(body, env) {
   const coordMap = await mapaCoordPorNombre(env);
   const ahora = new Date().toISOString();
   const filas = registros.map((r) => ({
-    id: crypto.randomUUID().slice(0, 8),
+    id: crypto.randomUUID().slice(0, 18),
     coordinador_id: coordMap.get(String(r.coord || '').trim().toUpperCase()) || null,
     semana: parseInt(r.sem) || null,
     cedula: parseInt(String(r.ced || '').replace(/,/g, '')) || null,
@@ -771,7 +771,7 @@ function fechaONull(v) {
 async function accionGuardarFactura(body, env) {
   const f = body.factura;
   if (!f || !f.nfac) return { ok: false, error: 'Datos de factura incompletos' };
-  const id = f.id || crypto.randomUUID().slice(0, 8);
+  const id = f.id || crypto.randomUUID().slice(0, 18);
   const fila = {
     fecha_fac: fechaONull(f.ffac),
     fecha_ven: fechaONull(f.fven),
@@ -861,7 +861,7 @@ async function accionGuardarDetallado(body, env) {
   const coordMap = await mapaCoordPorNombre(env);
   const ahora = isoDate(new Date());
   const filas = detalles.map((d) => ({
-    id: crypto.randomUUID().slice(0, 8),
+    id: crypto.randomUUID().slice(0, 18),
     id_factura: d.idFac || '',
     num_acta: d.nacta || '',
     coordinador_id: coordMap.get(String(d.coord || '').trim().toUpperCase()) || null,
@@ -2922,7 +2922,7 @@ async function accionClasificarDia(body, env) {
   } catch (e) { /* queda sin coordinador */ }
 
   await sbWrite(env, 'POST', 'detalle_dia', {
-    id: crypto.randomUUID().slice(0, 8),
+    id: crypto.randomUUID().slice(0, 18),
     coordinador_id: coordId,
     semana, cedula: ced, dia, fecha,
     tipo: 'novedad', id_labor: '', unidad: '', cantidad: 0,
