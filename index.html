@@ -10914,18 +10914,23 @@ function carSal(){
     return;
   }
 
-  // Si ya cargamos todos los registros antes, render directo
-  if(ALL_REGS_LOADED){
+  // El cobro a Riopaila lo suma la base de datos, igual que el consolidado.
+  // Antes se traían todos los registros al navegador y podían faltar valores.
+  if(tb) tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--g3)">⏳ Calculando saldos...</td></tr>';
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'getConsolidadoTodos',
+      desde:(semDesdeNum>0?semDesdeNum:null), hasta:(semHastaNum<9000?semHastaNum:null)})})
+  .then(function(r){return r.json();}).then(function(d){
+    SAL_SRV=(d&&d.ok&&d.data)?{desde:semDesdeNum, hasta:semHastaNum, data:d.data}:null;
     carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum);
-    return;
-  }
-
-  // Cargar todo en lotes grandes (primera vez)
-  if(tb) tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando registros completos...</td></tr>';
-  cargarTodosRegsRapido(function(){
-    carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum);
+  }).catch(function(){
+    SAL_SRV=null;
+    // Respaldo: el método anterior
+    cargarTodosRegsRapido(function(){ carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum); });
   });
 }
+// Consolidado que devuelve la base para la pantalla de Saldos
+var SAL_SRV=null;
 
 function cargarSemanasMultiples(sems, callback){
   if(!sems.length){if(callback)callback();return;}
@@ -10941,6 +10946,18 @@ function cargarSemanasMultiples(sems, callback){
 // Acumula todos los registros en TD_REGS_CACHE de forma transparente.
 var ALL_REGS_LOADED=false;
 var ALL_REGS_LOADING=false;
+// Queda en true cuando la carga de registros se quedó a medias
+var ALL_REGS_PARCIAL=false;
+
+// Aviso para las pantallas que todavía suman los registros en el navegador
+function avisoRegsParciales(){
+  if(!ALL_REGS_PARCIAL) return '';
+  return '<div style="margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#fef3c7;'+
+         'border:1px solid #fcd34d;color:#92400e;font-size:12.5px;font-weight:600">'+
+         '⚠️ No se alcanzaron a cargar todos los registros, así que los totales de abajo '+
+         'están incompletos. Vuelva a abrir la sección para reintentar.</div>';
+}
+
 function cargarTodosRegsRapido(callback, forceReload){
   if(ALL_REGS_LOADING){
     // Si ya hay una carga en progreso, esperar
@@ -10965,7 +10982,10 @@ function cargarTodosRegsRapido(callback, forceReload){
     .then(function(r){return r.json();})
     .then(function(data){
       if(!data.ok){
+        // Un lote falló: la carga quedó incompleta. Antes seguía en silencio y la
+        // pantalla se dibujaba con datos parciales (totales que cambiaban de una vez a otra).
         ALL_REGS_LOADING=false;
+        ALL_REGS_PARCIAL=true;
         if(typeof hideProgreso==='function') hideProgreso();
         if(callback) callback();
         return;
@@ -10984,6 +11004,7 @@ function cargarTodosRegsRapido(callback, forceReload){
       } else {
         ALL_REGS_LOADING=false;
         ALL_REGS_LOADED=true;
+        ALL_REGS_PARCIAL=false;
         if(typeof hideProgreso==='function') hideProgreso();
         if(callback) callback();
       }
@@ -11042,14 +11063,38 @@ function carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum){
   });
   // En facturación los cobros vienen de COBROS_HIST (no de registros del campo)
   // Solo usamos getAllRegs() si estamos en el módulo admin con registros cargados
-  var tieneRegsEnMem=getAllRegs().length>100;
+  var byC={};
+  // Cuando la base ya entregó el consolidado, se usa ese resultado: incluye el
+  // cobro de los reportes, la vigilancia y los cobros históricos del periodo.
+  var usarServidor=!!(SAL_SRV && SAL_SRV.desde===semDesdeNum && SAL_SRV.hasta===semHastaNum);
+  if(usarServidor){
+    Object.keys(SAL_SRV.data).forEach(function(k){
+      var g=SAL_SRV.data[k], coord=g.coord;
+      if(!byC[coord]){
+        byC[coord]={coord:coord, adm:g.adm||getAdmCo(coord), sem:'', cobro:0, cobroVig:0,
+                    cobHist:0, sem0:0, sede:g.sede||getSedeCo(coord), contrato:''};
+      }
+      byC[coord].sem0+=(g.sem0||0);
+      var sems=[];
+      Object.keys(g.semanas||{}).forEach(function(sn){
+        var n=parseInt(sn)||0;
+        if(n<semDesdeNum||n>semHastaNum) return;
+        byC[coord].cobro+=g.semanas[sn].rep||0;
+        sems.push(n);
+      });
+      if(sems.length){
+        sems.sort(function(a,b){return a-b;});
+        byC[coord].sem=(sems.length===1)?String(sems[0]):(sems[0]+'–'+sems[sems.length-1]);
+      }
+    });
+  }
+  var tieneRegsEnMem=!usarServidor && getAllRegs().length>100;
   var todos=tieneRegsEnMem?getAllRegs().filter(function(r){
     if(r.tipo==='nota') return false;
     var rs=parseInt(r.sem||0);
     return rs>=semDesdeNum&&rs<=semHastaNum;
   }):[];
 
-  var byC={};
   todos.forEach(function(r){
     if(!byC[r.coord]){
         byC[r.coord]={coord:r.coord,adm:r.adm,sem:r.sem,cobro:0,cobroVig:0,cobHist:0,sem0:0,sede:getSedeCo(r.coord),contrato:''};
@@ -11057,7 +11102,8 @@ function carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum){
     byC[r.coord].cobro+=r.cobro||0;
     byC[r.coord].cobroVig+=r.cobroVig||0;
   });
-  cobrosH.forEach(function(c){
+  // Los cobros históricos ya vienen incluidos cuando la base hizo la suma
+  (usarServidor?[]:cobrosH).forEach(function(c){
     if(!byC[c.coord]){
         byC[c.coord]={coord:c.coord,adm:c.admin||getAdmCo(c.coord),sem:c.sem,cobro:0,cobroVig:0,cobHist:0,sem0:0,sede:getSedeCo(c.coord),contrato:''};
     }
@@ -11068,15 +11114,27 @@ function carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum){
     }
   });
 
-  var detSem=DETALLADO_CACHE.filter(function(d){
-    var ds=parseInt(d.sem||0);
-    return ds>=semDesdeNum&&ds<=semHastaNum;
-  });
   var byCoordDet={};
-  detSem.forEach(function(d){
-    if(!byCoordDet[d.coord]) byCoordDet[d.coord]=0;
-    byCoordDet[d.coord]+=d.val||0;
-  });
+  if(usarServidor){
+    // La facturación también la suma la base, sobre la misma tabla del detallado
+    Object.keys(SAL_SRV.data).forEach(function(k){
+      var g=SAL_SRV.data[k];
+      if(byCoordDet[g.coord]===undefined) byCoordDet[g.coord]=0;
+      Object.keys(g.semanas||{}).forEach(function(sn){
+        var n=parseInt(sn)||0;
+        if(n<semDesdeNum||n>semHastaNum) return;
+        byCoordDet[g.coord]+=g.semanas[sn].fac||0;
+      });
+    });
+  } else {
+    DETALLADO_CACHE.filter(function(d){
+      var ds=parseInt(d.sem||0);
+      return ds>=semDesdeNum&&ds<=semHastaNum;
+    }).forEach(function(d){
+      if(!byCoordDet[d.coord]) byCoordDet[d.coord]=0;
+      byCoordDet[d.coord]+=d.val||0;
+    });
+  }
 
   var rows=Object.values(byC).filter(function(r){
     if(filtCoord&&!r.coord.toLowerCase().includes(filtCoord)) return false;
@@ -14478,12 +14536,13 @@ function clRender(){
   }
 
   var cont=document.getElementById('cl-cards');
+  var aviso=avisoRegsParciales();
   if(!entries.length){
-    cont.innerHTML='<div style="text-align:center;padding:30px;color:var(--g3)">Sin datos en el rango Sem '+s1+'–'+s2+'.</div>';
+    cont.innerHTML=aviso+'<div style="text-align:center;padding:30px;color:var(--g3)">Sin datos en el rango Sem '+s1+'–'+s2+'.</div>';
     return;
   }
 
-  cont.innerHTML=entries.map(function(e){return clBuildCard(e[0],e[1],s1,s2);}).join('');
+  cont.innerHTML=aviso+entries.map(function(e){return clBuildCard(e[0],e[1],s1,s2);}).join('');
 }
 
 function clBuildCard(key, d, s1, s2){
