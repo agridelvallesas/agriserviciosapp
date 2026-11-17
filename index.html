@@ -4783,7 +4783,7 @@ function buildNav(){
   } else if(S.rol==='c'){
     nav.innerHTML='<div class="sb-sec">Principal</div><button class="ni" onclick="go(\'dc\')"><span class="ni-ico">📊</span>Dashboard</button><button class="ni" onclick="go(\'registro\')"><span class="ni-ico">➕</span>Nuevo registro</button><button class="ni" onclick="go(\'mis-reg\')"><span class="ni-ico">📋</span>Mis registros</button><button class="ni" onclick="go(\'res-sem\')"><span class="ni-ico">📊</span>Resumen por semana</button><button class="ni" onclick="go(\'cvf\')"><span class="ni-ico">💵</span>Cobro vs Facturación</button><button class="ni" onclick="go(\'notas\');carNotas()"><span class="ni-ico">📝</span>Notas</button><button class="ni" onclick="go(\'tar\');filtTar()"><span class="ni-ico">💰</span>Tarifas</button>';
   } else if(S.rol==='a'){
-    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
+    nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico">📊</span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico">📈</span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico">💼</span>Costo laboral</button><button class="ni" onclick="go(\'aus\')"><span class="ni-ico">📉</span>Ausentismo</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico">🗓️</span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico">🔓</span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico">🔍</span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico">📝</span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico">✍️</span>Registrar por coordinador</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico">💰</span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico">🔑</span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
   } else if(S.rol==='n'){
     nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico">📊</span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico">🧮</span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico">📁</span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico">👥</span>Consolidado labores</button>';
@@ -4808,7 +4808,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'RH — Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -23891,7 +23891,7 @@ function invEmpDetRender(g,body){
     return '<div style="margin-bottom:10px;background:#fff;border:1px solid var(--bd);border-radius:6px;overflow:hidden">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--vs)">'+
         '<span style="font-weight:700;color:'+((e.tipo==='DEVOLUCION'||e.tipo==='CAMBIO')?'#b45309':'var(--v)')+'">'+((e.tipo==='CAMBIO')?'🔄 Cambio · ':(e.tipo==='DEVOLUCION')?'↩️ Devolución · ':'📅 ')+f+((e.motivo)?(' <span style="font-weight:400;font-size:10px;color:var(--g3)">('+invEmpEsc(e.motivo)+')</span>'):'')+'</span>'+
-        '<span style="display:flex;gap:6px">'+((e.tipo&&e.tipo!=='ENTREGA')?'':'<button class="btn ba" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invCambioAbrir(\''+e.id_regn+'\')" title="Cambiar o devolver un elemento">🔄 Cambio</button>')+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEditar(\''+e.id_regn+'\')">✏️ Editar</button>'+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button></span>'+
+        '<span style="display:flex;gap:6px">'+((e.tipo&&e.tipo!=='ENTREGA')?'':'<button class="btn ba" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invCambioAbrir(\''+e.id_regn+'\')" title="Cambiar o devolver un elemento">🔄 Cambio</button>')+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEditar(\''+e.id_regn+'\')">✏️ Editar</button>'+'<button class="btn bvs" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invVerActaId(\''+e.id_regn+'\')">🖨️ Acta</button>'+'<button class="btn br" style="padding:2px 8px;font-size:10px;height:24px" onclick="event.stopPropagation();invEmpEliminar(\''+e.id_regn+'\')" title="Eliminar este registro y devolver los elementos al inventario">🗑️</button></span>'+
       '</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--g3);font-size:10px"><th style="text-align:left;padding:3px 8px">PRODUCTO</th><th style="text-align:center;padding:3px 8px;width:70px">CANT.</th></tr></thead>'+
@@ -24029,6 +24029,73 @@ function invCambioGuardar(){
       EMP_ITEMS={}; INV_DATA=[]; invEmpInit();
     } else alert('Error: '+((d&&d.error)||'no se pudo registrar'));
   }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+
+// ── Eliminar una entrega (o devolución/cambio) ────────────────────────────
+// Al borrarla se borran también sus movimientos, así que los elementos
+// vuelven al inventario automáticamente: el stock se calcula de ahí.
+function invEmpEliminar(idRegn){
+  var g=EMP_GRUPOS.filter(function(gr){return gr.entregas.some(function(e){return String(e.id_regn)===String(idRegn);});})[0];
+  var e=g?g.entregas.filter(function(x){return String(x.id_regn)===String(idRegn);})[0]:null;
+  if(!g||!e){ alert('No se encontró el registro'); return; }
+  // ¿Hay devoluciones o cambios que dependan de esta entrega?
+  var ligados=(EMP_RESUMEN||[]).filter(function(x){ return String(x.ref_regn||'')===String(idRegn); });
+  var items=EMP_ITEMS[idRegn]||[];
+  var esEntrega=(!e.tipo||e.tipo==='ENTREGA');
+  var tipoTxt=(e.tipo==='CAMBIO')?'cambio':(e.tipo==='DEVOLUCION')?'devolución':'entrega';
+  var fecha=e.fecha?String(e.fecha).slice(0,10).split('-').reverse().join('/'):'—';
+
+  var m=document.createElement('div');
+  m.id='emd-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:92vh;overflow:auto">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:#b91c1c">🗑️ Eliminar '+tipoTxt+'</div>'
+      +'<div style="font-size:11px;color:var(--g3)">'+invEmpEsc(g.nombre||'')+' · '+fecha+'</div></div>'
+      +'<button onclick="document.getElementById(\'emd-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px">'
+      +(items.length
+        ? ('<div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:6px">'
+           +(esEntrega?'Estos elementos vuelven al inventario:':'Estos movimientos se deshacen:')+'</div>'
+           +'<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:12px">'
+           +items.map(function(it){
+               return '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--gf);font-size:12px">'
+                 +'<span>'+invEmpEsc(it.producto||it.item||'')+'</span>'
+                 +'<strong style="color:'+(esEntrega?'var(--v)':'#b45309')+'">'+(esEntrega?'+':'')+it.cantidad+'</strong></div>';
+             }).join('')
+           +'</div>')
+        : '<div style="font-size:12px;color:var(--g3);margin-bottom:12px">Este registro no tiene elementos asociados.</div>')
+      +(ligados.length
+        ? ('<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:12px;color:#92400e">'
+           +'⚠️ Esta entrega tiene <strong>'+ligados.length+' devolución(es) o cambio(s)</strong> enlazados. Si la eliminas, quedarán sueltos. '
+           +'Elimina primero esos movimientos si también están equivocados.</div>')
+        : '')
+      +'<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:9px 11px;font-size:12px;color:#991b1b">'
+        +'Esta acción no se puede deshacer. El acta firmada también se elimina.</div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+        +'<button class="btn bg" onclick="document.getElementById(\'emd-modal\').remove()">Cancelar</button>'
+        +'<button class="btn br" id="emd-ok" onclick="invEmpEliminarConfirmar(\''+idRegn+'\')">🗑️ Sí, eliminar</button></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+function invEmpEliminarConfirmar(idRegn){
+  var b=document.getElementById('emd-ok');
+  if(b){ b.disabled=true; b.textContent='⏳ Eliminando...'; }
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({accion:'invEliminarActa', id_regn:idRegn})})
+  .then(function(r){return r.json();}).then(function(d){
+    var m=document.getElementById('emd-modal'); if(m) m.remove();
+    if(d&&d.ok){
+      // Se limpian las cachés para que el stock se vuelva a leer de la base
+      EMP_ITEMS={}; INV_DATA=[];
+      invEmpInit();
+    } else alert('Error: '+((d&&d.error)||'no se pudo eliminar'));
+  }).catch(function(e){
+    var m=document.getElementById('emd-modal'); if(m) m.remove();
+    alert('Error de red: '+e.message);
+  });
 }
 
 function invEmpEditar(idRegn){
