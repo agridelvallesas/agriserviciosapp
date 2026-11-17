@@ -2736,6 +2736,11 @@ tfoot td{background:var(--gf);font-weight:700}
             <div class="fld" style="min-width:120px;margin:0"><label>Sem. hasta</label>
               <input type="number" id="cons-s2" min="1" max="52" value="26" onchange="consRender()"/>
             </div>
+            <div class="fld" style="min-width:170px;margin:0"><label>Agrupación</label>
+              <label style="display:flex;align-items:center;gap:6px;height:36px;cursor:pointer;font-size:12px;font-weight:500">
+                <input type="checkbox" id="cons-unir" onchange="consUnirCambio()"/> Sumar administradores
+              </label>
+            </div>
             <div class="fld" style="flex:1;min-width:200px;margin:0"><label>Buscar coord-admin</label>
               <input type="text" id="cons-buscar" placeholder="Filtrar por coordinador o admin..." oninput="consRender()"/>
             </div>
@@ -13610,6 +13615,19 @@ function consCargar(){
 }
 
 // Construye CONS_DATA con los registros ya cargados en cache (TD_REGS_CACHE + COBROS_HIST + DETALLADO)
+// Al marcar «Sumar administradores» se reconstruye con la nueva agrupación
+function consUnirCambio(){
+  var s1=parseInt(document.getElementById('cons-s1').value)||1;
+  var s2=parseInt(document.getElementById('cons-s2').value)||26;
+  if(s1>s2){var t=s1;s1=s2;s2=t;}
+  consConstruirYRender(s1,s2);
+}
+// Clave de agrupación: coordinador con su administrador, o solo el
+// coordinador cuando se pide sumarlos.
+function consClave(coord, adm){
+  var unir=(document.getElementById('cons-unir')||{}).checked;
+  return unir ? coord : (coord+'|'+adm);
+}
 function consConstruirYRender(s1, s2){
   // Agrupar por COORD|ADMIN
   CONS_DATA={};
@@ -13623,10 +13641,11 @@ function consConstruirYRender(s1, s2){
     var coord=r.coord||'';
     var adm=r.adm||(typeof getAdmCo==='function'?getAdmCo(coord):'')||'';
     if(!coord) return;
-    var k=coord+'|'+adm;
+    var k=consClave(coord, adm);
     if(!CONS_DATA[k]){
-      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}};
+      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}, adms:{}};
     }
+    if(adm) CONS_DATA[k].adms[adm]=1;
     if(!CONS_DATA[k].semanas[s]) CONS_DATA[k].semanas[s]={rep:0, fac:0};
     CONS_DATA[k].semanas[s].rep+=(r.cobro||0)+(r.cobroVig||0);
   });
@@ -13636,10 +13655,11 @@ function consConstruirYRender(s1, s2){
     var coord=c.coord||'';
     var adm=c.admin||(typeof getAdmCo==='function'?getAdmCo(coord):'')||'';
     if(!coord) return;
-    var k=coord+'|'+adm;
+    var k=consClave(coord, adm);
     if(!CONS_DATA[k]){
-      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}};
+      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}, adms:{}};
     }
+    if(adm) CONS_DATA[k].adms[adm]=1;
     var sStr=String(c.sem||'').trim();
     if(sStr==='0'||sStr==='00'){
       CONS_DATA[k].sem0+=(c.val||0);
@@ -13658,10 +13678,11 @@ function consConstruirYRender(s1, s2){
     var coord=d.coord||'';
     var adm=d.admin||(typeof getAdmCo==='function'?getAdmCo(coord):'')||'';
     if(!coord) return;
-    var k=coord+'|'+adm;
+    var k=consClave(coord, adm);
     if(!CONS_DATA[k]){
-      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}};
+      CONS_DATA[k]={coord:coord, adm:adm, sede:(typeof getSedeCo==='function'?getSedeCo(coord):''), sem0:0, semanas:{}, adms:{}};
     }
+    if(adm) CONS_DATA[k].adms[adm]=1;
     if(!CONS_DATA[k].semanas[s]) CONS_DATA[k].semanas[s]={rep:0, fac:0};
     CONS_DATA[k].semanas[s].fac+=(d.val||0);
   });
@@ -13709,7 +13730,27 @@ function consRender(){
     return;
   }
 
-  cont.innerHTML=entries.map(function(e){return consBuildCard(e[0],e[1],s1,s2);}).join('');
+  // ¿Algún coordinador quedó repartido entre varios administradores?
+  // Pasa cuando los reportes, los cobros históricos o el detallado traen el
+  // administrador escrito distinto o en blanco; el total del coordinador se
+  // parte en dos filas y parece que faltara plata.
+  var porCoord={};
+  entries.forEach(function(e){
+    var c=e[1].coord||'';
+    (porCoord[c]=porCoord[c]||[]).push(e[1].adm||'(sin administrador)');
+  });
+  var partidos=Object.keys(porCoord).filter(function(c){ return porCoord[c].length>1; });
+  var aviso='';
+  if(partidos.length){
+    aviso='<div class="card" style="margin-bottom:12px;border-left:4px solid #b45309">'
+      +'<strong style="color:#b45309">⚠️ '+partidos.length+' coordinador(es) aparecen bajo más de un administrador</strong>'
+      +'<div style="font-size:12px;color:var(--g2);margin-top:5px">Su total queda repartido en varias filas, así que al compararlo con Todos los registros parecerá que falta dinero. Marca <strong>«Sumar administradores»</strong> para verlos juntos.</div>'
+      +'<div style="margin-top:7px;font-size:11.5px">'
+      +partidos.map(function(c){
+        return '<div style="padding:2px 0"><strong>'+gcEsc(c)+'</strong>: '+gcEsc(porCoord[c].join(' · '))+'</div>';
+      }).join('')+'</div></div>';
+  }
+  cont.innerHTML=aviso+entries.map(function(e){return consBuildCard(e[0],e[1],s1,s2);}).join('');
 }
 
 function consBuildCard(key, d, s1, s2){
@@ -13746,7 +13787,7 @@ function consBuildCard(key, d, s1, s2){
   html+='<div onclick="consToggleCard(\''+key.replace(/'/g,"\\'")+'\')" style="padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--vs);border-bottom:'+(expanded?'1px solid var(--gf)':'none')+'">';
   html+='<div style="font-size:18px;color:var(--v)">'+(expanded?'▼':'▶')+'</div>';
   html+='<div style="flex:1">';
-  html+='<div style="font-size:14px;font-weight:700;color:var(--g1)">'+d.coord+' <span style="color:var(--g3);font-weight:500">·</span> '+d.adm+sedeBadge+'</div>';
+  html+='<div style="font-size:14px;font-weight:700;color:var(--g1)">'+d.coord+' <span style="color:var(--g3);font-weight:500">·</span> '+consAdmTxt(d)+sedeBadge+'</div>';
   html+='<div style="font-size:11px;color:var(--g3);margin-top:2px">Saldo cierre 2025: <strong>'+cop(d.sem0)+'</strong> · Sem '+s1+'–'+s2+': Reportes <strong style="color:var(--v)">'+cop(totRep)+'</strong> · Facturación <strong style="color:var(--n)">'+cop(totFac)+'</strong></div>';
   html+='</div>';
   html+='<div style="text-align:right">';
@@ -13881,6 +13922,12 @@ function consSaldoFinal(d,s1,s2){
   var tr=0,tf=0; for(var s=s1;s<=s2;s++){var sd=d.semanas[s]; if(sd){tr+=sd.rep||0; tf+=sd.fac||0;}}
   return (d.sem0||0)+tf-tr;
 }
+// Nombre del administrador: uno solo, o todos los que aporte el coordinador
+// cuando se está sumando por administradores.
+function consAdmTxt(d){
+  var l=d.adms?Object.keys(d.adms):[];
+  return (l.length>1)?l.join(' + '):(d.adm||'');
+}
 function consFiltrarEntries(s1,s2){
   var filtro=(document.getElementById('cons-buscar').value||'').toLowerCase().trim();
   var filtSede=document.getElementById('cons-sede').value;
@@ -13888,7 +13935,7 @@ function consFiltrarEntries(s1,s2){
   return Object.entries(CONS_DATA).filter(function(e){
     var d=e[1];
     if(filtSede&&d.sede&&d.sede!==filtSede) return false;
-    if(filtro){ var s=(d.coord+' '+d.adm).toLowerCase(); if(s.indexOf(filtro)<0) return false; }
+    if(filtro){ var s=(d.coord+' '+d.adm+' '+consAdmTxt(d)).toLowerCase(); if(s.indexOf(filtro)<0) return false; }
     if(filtSaldo){ var sf=consSaldoFinal(d,s1,s2); if(filtSaldo==='pos'&&sf<0) return false; if(filtSaldo==='neg'&&sf>=0) return false; }
     return true;
   }).sort(function(a,b){ return a[1].coord.localeCompare(b[1].coord) || a[1].adm.localeCompare(b[1].adm); });
