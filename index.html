@@ -6048,8 +6048,8 @@ function carMR(desde){
     }
     MR_HAY_MAS=data.hayMas||false;
     MR_SIGUIENTE_FILA=data.siguienteFila||2;
-    var mrIds=new Set(MR_CACHE.map(function(r){return r.id;}));
-    MR_CACHE=MR_CACHE.concat((data.registros||[]).filter(function(r){return!mrIds.has(r.id);}));
+    var mrIds=new Set(MR_CACHE.map(regClave));
+    MR_CACHE=MR_CACHE.concat((data.registros||[]).filter(function(r){return!mrIds.has(regClave(r));}));
 
     // Renderizar la vista
     carMRRender();
@@ -7195,8 +7195,8 @@ function precargarSemanasRecientes(){
     // Si ya está en caché localStorage no recargar
     if(getSemanaCache(sem)){
       var cached=getSemanaCache(sem);
-      var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-      cached.forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}});
+      var ids=new Set(TD_REGS_CACHE.map(regClave));
+      cached.forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}});
       siguiente();
       return;
     }
@@ -7207,9 +7207,9 @@ function precargarSemanasRecientes(){
     .then(function(r){return r.json();})
     .then(function(data){
       if(data.ok){
-        var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
+        var ids=new Set(TD_REGS_CACHE.map(regClave));
         var regsAcum=[];
-        (data.registros||[]).forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}regsAcum.push(r);});
+        (data.registros||[]).forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}regsAcum.push(r);});
         if(!data.hayMas) setSemanaCache(sem, regsAcum);
         // Cargar siguientes lotes en background si hay más
         if(data.hayMas && (data.registros&&data.registros.length) && data.siguienteFila>desde) cargarLotesBackground(sem, data.siguienteFila, regsAcum, function(){siguiente();});
@@ -7227,8 +7227,8 @@ function cargarLotesBackground(sem, desde, regsAcum, callback){
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.ok){if(callback)callback();return;}
-    var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-    (data.registros||[]).forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}regsAcum.push(r);});
+    var ids=new Set(TD_REGS_CACHE.map(regClave));
+    (data.registros||[]).forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}regsAcum.push(r);});
     if(data.hayMas && (data.registros&&data.registros.length) && data.siguienteFila>desde) cargarLotesBackground(sem, data.siguienteFila, regsAcum, callback);
     else {setSemanaCache(sem, regsAcum);if(callback)callback();}
   }).catch(function(){if(callback)callback();});
@@ -7280,8 +7280,8 @@ function cargarSemanaCompleta(sem, callback){
   // Verificar caché localStorage primero
   var cached=getSemanaCache(sem);
   if(cached&&cached.length){
-    var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-    cached.forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}});
+    var ids=new Set(TD_REGS_CACHE.map(regClave));
+    cached.forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}});
     if(callback) callback(true);
     return;
   }
@@ -7294,8 +7294,8 @@ function cargarSemanaCompleta(sem, callback){
   .then(function(data){
     if(!data.ok){hideProgreso();if(callback)callback(false);return;}
     var regsAcumulados=data.registros||[];
-    var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-    regsAcumulados.forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}});
+    var ids=new Set(TD_REGS_CACHE.map(regClave));
+    regsAcumulados.forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}});
     if(data.hayMas){
       cargarSemanaCompletaSiguiente(sem, data.siguienteFila, 2, regsAcumulados, callback);
     } else {
@@ -7314,9 +7314,9 @@ function cargarSemanaCompletaSiguiente(sem, desde, lote, regsAcumulados, callbac
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.ok){hideProgreso();if(callback)callback(false);return;}
-    var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
+    var ids=new Set(TD_REGS_CACHE.map(regClave));
     (data.registros||[]).forEach(function(r){
-      if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}
+      var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}
       regsAcumulados.push(r);
     });
     if(data.hayMas){
@@ -10973,8 +10973,8 @@ function cargarTodosRegsRapido(callback, forceReload){
       var regs=data.registros||[];
       totalCargado+=regs.length;
       // Acumular en TD_REGS_CACHE sin duplicados
-      var ids=new Set(TD_REGS_CACHE.map(function(r){return r.id;}));
-      regs.forEach(function(r){if(!ids.has(r.id)){TD_REGS_CACHE.push(r);ids.add(r.id);}});
+      var ids=new Set(TD_REGS_CACHE.map(regClave));
+      regs.forEach(function(r){var _k=regClave(r); if(!ids.has(_k)){TD_REGS_CACHE.push(r);ids.add(_k);}});
 
       // Red de seguridad: solo continuar si hay más, el lote trajo filas y el puntero AVANZA
       var siguiente=data.siguienteFila||(desde+regs.length);
@@ -22327,8 +22327,8 @@ function cargarSemanaCoord(sem, cb){
   .then(function(r){return r.json();})
   .then(function(d){
     if(d&&d.ok){
-      var ids=new Set(REGS.map(function(r){return r.id;}));
-      (d.registros||[]).forEach(function(r){ if(!ids.has(r.id)){REGS.push(r);ids.add(r.id);} });
+      var ids=new Set(REGS.map(regClave));
+      (d.registros||[]).forEach(function(r){ var _k=regClave(r); if(!ids.has(_k)){REGS.push(r);ids.add(_k);} });
       DC_SEMS_CARGADAS[s]=true;
       if(cb)cb(true);
     } else if(cb) cb(false);
