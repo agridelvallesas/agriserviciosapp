@@ -1715,8 +1715,14 @@ async function accionInvGetActas(body, env) {
 async function accionInvEliminarActa(body, env) {
   const id = String(body.id_regn || '').trim();
   if (!id) return { ok: false, error: 'Falta id_regn' };
+  // Al borrar los movimientos el stock se restituye solo: la vista de
+  // inventario lo calcula como entradas menos salidas.
   await sbWrite(env, 'DELETE', `inv_movimientos?id_regn=eq.${encodeURIComponent(id)}`);
   await sbWrite(env, 'DELETE', `inv_registros?id_regn=eq.${encodeURIComponent(id)}`);
+  // La firma del acta se elimina también, para no dejarla huérfana
+  try {
+    await sbWrite(env, 'DELETE', `inv_firmas?id_regn=eq.${encodeURIComponent(id)}`);
+  } catch (e) { /* la tabla puede no existir aún */ }
   return { ok: true };
 }
 
