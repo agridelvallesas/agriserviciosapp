@@ -587,31 +587,20 @@ async function accionEliminarReg(body, env) {
 // ---------------------------------------------------------------------
 
 // Trae TODAS las filas de una consulta, paginando (robusto ante el tope de filas)
-// Llama una función de Postgres: el cálculo pesado ocurre en la base.
-// Trae los resultados por páginas, porque la base devuelve como máximo
-// 1.000 filas por petición y el resto se perdía sin avisar.
-async function sbRpc(env, fn, args, pageSize = 1000) {
+// Llama una función de Postgres: el cálculo pesado ocurre en la base y aquí
+// se recibe el resultado. Las funciones de este sistema devuelven el total en
+// una sola respuesta, así que basta UNA petición: pedir páginas contra una
+// función agota el límite de peticiones del servidor.
+async function sbRpc(env, fn, args) {
   const url = `${baseUrl(env)}/rest/v1/rpc/${fn}`;
-  let offset = 0, todo = [];
-  for (let vuelta = 0; vuelta < 60; vuelta++) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...headers(env), 'Content-Type': 'application/json',
-        'Range-Unit': 'items', Range: `${offset}-${offset + pageSize - 1}`,
-      },
-      body: JSON.stringify(args || {}),
-    });
-    const txt = await res.text();
-    if (!res.ok) throw new Error('RPC ' + fn + ' ' + res.status + ': ' + txt);
-    let filas;
-    try { filas = JSON.parse(txt); } catch (e) { filas = []; }
-    if (!Array.isArray(filas)) return filas;      // la función devolvió un valor suelto
-    todo = todo.concat(filas);
-    if (filas.length < pageSize) break;           // última página
-    offset += filas.length;
-  }
-  return todo;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...headers(env), 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {}),
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error('RPC ' + fn + ' ' + res.status + ': ' + txt);
+  try { return JSON.parse(txt); } catch (e) { return []; }
 }
 
 async function sbAll(env, path, pageSize = 1000) {
@@ -3101,9 +3090,14 @@ async function accionGetConsolidadoTodos(body, env) {
   const h = parseInt(body.hasta) || null;
   let filas;
   try {
-    filas = await sbRpc(env, 'consolidado_semanal', { p_desde: d, p_hasta: h });
+    const resp = await sbRpc(env, 'consolidado_semanal', { p_desde: d, p_hasta: h });
+    filas = (resp && resp.filas) ? resp.filas : (Array.isArray(resp) ? resp : []);
   } catch (e) {
-    return { ok: false, error: 'FALTA_FUNCION', detalle: String(e && e.message || e) };
+    // Se devuelve el error tal cual: así se distingue una función que no
+    // existe de un error dentro de la consulta o de un problema de permisos.
+    const msg = String((e && e.message) || e);
+    const noExiste = /PGRST202|could not find the function|does not exist|42883/i.test(msg);
+    return { ok: false, error: noExiste ? 'FALTA_FUNCION' : 'ERROR_RPC', detalle: msg };
   }
   // Agrupar por coordinador y administrador, como lo espera la pantalla
   const out = {};
