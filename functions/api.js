@@ -587,17 +587,31 @@ async function accionEliminarReg(body, env) {
 // ---------------------------------------------------------------------
 
 // Trae TODAS las filas de una consulta, paginando (robusto ante el tope de filas)
-// Llama una función de Postgres: todo el cálculo pesado ocurre en la base y
-// aquí se recibe el resultado en una sola petición.
-async function sbRpc(env, fn, args) {
-  const res = await fetch(`${baseUrl(env)}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    headers: { ...headers(env), 'Content-Type': 'application/json' },
-    body: JSON.stringify(args || {}),
-  });
-  const txt = await res.text();
-  if (!res.ok) throw new Error('RPC ' + fn + ' ' + res.status + ': ' + txt);
-  try { return JSON.parse(txt); } catch (e) { return []; }
+// Llama una función de Postgres: el cálculo pesado ocurre en la base.
+// Trae los resultados por páginas, porque la base devuelve como máximo
+// 1.000 filas por petición y el resto se perdía sin avisar.
+async function sbRpc(env, fn, args, pageSize = 1000) {
+  const url = `${baseUrl(env)}/rest/v1/rpc/${fn}`;
+  let offset = 0, todo = [];
+  for (let vuelta = 0; vuelta < 60; vuelta++) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...headers(env), 'Content-Type': 'application/json',
+        'Range-Unit': 'items', Range: `${offset}-${offset + pageSize - 1}`,
+      },
+      body: JSON.stringify(args || {}),
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error('RPC ' + fn + ' ' + res.status + ': ' + txt);
+    let filas;
+    try { filas = JSON.parse(txt); } catch (e) { filas = []; }
+    if (!Array.isArray(filas)) return filas;      // la función devolvió un valor suelto
+    todo = todo.concat(filas);
+    if (filas.length < pageSize) break;           // última página
+    offset += filas.length;
+  }
+  return todo;
 }
 
 async function sbAll(env, path, pageSize = 1000) {
