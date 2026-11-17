@@ -5987,11 +5987,21 @@ var MR_CARGANDO=false; // true mientras se cargan los lotes de registros desde S
 var TD_REGS_CACHE=[];
 
 // Devuelve todos los registros cargados sin duplicados (REGS + TD_REGS_CACHE + MR_CACHE)
+// Une los registros de las tres cachés sin repetirlos.
+// OJO: no se puede deduplicar solo por id. Los ids antiguos son de 8
+// caracteres y con cientos de miles de registros llegan a coincidir, de modo
+// que registros legítimos se perdían y los totales salían bajos y distintos
+// en cada consulta. La clave combina los datos que identifican al registro.
+function regClave(r){
+  return [r.id, r.ced, r.sem, r.dia, r.tipo||'', r.labId||'', r.nov||'',
+          r.cant||0, r.pago||0, r.fReg||''].join('|');
+}
 function getAllRegs(){
   var seen=new Set();
   var all=[];
   REGS.concat(TD_REGS_CACHE).concat(MR_CACHE).forEach(function(r){
-    if(!seen.has(r.id)){seen.add(r.id);all.push(r);}
+    var k=regClave(r);
+    if(!seen.has(k)){seen.add(k);all.push(r);}
   });
   return all;
 }
