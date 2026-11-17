@@ -1906,6 +1906,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <button class="btn bvs" onclick="acumAbrirReporte()" style="height:36px">📈 Reporte por concepto</button>
             <button class="btn bvs" onclick="acumAbrirAnalisis()" style="height:36px">📅 Análisis temporal</button>
             <button class="btn bn" onclick="acumAbrirInforme()" style="height:36px">📑 Informe por rango de valor</button>
+            <button class="btn ba" onclick="bajoMinAbrir()" style="height:36px">📉 Bajo el mínimo</button>
             <button class="btn ba" onclick="acumAbrirImportador()" style="height:36px">📥 Importar Excel</button>
             <button class="btn bg" onclick="acumExportar()" style="height:36px">📊 Exportar</button>
             <button class="btn br" onclick="acumLimpiarTodo()" style="height:36px;font-size:11px" title="Borrar TODO de la BD (peligroso)">🗑️ Limpiar BD</button>
@@ -20117,6 +20118,270 @@ function acumInfSemanasDe(qnaLabel){
   var sems=(q.sems||[]).map(function(x){return {s:parseInt(x.s), d:parseInt(x.d)||0};});
   var comp=sems.filter(function(x){return x.d>=7;})[0] || sems.slice().sort(function(a,b){return b.d-a.d;})[0] || null;
   return {sems:sems.map(function(x){return x.s;}), completa:comp?comp.s:0, qna:q};
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// RH — PERSONAL CON DEVENGO POR DEBAJO DEL SALARIO MÍNIMO
+// Cruza los acumulados del periodo con la ficha del trabajador y con los
+// reportes de campo, para explicar por qué alguien quedó por debajo:
+// ingresó o se retiró dentro del periodo, tuvo novedades, o sencillamente
+// no lo reportaron. Incluye los días de auxilio y con qué coordinador estuvo.
+// ══════════════════════════════════════════════════════════════════════════
+var BMIN_DATA=null;
+function bajoMinAbrir(){
+  if(!ACUM_DATA.length){ alert('Primero carga los acumulados del periodo'); return; }
+  var qnas={}, meses={};
+  ACUM_DATA.forEach(function(a){
+    if(a.QNA_LABEL) qnas[a.QNA_LABEL]=1;
+    var mk=acumMesDeRegistro(a); if(mk) meses[mk]=1;
+  });
+  var lq=Object.keys(qnas).sort().reverse(), lm=Object.keys(meses).sort().reverse();
+  var m=document.createElement('div');
+  m.id='bmin-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:1100px;width:100%;max-height:94vh;display:flex;flex-direction:column">'
+    +'<div style="padding:13px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--a)">📉 Personal con devengo por debajo del mínimo</div>'
+      +'<div style="font-size:11px;color:var(--g3)">Con ingresos, retiros, novedades, días de auxilio y coordinador del periodo</div></div>'
+      +'<button onclick="document.getElementById(\'bmin-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px;overflow:auto">'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+        +'<div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Periodo</label>'
+          +'<select id="bmin-periodo" onchange="bminPeriodoCambio()"><option value="qna">Quincena</option><option value="mes">Mes completo</option></select></div>'
+        +'<div class="fld" style="min-width:190px;margin:0" id="bmin-qna-wrap"><label style="font-size:10px">Quincena</label>'
+          +'<select id="bmin-qna" onchange="bminUmbral()">'+lq.map(function(q){return '<option value="'+gcEsc(q)+'">'+gcEsc(q)+'</option>';}).join('')+'</select></div>'
+        +'<div class="fld" style="min-width:160px;margin:0;display:none" id="bmin-mes-wrap"><label style="font-size:10px">Mes</label>'
+          +'<select id="bmin-mes" onchange="bminUmbral()">'+lm.map(function(k){return '<option value="'+gcEsc(k)+'">'+gcEsc(acumMesLabel(k))+'</option>';}).join('')+'</select></div>'
+        +'<div class="fld" style="min-width:160px;margin:0"><label style="font-size:10px">Base de comparación</label>'
+          +'<select id="bmin-base"><option value="SS">Devengo seguridad social</option><option value="TODOS">Todos los devengos</option></select></div>'
+        +'<div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Salario mínimo del periodo</label>'
+          +'<input type="number" id="bmin-umbral" value="875453"/></div>'
+        +'<div class="fld" style="min-width:110px;margin:0"><label style="font-size:10px">Sede</label>'
+          +'<select id="bmin-sede"><option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option></select></div>'
+        +'<button class="btn bv" onclick="bminGenerar()" style="height:36px">📊 Generar</button>'
+        +'<button class="btn bg" onclick="bminExcel()" style="height:36px">📥 Excel</button>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--g3);margin-top:6px">Para el mes se suman las dos quincenas; asegúrate de haber importado ambas. El mínimo quincenal de 2026 es $875.453 y el mensual $1.750.905.</div>'
+      +'<div id="bmin-result" style="margin-top:14px"></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  bminPeriodoCambio();
+}
+function bminPeriodoCambio(){
+  var p=(document.getElementById('bmin-periodo')||{}).value||'qna';
+  var q=document.getElementById('bmin-qna-wrap'), me=document.getElementById('bmin-mes-wrap');
+  if(q) q.style.display=(p==='mes')?'none':'';
+  if(me) me.style.display=(p==='mes')?'':'none';
+  bminUmbral();
+}
+// Sugiere el mínimo según el periodo elegido
+function bminUmbral(){
+  var p=(document.getElementById('bmin-periodo')||{}).value||'qna';
+  var el=document.getElementById('bmin-umbral'); if(!el) return;
+  el.value=(p==='mes')?1750905:875453;
+}
+function bminGenerar(){
+  var periodo=(document.getElementById('bmin-periodo')||{}).value||'qna';
+  var qna=(document.getElementById('bmin-qna')||{}).value||'';
+  var mesKey=(document.getElementById('bmin-mes')||{}).value||'';
+  var base=(document.getElementById('bmin-base')||{}).value||'SS';
+  var umbral=Number((document.getElementById('bmin-umbral')||{}).value)||0;
+  var sedeF=(document.getElementById('bmin-sede')||{}).value||'';
+  var cont=document.getElementById('bmin-result');
+  if(periodo==='mes'?!mesKey:!qna){ alert('Elige el periodo'); return; }
+
+  // Quincenas y semanas que abarca el periodo
+  var qnasPeriodo=(periodo==='mes')?acumInfQnasDelMes(mesKey):[qna];
+  var sems={};
+  qnasPeriodo.forEach(function(q){
+    var inf=acumInfSemanasDe(q);
+    (inf.sems||[]).forEach(function(x){ sems[String(x)]=1; });
+  });
+  var listaSems=Object.keys(sems);
+  cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cruzando acumulados con los reportes de las semanas '+(listaSems.join(', ')||'—')+'...</div>';
+
+  var armar=function(){
+    // 1) Devengo del periodo por trabajador
+    var porCed={};
+    ACUM_DATA.forEach(function(a){
+      if(periodo==='mes'){ if(acumMesDeRegistro(a)!==mesKey) return; }
+      else if(a.QNA_LABEL!==qna) return;
+      if(base==='SS'){ if(!acumEsDevengoSS(a.TIPO)) return; }
+      else if(!acumEsDevengo(a.TIPO)) return;
+      var c=String(a.CEDULA||''); if(!c) return;
+      if(!porCed[c]) porCed[c]={ced:c, nom:a.NOMBRES||'', devengo:0, qnas:{}};
+      porCed[c].devengo+=Number(a.VALOR)||0;
+      if(a.QNA_LABEL) porCed[c].qnas[a.QNA_LABEL]=1;
+      if(!porCed[c].nom && a.NOMBRES) porCed[c].nom=a.NOMBRES;
+    });
+
+    // 2) Reportes de las semanas del periodo: novedades, días y coordinadores
+    var repo={};
+    getAllRegs().forEach(function(r){
+      if(listaSems.indexOf(String(parseInt(r.sem)||0))<0) return;
+      var c=String(r.ced||''); if(!c) return;
+      if(!repo[c]) repo[c]={dias:{}, coords:{}, novs:{}, horasVig:0};
+      var g=repo[c];
+      if(r.coord) g.coords[r.coord]=(g.coords[r.coord]||0)+1;
+      if(r.esVig){ g.horasVig+=(r.vigHd||0)+(r.vigHn||0); g.dias[r.sem+'_'+r.dia]=1; return; }
+      if(r.tipo==='labor'){ g.dias[r.sem+'_'+r.dia]=1; return; }
+      if(r.tipo==='novedad'&&r.nov){
+        if(!g.novs[r.nov]) g.novs[r.nov]={dias:0, obs:[]};
+        g.novs[r.nov].dias++;
+        if(r.obs) g.novs[r.nov].obs.push(r.obs);
+        if(NOV_AUX.indexOf(String(r.nov))>=0) g.dias[r.sem+'_'+r.dia]=1;
+      }
+    });
+
+    // 3) Días de auxilio pagados, tomados del acumulado si existe el concepto
+    var auxDe={};
+    ACUM_DATA.forEach(function(a){
+      if(periodo==='mes'){ if(acumMesDeRegistro(a)!==mesKey) return; }
+      else if(a.QNA_LABEL!==qna) return;
+      if(String(a.CONCEPTO||'').toUpperCase().indexOf('TRANSPORTE')<0) return;
+      var c=String(a.CEDULA||''); if(!c) return;
+      auxDe[c]=(auxDe[c]||0)+(Number(a.VALOR)||0);
+    });
+    var auxQna=(typeof NOM_CFG!=='undefined'&&NOM_CFG.auxQna)?NOM_CFG.auxQna:124547;
+    var diasAuxDe=function(c){
+      var v=auxDe[c]||0;
+      if(!v) return null;
+      var tope=(periodo==='mes')?(auxQna*2):auxQna;
+      return Math.round((v/tope)*((periodo==='mes')?30:15));
+    };
+
+    // 4) Armar las filas de quienes quedaron por debajo
+    var d1=null, d2=null;   // rango de fechas del periodo (para ingresos y retiros)
+    qnasPeriodo.forEach(function(q){
+      var inf=acumInfSemanasDe(q);
+      if(inf.qna&&inf.qna.ini){ if(!d1||inf.qna.ini<d1) d1=inf.qna.ini; }
+      if(inf.qna&&inf.qna.fin){ if(!d2||inf.qna.fin>d2) d2=inf.qna.fin; }
+    });
+    var filas=Object.keys(porCed).map(function(k){return porCed[k];})
+      .filter(function(f){ return f.devengo>0 && f.devengo<umbral; })
+      .map(function(f){
+        var t=(typeof RH_DATA!=='undefined')?RH_DATA.find(function(x){return String(x.CEDULA)===f.ced;}):null;
+        var g=repo[f.ced]||{dias:{},coords:{},novs:{},horasVig:0};
+        var cs=Object.keys(g.coords).sort(function(a,b){return g.coords[b]-g.coords[a];});
+        var ing=(t&&t.FECHA_INGRESO)?String(t.FECHA_INGRESO).slice(0,10):'';
+        var ret=(t&&t.FECHA_RETIRO)?String(t.FECHA_RETIRO).slice(0,10):'';
+        var motivo=[];
+        if(ing && d1 && d2 && ing>=d1 && ing<=d2) motivo.push('Ingresó en el periodo');
+        if(ret && d1 && d2 && ret>=d1 && ret<=d2) motivo.push('Se retiró en el periodo');
+        var novTxt=Object.keys(g.novs).map(function(n){
+          return getNov(n)+(g.novs[n].dias>1?(' ×'+g.novs[n].dias):'');
+        }).join(', ');
+        if(novTxt) motivo.push('Novedades');
+        if(!Object.keys(g.dias).length) motivo.push('Sin reportes de campo');
+        return {
+          ced:f.ced, nom:f.nom||(t&&t.NOMBRES)||'', sede:(t&&t.SEDE)||(cs.length&&typeof getSedeCo==='function'?getSedeCo(cs[0]):'')||'',
+          devengo:f.devengo, falta:umbral-f.devengo, pct:umbral?Math.round((f.devengo/umbral)*100):0,
+          ingreso:ing, retiro:ret, motivo:motivo.join(' · ')||'Sin causa aparente',
+          novedades:novTxt, dias:Object.keys(g.dias).length, diasAux:diasAuxDe(f.ced),
+          horasVig:Math.round(g.horasVig), coords:cs, nQnas:Object.keys(f.qnas).length
+        };
+      })
+      .filter(function(f){ return !sedeF || String(f.sede).toUpperCase()===sedeF; })
+      .sort(function(a,b){ return a.devengo-b.devengo; });
+
+    BMIN_DATA={periodo:periodo, etiqueta:(periodo==='mes')?('Mes de '+acumMesLabel(mesKey)):qna,
+               umbral:umbral, base:base, sems:listaSems, filas:filas};
+    bminRender();
+  };
+  if(listaSems.length && typeof cargarSemanasMultiples==='function') cargarSemanasMultiples(listaSems, armar);
+  else armar();
+}
+
+
+function bminRender(){
+  var cont=document.getElementById('bmin-result'); if(!cont||!BMIN_DATA) return;
+  var D=BMIN_DATA, f=D.filas;
+  if(!f.length){
+    cont.innerHTML='<div style="text-align:center;padding:26px;color:var(--v);font-weight:700">✓ Nadie quedó por debajo del mínimo en '+gcEsc(D.etiqueta)+'.</div>';
+    return;
+  }
+  var totFalta=f.reduce(function(a,x){return a+x.falta;},0);
+  var nIng=f.filter(function(x){return x.motivo.indexOf('Ingresó')>=0;}).length;
+  var nRet=f.filter(function(x){return x.motivo.indexOf('retiró')>=0;}).length;
+  var nNov=f.filter(function(x){return x.novedades;}).length;
+  var nSin=f.filter(function(x){return x.motivo.indexOf('Sin reportes')>=0;}).length;
+  cont.innerHTML='<div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:12px">'
+      +'<div class="st k-a"><div class="sl">Por debajo del mínimo</div><div class="sv">'+f.length+'</div></div>'
+      +'<div class="st k-g"><div class="sl">Ingresos en el periodo</div><div class="sv">'+nIng+'</div></div>'
+      +'<div class="st k-g"><div class="sl">Retiros en el periodo</div><div class="sv">'+nRet+'</div></div>'
+      +'<div class="st k-n"><div class="sl">Con novedades</div><div class="sv">'+nNov+'</div></div>'
+      +'<div class="st '+(nSin?'k-r':'k-g')+'"><div class="sl">Sin reportes de campo</div><div class="sv">'+nSin+'</div></div>'
+      +'<div class="st k-r"><div class="sl">Faltante total</div><div class="sv" style="font-size:18px">'+cop(totFalta)+'</div></div>'
+    +'</div>'
+    +'<div class="tw" style="max-height:52vh;overflow:auto"><table class="ordenable" id="bmin-t" style="font-size:12px"><thead><tr>'
+      +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th style="text-align:right">Devengo</th>'
+      +'<th style="text-align:right">Falta</th><th style="text-align:center">% del mínimo</th>'
+      +'<th style="text-align:center">Días rep.</th><th style="text-align:center">Días aux.</th>'
+      +'<th>Novedades</th><th>Coordinador(es)</th><th>Posible causa</th></tr></thead><tbody>'
+    +f.map(function(x){
+      var col=x.pct<40?'#b91c1c':(x.pct<75?'#b45309':'var(--g2)');
+      return '<tr>'
+        +'<td><code style="font-size:11px">'+gcEsc(x.ced)+'</code></td>'
+        +'<td><strong>'+gcEsc(x.nom)+'</strong>'
+          +(x.ingreso?('<div style="font-size:9.5px;color:var(--g3)">ingresó '+incFecha(x.ingreso)+'</div>'):'')
+          +(x.retiro?('<div style="font-size:9.5px;color:var(--r)">retirado '+incFecha(x.retiro)+'</div>'):'')+'</td>'
+        +'<td>'+(x.sede?('<span class="bdg ba2">'+gcEsc(x.sede)+'</span>'):'—')+'</td>'
+        +'<td style="text-align:right;font-weight:700">'+cop(x.devengo)+'</td>'
+        +'<td style="text-align:right;color:#b91c1c;font-weight:600">'+cop(x.falta)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+col+'">'+x.pct+'%</td>'
+        +'<td style="text-align:center">'+(x.dias||'—')+(x.horasVig?('<div style="font-size:9px;color:var(--g3)">'+x.horasVig+'h vig</div>'):'')+'</td>'
+        +'<td style="text-align:center">'+(x.diasAux===null?'—':x.diasAux)+'</td>'
+        +'<td style="font-size:11px">'+(x.novedades?gcEsc(x.novedades):'—')+'</td>'
+        +'<td style="font-size:11px">'+(x.coords.length?gcEsc(x.coords.join(', ')):'<span style="color:#b91c1c">nadie lo reportó</span>')+'</td>'
+        +'<td style="font-size:11px;color:var(--g2)">'+gcEsc(x.motivo)+'</td></tr>';
+    }).join('')+'</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--g3);margin-top:8px">'+gcEsc(D.etiqueta)+' · mínimo de referencia '+cop(D.umbral)
+      +' · base: '+(D.base==='SS'?'devengo de seguridad social':'todos los devengos')
+      +' · semanas cruzadas: '+D.sems.join(', ')+'</div>';
+}
+function bminExcel(){
+  if(!BMIN_DATA||!BMIN_DATA.filas.length){ alert('Primero genera el informe'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var D=BMIN_DATA, rows=[];
+    rows.push(['PERSONAL CON DEVENGO POR DEBAJO DEL SALARIO MÍNIMO']);
+    rows.push([D.etiqueta+'  ·  Mínimo de referencia: '+cop(D.umbral)
+      +'  ·  Base: '+(D.base==='SS'?'devengo de seguridad social':'todos los devengos')]);
+    rows.push([D.filas.length+' trabajador(es) · semanas cruzadas: '+D.sems.join(', ')+' · generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Sede','Devengo','Falta para el mínimo','% del mínimo',
+               'Fecha ingreso','Fecha retiro','Días reportados','Horas vigilancia','Días auxilio',
+               'Novedades','Coordinador(es)','Posible causa']);
+    D.filas.forEach(function(x){
+      rows.push([xlCed(x.ced), x.nom, x.sede, x.devengo, x.falta, x.pct,
+                 xlFecha(x.ingreso), xlFecha(x.retiro), x.dias, x.horasVig||'',
+                 (x.diasAux===null?'':x.diasAux), x.novedades, x.coords.join(', '), x.motivo]);
+    });
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
+    ws['!cols']=[{wch:14},{wch:32},{wch:9},{wch:16},{wch:18},{wch:12},{wch:14},{wch:14},
+                 {wch:13},{wch:13},{wch:12},{wch:34},{wch:30},{wch:32}];
+    var L='ABCDEFGHIJKLMN'.split('');
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'B45309'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    L.forEach(function(c){ est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'B45309'}},alignment:{horizontal:'center',wrapText:true}}); });
+    xlFormato(ws, 6, D.filas.length, ['G','H'], ['D','E'], ['A']);
+    for(var i=0;i<D.filas.length;i++){
+      var r=6+i;
+      if(ws['F'+r]) ws['F'+r].z='0"%"';
+      if(i%2===1){ L.forEach(function(c){
+        var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:'FFFBEB'}}}); }); }
+    }
+    ws['!autofilter']={ref:'A5:N'+(5+D.filas.length)};
+    ws['!freeze']={xSplit:0,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bajo el mínimo');
+    XLSX.writeFile(wb, 'Bajo_minimo_'+String(D.etiqueta).replace(/\s+/g,'_')+'.xlsx');
+  });
 }
 
 function acumAbrirInforme(){
