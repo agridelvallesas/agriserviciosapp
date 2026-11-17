@@ -58,6 +58,7 @@ const PORTADAS = new Set([
   'getIngresosRetiros', 'guardarMotivoRetiro', 'informeAusentismo', 'guardarRetiro', 'detalleAusentismo', 'clasificarDia',
   'getFacResponsables', 'guardarFacResponsable', 'eliminarFacResponsable',
   'getContratos', 'guardarContrato', 'eliminarContrato', 'guardarOtrosi', 'eliminarOtrosi',
+  'getConsolidadoTodos',
   'getReferencias', 'guardarReferencia', 'eliminarReferencia',
   'guardarHistoricoContrato',
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
@@ -185,6 +186,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getReferencias')       r = await accionGetReferencias(body, env);
     else if (accion === 'guardarReferencia')    r = await accionGuardarReferencia(body, env);
     else if (accion === 'eliminarReferencia')   r = await accionEliminarReferencia(body, env);
+    else if (accion === 'getConsolidadoTodos')  r = await accionGetConsolidadoTodos(body, env);
     else if (accion === 'getContratos')         r = await accionGetContratos(body, env);
     else if (accion === 'guardarContrato')      r = await accionGuardarContrato(body, env);
     else if (accion === 'eliminarContrato')     r = await accionEliminarContrato(body, env);
@@ -3073,4 +3075,37 @@ async function accionEliminarReferencia(body, env) {
   if (!body.id) return { ok: false, error: 'Falta id' };
   await sbWrite(env, 'DELETE', `referencias?id=eq.${encodeURIComponent(body.id)}`);
   return { ok: true };
+}
+
+
+// ── Consolidado semanal de TODOS los coordinadores ─────────────────────────
+// La suma se hace en la base de datos (función consolidado_semanal), igual
+// que el Cobro vs Facturación del módulo de coordinadores. Así no depende de
+// cuántos registros alcance a cargar el navegador.
+async function accionGetConsolidadoTodos(body, env) {
+  const d = parseInt(body.desde) || null;
+  const h = parseInt(body.hasta) || null;
+  let filas;
+  try {
+    filas = await sbRpc(env, 'consolidado_semanal', { p_desde: d, p_hasta: h });
+  } catch (e) {
+    return { ok: false, error: 'FALTA_FUNCION', detalle: String(e && e.message || e) };
+  }
+  // Agrupar por coordinador y administrador, como lo espera la pantalla
+  const out = {};
+  (filas || []).forEach((f) => {
+    const coord = String(f.coordinador || '');
+    const adm = String(f.administrador || '');
+    if (!coord) return;
+    const k = coord + '|' + adm;
+    if (!out[k]) out[k] = { coord, adm, sede: String(f.sede || ''), sem0: 0, semanas: {} };
+    const s = parseInt(f.semana) || 0;
+    const rep = Number(f.reportes || 0);
+    const fac = Number(f.facturacion || 0);
+    if (s === 0) { out[k].sem0 += rep; return; }   // semana 0 = saldo de cierre
+    if (!out[k].semanas[s]) out[k].semanas[s] = { rep: 0, fac: 0 };
+    out[k].semanas[s].rep += rep;
+    out[k].semanas[s].fac += fac;
+  });
+  return { ok: true, data: out };
 }
