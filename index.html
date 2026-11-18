@@ -1359,7 +1359,19 @@ tfoot td{background:var(--gf);font-weight:700}
               <input type="number" id="br-umbral" value="68091" style="width:100%"/>
             </div>
             <button class="btn br" onclick="calcBR()" style="height:34px;margin-top:16px">⚠️ Ver bajo rendimiento</button>
-            <button class="btn bg" onclick="expCSV('br-t','bajo_rendimiento')" style="height:34px;margin-top:16px">📥 Excel</button>
+            <button class="btn bg" onclick="brExcel()" style="height:34px;margin-top:16px">📥 Excel</button>
+          </div>
+          <div id="br-filtros2" style="display:none;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
+            <div class="fld" style="flex:1;min-width:190px;margin:0"><label>Buscar empleado</label>
+              <input type="text" id="br-q" placeholder="Nombre o cédula..." oninput="brFiltrar()" autocomplete="off"/></div>
+            <div class="fld" style="min-width:150px;margin:0"><label>Mínimo de días en BR</label>
+              <select id="br-mind" onchange="brFiltrar()">
+                <option value="1">1 o más</option><option value="2">2 o más</option>
+                <option value="3">3 o más</option><option value="4">4 o más</option>
+              </select></div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--g2);height:34px;cursor:pointer">
+              <input type="checkbox" id="br-agr" onchange="brFiltrar()" style="width:15px;height:15px"/> Agrupar por empleado</label>
+            <button class="btn" onclick="brLimpiar()" style="height:34px;background:var(--gf);color:var(--g1)">Limpiar</button>
           </div>
           <div class="alrt aw" style="margin-top:10px">
             <span>⚠️</span>
@@ -1367,14 +1379,15 @@ tfoot td{background:var(--gf);font-weight:700}
           </div>
         </div>
         <!-- Stats -->
-        <div class="sg" id="br-sg" style="display:none;grid-template-columns:repeat(4,1fr)">
+        <div class="sg" id="br-sg" style="display:none;grid-template-columns:repeat(5,1fr)">
           <div class="st"><div class="sl">Empleados afectados</div><div class="sv" style="color:var(--r)" id="br-ne">0</div></div>
           <div class="st"><div class="sl">Registros en BR</div><div class="sv" style="color:var(--r)" id="br-nr">0</div></div>
           <div class="st"><div class="sl">Coordinadores</div><div class="sv" id="br-nc">0</div></div>
+          <div class="st"><div class="sl">Reinciden (2+ días)</div><div class="sv" style="color:var(--a)" id="br-nrein">0</div></div>
           <div class="st"><div class="sl">Semana</div><div class="sv" id="br-sw">—</div></div>
         </div>
         <div class="card">
-          <div class="tw"><table id="br-t"><thead><tr>
+          <div class="tw"><table id="br-t"><thead id="br-th"><tr>
             <th onclick="sortTable('br-t',0)" style="cursor:pointer">Empleado ↕</th>
             <th>Cédula</th>
             <th onclick="sortTable('br-t',2)" style="cursor:pointer">Día ↕</th>
@@ -1384,6 +1397,7 @@ tfoot td{background:var(--gf);font-weight:700}
             <th onclick="sortTable('br-t',6,true)" style="cursor:pointer">Pago día ↕</th>
             <th>Umbral</th>
             <th>Diferencia</th>
+            <th style="text-align:center">Días en BR</th>
           </tr></thead>
           <tbody id="br-tb"><tr><td colspan="10" style="text-align:center;padding:20px;color:var(--g3)">Selecciona semana y presiona Ver</td></tr></tbody>
           <tfoot id="br-tf"></tfoot></table></div>
@@ -12938,24 +12952,32 @@ function calcIco(){
 // ══════════════════════════════════════════
 // INFORME BAJO RENDIMIENTO
 // ══════════════════════════════════════════
+var BR_ROWS=[];      // días en bajo rendimiento ya calculados
+var BR_PARAMS={};    // semana / umbral con que se calcularon
+
 function calcBR(){
   var sem=document.getElementById('br-sem').value;
   var co=document.getElementById('br-co').value;
   var brSede=document.getElementById('br-sede')&&document.getElementById('br-sede').value||'';
   var umbral=parseFloat(document.getElementById('br-umbral').value)||UMBRAL;
   var tb=document.getElementById('br-tb');
+  if(!sem){ if(tb) tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--g3)">Selecciona una semana.</td></tr>'; return; }
 
-  // ── Estrategia rápida: cargar TODOS los registros con lotes grandes ──
-  // Reutiliza cargarTodosRegsRapido que ya cargaron Saldos/Consolidado/CostoLaboral.
-  // Si ya están en cache, render inmediato; si no, carga con barra de progreso.
-  if(typeof cargarTodosRegsRapido==='function' && !ALL_REGS_LOADED){
-    if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando registros completos...</td></tr>';
-    cargarTodosRegsRapido(function(){
-      calcBRRender(sem, co, brSede, umbral);
-    });
+  // Este informe mira UNA semana. Antes descargaba todos los registros históricos
+  // para después filtrar uno solo, por eso se demoraba tanto.
+  var yaEnMemoria=getAllRegs().some(function(r){ return r.sem===sem; });
+  if(ALL_REGS_LOADED || yaEnMemoria){
+    calcBRRender(sem, co, brSede, umbral);
     return;
   }
-  calcBRRender(sem, co, brSede, umbral);
+  if(tb) tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando la semana '+parseInt(sem)+'...</td></tr>';
+  cargarSemanaCompleta(sem, function(ok){
+    if(!ok){
+      if(tb) tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--r)">No se pudo cargar la semana '+parseInt(sem)+'. Intente de nuevo.</td></tr>';
+      return;
+    }
+    calcBRRender(sem, co, brSede, umbral);
+  });
 }
 
 function calcBRRender(sem, co, brSede, umbral){
@@ -12977,32 +12999,77 @@ function calcBRRender(sem, co, brSede, umbral){
   });
 
   // Filtrar los que están en bajo rendimiento (entre 1 y umbral)
-  var brRows=Object.values(byDia).filter(function(d){
+  var rows=Object.values(byDia).filter(function(d){
     return d.pago>0&&d.pago<umbral;
   }).sort(function(a,b){return a.pago-b.pago;}); // de menor a mayor pago
 
-  // Stats
-  var empsBR=new Set(brRows.map(function(r){return r.ced;}));
-  var coordsBR=new Set(brRows.map(function(r){return r.coord;}));
-  document.getElementById('br-sg').style.display='grid';
-  document.getElementById('br-ne').textContent=empsBR.size;
-  document.getElementById('br-nr').textContent=brRows.length;
-  document.getElementById('br-nc').textContent=coordsBR.size;
-  document.getElementById('br-sw').textContent='Sem '+parseInt(sem)+' ('+getRangoSem(sem)+')';
+  // Cuántos días de la semana cae cada trabajador: no es lo mismo uno que cayó
+  // un día que uno que cayó cuatro.
+  var diasPorCed={};
+  rows.forEach(function(r){ diasPorCed[r.ced]=(diasPorCed[r.ced]||0)+1; });
+  rows.forEach(function(r){ r.diasBR=diasPorCed[r.ced]||1; });
 
+  BR_ROWS=rows;
+  BR_PARAMS={sem:sem, co:co, sede:brSede, umbral:umbral};
+
+  var f2=document.getElementById('br-filtros2');
+  if(f2) f2.style.display='flex';
+  document.getElementById('br-sw').textContent='Sem '+parseInt(sem)+' ('+getRangoSem(sem)+')';
+  brFiltrar();
+}
+
+// Aplica el buscador y el modo de vista sobre lo ya calculado (sin volver a cargar)
+function brFiltrar(){
   var tb=document.getElementById('br-tb');
   var tf=document.getElementById('br-tf');
+  var th=document.getElementById('br-th');
+  if(!tb) return;
+  var umbral=BR_PARAMS.umbral||UMBRAL;
+  var q=((document.getElementById('br-q')||{}).value||'').trim().toLowerCase();
+  var minD=parseInt((document.getElementById('br-mind')||{}).value)||1;
+  var agr=!!(document.getElementById('br-agr')||{}).checked;
 
-  if(!brRows.length){
-    tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--v)">✅ No hay empleados en bajo rendimiento esta semana.</td></tr>';
+  var rows=BR_ROWS.filter(function(r){
+    if(r.diasBR<minD) return false;
+    if(!q) return true;
+    return String(r.emp||'').toLowerCase().includes(q) || String(r.ced||'').includes(q);
+  });
+
+  var emps=new Set(rows.map(function(r){return r.ced;}));
+  var coords=new Set(rows.map(function(r){return r.coord;}));
+  var rein=new Set(rows.filter(function(r){return r.diasBR>=2;}).map(function(r){return r.ced;}));
+  var sg=document.getElementById('br-sg'); if(sg) sg.style.display='grid';
+  document.getElementById('br-ne').textContent=emps.size;
+  document.getElementById('br-nr').textContent=rows.length;
+  document.getElementById('br-nc').textContent=coords.size;
+  var nrein=document.getElementById('br-nrein'); if(nrein) nrein.textContent=rein.size;
+
+  if(!rows.length){
+    th.innerHTML='<tr><th>Empleado</th><th>Cédula</th><th>Día</th><th>Coordinador</th><th>Labor</th>'
+      +'<th>Cant.</th><th>Pago día</th><th>Umbral</th><th>Diferencia</th><th style="text-align:center">Días en BR</th></tr>';
+    tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:'+(BR_ROWS.length?'var(--g3)':'var(--v)')+'">'
+      +(BR_ROWS.length?'Ningún empleado coincide con ese filtro.':'✅ No hay empleados en bajo rendimiento esta semana.')+'</td></tr>';
     tf.innerHTML='';
     return;
   }
 
-  tb.innerHTML=brRows.map(function(r){
+  if(agr){ brRenderAgrupado(rows, umbral, th, tb, tf); return; }
+
+  th.innerHTML='<tr>'
+    +'<th onclick="sortTable(\'br-t\',0)" style="cursor:pointer">Empleado ↕</th>'
+    +'<th>Cédula</th>'
+    +'<th onclick="sortTable(\'br-t\',2)" style="cursor:pointer">Día ↕</th>'
+    +'<th>Coordinador</th><th>Labor</th><th>Cant.</th>'
+    +'<th onclick="sortTable(\'br-t\',6,true)" style="cursor:pointer">Pago día ↕</th>'
+    +'<th>Umbral</th><th>Diferencia</th>'
+    +'<th onclick="sortTable(\'br-t\',9,true)" style="cursor:pointer;text-align:center">Días en BR ↕</th></tr>';
+
+  tb.innerHTML=rows.map(function(r){
     var diff=r.pago-umbral; // negativo = cuánto le faltó
     var fecha=fmtFecha(getFecha(r.sem,r.dia));
     var domFest=esDomFest(getFecha(r.sem,r.dia));
+    var dCol=r.diasBR>=3?'#991b1b':(r.diasBR>=2?'#92400e':'var(--g3)');
+    var dBg=r.diasBR>=3?'#fee2e2':(r.diasBR>=2?'#fef3c7':'transparent');
     return'<tr>'
       +'<td><strong>'+r.emp+'</strong></td>'
       +'<td style="font-size:11px;color:var(--g3)">'+r.ced+'</td>'
@@ -13013,13 +13080,188 @@ function calcBRRender(sem, co, brSede, umbral){
       +'<td><strong style="color:var(--r)">'+cop(r.pago)+'</strong></td>'
       +'<td style="color:var(--g3)">'+cop(umbral)+'</td>'
       +'<td><span style="color:var(--r)">'+cop(diff)+'</span></td>'
+      +'<td style="text-align:center"><span style="display:inline-block;min-width:24px;padding:2px 7px;border-radius:99px;'
+        +'background:'+dBg+';color:'+dCol+';font-weight:800;font-size:12px">'+r.diasBR+'</span></td>'
       +'</tr>';
   }).join('');
 
+  var falta=rows.reduce(function(a,r){return a+(umbral-r.pago);},0);
   tf.innerHTML='<tr style="background:var(--rs)">'
-    +'<td colspan="6"><strong>'+brRows.length+' registro(s) en bajo rendimiento</strong></td>'
-    +'<td colspan="3" style="color:var(--r)"><strong>'+empsBR.size+' empleado(s) afectados</strong></td>'
+    +'<td colspan="6"><strong>'+rows.length+' registro(s) en bajo rendimiento</strong></td>'
+    +'<td colspan="2" style="color:var(--r)"><strong>'+emps.size+' empleado(s)</strong></td>'
+    +'<td colspan="2" style="color:var(--r)"><strong>Faltante total: '+cop(falta)+'</strong></td>'
     +'</tr>';
+}
+
+// Una fila por trabajador: cuántos días cayó y cuánto le faltó en total
+function brAgrupar(rows){
+  var by={};
+  rows.forEach(function(r){
+    if(!by[r.ced]) by[r.ced]={ced:r.ced, emp:r.emp, dias:[], coords:new Set(), pago:0, cant:0, labs:new Set()};
+    var g=by[r.ced];
+    g.dias.push(r.dia);
+    g.coords.add(r.coord);
+    g.pago+=r.pago;
+    g.cant+=(r.cant||0);
+    (r.labs||[]).forEach(function(l){ if(l) g.labs.add(l); });
+  });
+  return Object.values(by).sort(function(a,b){
+    if(b.dias.length!==a.dias.length) return b.dias.length-a.dias.length;
+    return a.pago-b.pago;
+  });
+}
+
+function brRenderAgrupado(rows, umbral, th, tb, tf){
+  var grupos=brAgrupar(rows);
+  th.innerHTML='<tr>'
+    +'<th onclick="sortTable(\'br-t\',0)" style="cursor:pointer">Empleado ↕</th>'
+    +'<th>Cédula</th>'
+    +'<th onclick="sortTable(\'br-t\',2,true)" style="cursor:pointer;text-align:center">Días en BR ↕</th>'
+    +'<th>Días</th><th>Coordinador(es)</th><th>Labores</th>'
+    +'<th onclick="sortTable(\'br-t\',6,true)" style="cursor:pointer">Pago de esos días ↕</th>'
+    +'<th>Debió ganar</th><th>Faltante</th><th></th></tr>';
+  tb.innerHTML=grupos.map(function(g){
+    var debio=umbral*g.dias.length;
+    var falta=g.pago-debio;
+    var dCol=g.dias.length>=3?'#991b1b':(g.dias.length>=2?'#92400e':'var(--g3)');
+    var dBg=g.dias.length>=3?'#fee2e2':(g.dias.length>=2?'#fef3c7':'transparent');
+    return '<tr'+(g.dias.length>=3?' style="background:#fef2f2"':(g.dias.length>=2?' style="background:#fffbeb"':''))+'>'
+      +'<td><strong>'+g.emp+'</strong></td>'
+      +'<td style="font-size:11px;color:var(--g3)">'+g.ced+'</td>'
+      +'<td style="text-align:center"><span style="display:inline-block;min-width:24px;padding:2px 7px;border-radius:99px;'
+        +'background:'+dBg+';color:'+dCol+';font-weight:800;font-size:12px">'+g.dias.length+'</span></td>'
+      +'<td style="font-size:11px">'+g.dias.join(', ')+'</td>'
+      +'<td style="font-size:11px">'+Array.from(g.coords).join(', ')+'</td>'
+      +'<td style="font-size:11px">'+Array.from(g.labs).slice(0,4).join(', ')+(g.labs.size>4?' …':'')+'</td>'
+      +'<td><strong style="color:var(--r)">'+cop(g.pago)+'</strong></td>'
+      +'<td style="color:var(--g3)">'+cop(debio)+'</td>'
+      +'<td><span style="color:var(--r);font-weight:700">'+cop(falta)+'</span></td>'
+      +'<td></td></tr>';
+  }).join('');
+  var totDias=grupos.reduce(function(a,g){return a+g.dias.length;},0);
+  var totFalta=grupos.reduce(function(a,g){return a+(umbral*g.dias.length-g.pago);},0);
+  tf.innerHTML='<tr style="background:var(--rs)">'
+    +'<td colspan="2"><strong>'+grupos.length+' empleado(s)</strong></td>'
+    +'<td style="text-align:center"><strong>'+totDias+'</strong></td>'
+    +'<td colspan="5" style="color:var(--r)"><strong>días en bajo rendimiento</strong></td>'
+    +'<td colspan="2" style="color:var(--r)"><strong>Faltante total: '+cop(totFalta)+'</strong></td>'
+    +'</tr>';
+}
+
+function brLimpiar(){
+  var q=document.getElementById('br-q'); if(q) q.value='';
+  var m=document.getElementById('br-mind'); if(m) m.value='1';
+  var a=document.getElementById('br-agr'); if(a) a.checked=false;
+  brFiltrar();
+}
+
+function brExcel(){
+  if(!BR_ROWS.length){ alert('Primero presione "Ver bajo rendimiento"'); return; }
+  var umbral=BR_PARAMS.umbral||UMBRAL;
+  var sem=BR_PARAMS.sem||'';
+  var q=((document.getElementById('br-q')||{}).value||'').trim().toLowerCase();
+  var minD=parseInt((document.getElementById('br-mind')||{}).value)||1;
+  var rows=BR_ROWS.filter(function(r){
+    if(r.diasBR<minD) return false;
+    if(!q) return true;
+    return String(r.emp||'').toLowerCase().includes(q) || String(r.ced||'').includes(q);
+  });
+  if(!rows.length){ alert('No hay registros con ese filtro'); return; }
+
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var grupos=brAgrupar(rows);
+    var wb=XLSX.utils.book_new();
+
+    // ── Hoja 1: detalle por día ──
+    var d=[];
+    d.push(['INFORME DE BAJO RENDIMIENTO']);
+    d.push(['Semana '+parseInt(sem)+' ('+getRangoSem(sem)+')  ·  Umbral: '+cop(umbral)
+            +(BR_PARAMS.co?('  ·  Coordinador: '+BR_PARAMS.co):'')
+            +(BR_PARAMS.sede?('  ·  Sede: '+BR_PARAMS.sede):'')]);
+    d.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    d.push([]);
+    d.push(['Empleado','Cédula','Día','Fecha','Coordinador','Labores','Cantidad',
+            'Pago del día','Umbral','Faltante','Días en BR esa semana']);
+    rows.forEach(function(r){
+      d.push([r.emp, xlCed(r.ced), r.dia, xlFecha(getFecha(r.sem,r.dia)), r.coord,
+              (r.labs||[]).join(', '), r.cant, r.pago, umbral, r.pago-umbral, r.diasBR]);
+    });
+    d.push([]);
+    d.push(['','','','','','','TOTAL', rows.reduce(function(a,r){return a+r.pago;},0), '',
+            rows.reduce(function(a,r){return a+(r.pago-umbral);},0), '']);
+    var ws=XLSX.utils.aoa_to_sheet(d, {cellDates:true});
+    ws['!cols']=[{wch:32},{wch:14},{wch:12},{wch:13},{wch:22},{wch:30},{wch:10},
+                 {wch:14},{wch:14},{wch:14},{wch:12}];
+    xlFormato(ws, 6, rows.length, ['D'], ['H','I','J'], ['A','B','G','K']);
+    var C1='ABCDEFGHIJK'.split('');
+    function est(w,r,st){ if(w[r]) w[r].s=st; }
+    est(ws,'A1',{font:{bold:true,sz:14,color:{rgb:'991B1B'}}});
+    est(ws,'A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est(ws,'A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    C1.forEach(function(c){ est(ws,c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'991B1B'}},alignment:{horizontal:'center',wrapText:true}}); });
+    for(var i=0;i<rows.length;i++){
+      var rr=6+i, f=rows[i];
+      var fill=f.diasBR>=3?'FEE2E2':(f.diasBR>=2?'FEF3C7':(i%2===1?'F8FAFC':''));
+      if(fill){ C1.forEach(function(c){ var cc=ws[c+rr];
+        if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:fill}}}); }); }
+      ['H','I','J'].forEach(function(c){ if(ws[c+rr]) ws[c+rr].z='$#,##0'; });
+      if(ws['J'+rr]) ws['J'+rr].s=Object.assign({},ws['J'+rr].s||{},{font:{color:{rgb:'991B1B'}}});
+    }
+    var rt=6+rows.length+1;
+    ['H','J'].forEach(function(c){ if(ws[c+rt]){ ws[c+rt].z='$#,##0';
+      ws[c+rt].s={font:{bold:true,color:{rgb:'991B1B'}}}; } });
+    est(ws,'G'+rt,{font:{bold:true},alignment:{horizontal:'right'}});
+    ws['!autofilter']={ref:'A5:K'+(5+rows.length)};
+    ws['!freeze']={xSplit:2,ySplit:5};
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle por día');
+
+    // ── Hoja 2: resumen por empleado ──
+    var g=[];
+    g.push(['BAJO RENDIMIENTO — RESUMEN POR EMPLEADO']);
+    g.push(['Semana '+parseInt(sem)+' ('+getRangoSem(sem)+')  ·  Umbral: '+cop(umbral)]);
+    g.push([]);
+    g.push(['Empleado','Cédula','Días en BR','Días','Coordinador(es)','Labores',
+            'Pago de esos días','Debió ganar','Faltante']);
+    grupos.forEach(function(x){
+      var debio=umbral*x.dias.length;
+      g.push([x.emp, xlCed(x.ced), x.dias.length, x.dias.join(', '),
+              Array.from(x.coords).join(', '), Array.from(x.labs).join(', '),
+              x.pago, debio, x.pago-debio]);
+    });
+    g.push([]);
+    g.push(['TOTAL','', grupos.reduce(function(a,x){return a+x.dias.length;},0),'','','',
+            grupos.reduce(function(a,x){return a+x.pago;},0),
+            grupos.reduce(function(a,x){return a+umbral*x.dias.length;},0),
+            grupos.reduce(function(a,x){return a+(x.pago-umbral*x.dias.length);},0)]);
+    var ws2=XLSX.utils.aoa_to_sheet(g, {cellDates:true});
+    ws2['!cols']=[{wch:32},{wch:14},{wch:11},{wch:18},{wch:26},{wch:36},{wch:15},{wch:14},{wch:14}];
+    xlFormato(ws2, 5, grupos.length, [], ['G','H','I'], ['B','C']);
+    var C2='ABCDEFGHI'.split('');
+    est(ws2,'A1',{font:{bold:true,sz:14,color:{rgb:'991B1B'}}});
+    est(ws2,'A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    C2.forEach(function(c){ est(ws2,c+'4',{font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'991B1B'}},alignment:{horizontal:'center',wrapText:true}}); });
+    for(var j=0;j<grupos.length;j++){
+      var r2=5+j, nd=grupos[j].dias.length;
+      var fl=nd>=3?'FEE2E2':(nd>=2?'FEF3C7':(j%2===1?'F8FAFC':''));
+      if(fl){ C2.forEach(function(c){ var cc=ws2[c+r2];
+        if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:fl}}}); }); }
+      ['G','H','I'].forEach(function(c){ if(ws2[c+r2]) ws2[c+r2].z='$#,##0'; });
+      if(ws2['C'+r2]) ws2['C'+r2].s=Object.assign({},ws2['C'+r2].s||{},
+        {font:{bold:true,color:{rgb:nd>=3?'991B1B':(nd>=2?'92400E':'334155')}},alignment:{horizontal:'center'}});
+    }
+    var rt2=5+grupos.length+1;
+    est(ws2,'A'+rt2,{font:{bold:true,color:{rgb:'991B1B'}}});
+    ['G','H','I'].forEach(function(c){ if(ws2[c+rt2]){ ws2[c+rt2].z='$#,##0';
+      ws2[c+rt2].s={font:{bold:true,color:{rgb:'991B1B'}}}; } });
+    ws2['!autofilter']={ref:'A4:I'+(4+grupos.length)};
+    ws2['!freeze']={xSplit:2,ySplit:4};
+    XLSX.utils.book_append_sheet(wb, ws2, 'Resumen por empleado');
+
+    XLSX.writeFile(wb, 'Bajo_rendimiento_Sem'+parseInt(sem)+'.xlsx');
+  });
 }
 
 // ══════════════════════════════════════════
