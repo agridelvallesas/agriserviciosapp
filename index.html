@@ -17549,8 +17549,8 @@ function vacDispFilas(){
     var c=String(v.CEDULA||'');
     if(!c) return;
     if(!tomadosPorCed[c]) tomadosPorCed[c]={labels:new Set(), sinLabel:0};
-    var pn=vacNormPeriodo(v.PERIODO_CAUSADO);
-    if(pn) tomadosPorCed[c].labels.add(pn);
+    var ps=vacPeriodosDeLabel(v.PERIODO_CAUSADO);
+    if(ps.length) ps.forEach(function(p){ tomadosPorCed[c].labels.add(p); });
     else tomadosPorCed[c].sinLabel++;
   });
 
@@ -18077,10 +18077,15 @@ function vacResumenTrab(ced){
   var unicos=new Set(), previos=0;
   if(typeof VAC_DATA!=='undefined'){
     VAC_DATA.filter(function(v){return String(v.CEDULA)===String(ced);}).forEach(function(v){
-      var pn=vacNormPeriodo(v.PERIODO_CAUSADO); if(!pn) return;
-      var ini=parseInt(String(pn).match(/(\d{4})/)?String(pn).match(/(\d{4})/)[1]:0)||0;
-      if(anioIng && ini && ini<anioIng){ previos++; return; }   // vinculación anterior
-      unicos.add(pn);
+      var ps=vacPeriodosDeLabel(v.PERIODO_CAUSADO); if(!ps.length) return;
+      var algunoPrevio=false;
+      ps.forEach(function(pn){
+        var m=String(pn).match(/(\d{4})/);
+        var ini=m?parseInt(m[1]):0;
+        if(anioIng && ini && ini<anioIng){ algunoPrevio=true; return; }  // vinculación anterior
+        unicos.add(pn);
+      });
+      if(algunoPrevio) previos++;
     });
   }
   var tomados=unicos.size, pend=causados-tomados;
@@ -18155,16 +18160,14 @@ function vacObtenerSugerenciaIdx(ced, idx){
   if(typeof VAC_DATA!=='undefined'){
     VAC_DATA.filter(function(v){return String(v.CEDULA)===String(ced);})
       .forEach(function(v){
-        var pn=vacNormPeriodo(v.PERIODO_CAUSADO);
-        if(pn) tomados.add(pn);
+        vacPeriodosDeLabel(v.PERIODO_CAUSADO).forEach(function(p){ tomados.add(p); });
       });
   }
   // También considerar los periodos que ya están en bloques previos del modal
   for(var i=0;i<idx;i++){
     var p=document.getElementById('vac-f-'+i+'-periodo');
     if(p && p.value){
-      var pn=vacNormPeriodo(p.value);
-      if(pn) tomados.add(pn);
+      vacPeriodosDeLabel(p.value).forEach(function(x){ tomados.add(x); });
     }
   }
 
@@ -18397,6 +18400,21 @@ function vacNormPeriodo(s){
   return String(s).trim();
 }
 
+// Un mismo registro puede cubrir VARIOS periodos: "2021-2023" son dos,
+// 2021-2022 y 2022-2023. Devuelve la lista de periodos que cubre esa etiqueta.
+function vacPeriodosDeLabel(s){
+  var pn=vacNormPeriodo(s);
+  if(!pn) return [];
+  var m=pn.match(/^(\d{4})-(\d{4})$/);
+  if(!m) return [pn];
+  var a=parseInt(m[1]), b=parseInt(m[2]);
+  if(!(b>a)) return [pn];
+  if(b-a>15) return [pn];  // rango disparatado: seguro es un error de digitación
+  var out=[];
+  for(var y=a; y<b; y++) out.push(y+'-'+(y+1));
+  return out;
+}
+
 // Abre el modal de consulta de saldo
 function vacAbrirSaldo(){
   // Si no hay datos cargados, cargar primero
@@ -18487,8 +18505,7 @@ function vacSaldoCalcular(){
   // Periodos únicos causados (algunos pueden estar partidos en 2 disfrutes)
   var periodosUnicos=new Set();
   tomadosArr.forEach(function(v){
-    var pn=vacNormPeriodo(v.PERIODO_CAUSADO);
-    if(pn) periodosUnicos.add(pn);
+    vacPeriodosDeLabel(v.PERIODO_CAUSADO).forEach(function(p){ periodosUnicos.add(p); });
   });
   var tomados=periodosUnicos.size;
   var saldo=causados-tomados;
@@ -18571,8 +18588,12 @@ function vacSaldoCalcular(){
           '</tr></thead>'+
           '<tbody>'+
           tomadosArr.map(function(v){
+            var _cub=vacPeriodosDeLabel(v.PERIODO_CAUSADO);
+            var _nota=(_cub.length>1)
+              ? '<div style="font-size:10px;color:#92400e;font-weight:600">cubre '+_cub.length+' periodos: '+_cub.join(', ')+'</div>'
+              : '';
             return '<tr style="border-top:1px solid var(--bd)">'+
-              '<td style="padding:6px 8px">'+(v.PERIODO_CAUSADO||'—')+'</td>'+
+              '<td style="padding:6px 8px">'+(v.PERIODO_CAUSADO||'—')+_nota+'</td>'+
               '<td style="padding:6px 8px">'+(v.FECHA_INICIO||'—')+'</td>'+
               '<td style="padding:6px 8px">'+(v.FECHA_FIN||'—')+'</td>'+
               '<td style="padding:6px 8px;text-align:center">'+(v.DIAS||'—')+'</td>'+
