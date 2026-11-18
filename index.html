@@ -1671,6 +1671,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <button class="btn bf" onclick="vacAbrirImportador()" style="height:36px">📥 Importar Excel</button>
           <button class="btn bg" onclick="vacExportar()" style="height:36px">📊 Exportar</button>
           <button class="btn bn" onclick="vacInformeAbrir()" style="height:36px">📑 Informe por fechas</button>
+          <button class="btn ba" onclick="vacDispAbrir()" style="height:36px">🌴 Periodos disponibles</button>
         </div>
       </div>
 
@@ -17479,6 +17480,256 @@ function vacInformeExcel(){
   });
 }
 
+// ============================================================
+// PERIODOS DE VACACIONES DISPONIBLES (quiénes pueden salir)
+// Causados por aniversario − ya disfrutados = disponibles.
+// Se filtra por el año de inicio del periodo (ej. 2022-2023 → 2022).
+// ============================================================
+function vacDispAbrir(){
+  if(!VAC_DATA.length){
+    if(confirm('Aún no se han cargado los periodos de vacaciones. ¿Cargar ahora?')){
+      vacCargar();
+      setTimeout(vacDispAbrir, 1500);
+    }
+    return;
+  }
+  var hoy=new Date(), aNow=hoy.getFullYear();
+  var opts='';
+  for(var y=aNow; y>=2010; y--) opts+='<option value="'+y+'">'+y+'</option>';
+
+  var m=document.createElement('div');
+  m.id='vacdisp-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modalCerrarAlFondo(m, function(){ m.remove(); });
+  m.innerHTML='<div style="background:#fff;border-radius:12px;max-width:1180px;width:100%;max-height:92vh;display:flex;flex-direction:column">'
+    +'<div style="padding:14px 18px;border-bottom:2px solid var(--gf);display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--v)">🌴 Periodos de vacaciones disponibles</div>'
+      +'<div style="font-size:11px;color:var(--g3)">Trabajadores con periodos ya causados que todavía no han disfrutado</div></div>'
+      +'<button onclick="document.getElementById(\'vacdisp-modal\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g3)">✕</button></div>'
+    +'<div style="padding:16px;overflow:auto">'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+        +'<div class="fld" style="min-width:110px;margin:0"><label style="font-size:10px">Periodos desde</label>'
+          +'<select id="vacdisp-y1" onchange="vacDispRender()">'+opts+'</select></div>'
+        +'<div class="fld" style="min-width:110px;margin:0"><label style="font-size:10px">Hasta</label>'
+          +'<select id="vacdisp-y2" onchange="vacDispRender()">'+opts+'</select></div>'
+        +'<div class="fld" style="min-width:120px;margin:0"><label style="font-size:10px">Sede</label>'
+          +'<select id="vacdisp-sede" onchange="vacDispRender()"><option value="">Todas</option><option value="NORTE">Norte</option><option value="SUR">Sur</option></select></div>'
+        +'<div class="fld" style="min-width:130px;margin:0"><label style="font-size:10px">Estado</label>'
+          +'<select id="vacdisp-estado" onchange="vacDispRender()"><option value="ACTIVO">Solo activos</option><option value="">Todos</option><option value="RETIRADO">Solo retirados</option></select></div>'
+        +'<div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Mínimo disponibles</label>'
+          +'<select id="vacdisp-min" onchange="vacDispRender()"><option value="1">1 o más</option><option value="2">2 o más (urgente)</option><option value="3">3 o más</option></select></div>'
+        +'<div class="fld" style="min-width:160px;margin:0"><label style="font-size:10px">Buscar</label>'
+          +'<input type="text" id="vacdisp-q" placeholder="Nombre o cédula..." oninput="vacDispRender()"/></div>'
+        +'<button class="btn bg" onclick="vacDispExcel()" style="height:36px">📥 Excel</button>'
+      +'</div>'
+      +'<div id="vacdisp-cont" style="margin-top:14px"></div>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  // Rango por defecto: 2022 hasta el año actual
+  var s1=document.getElementById('vacdisp-y1'); if(s1) s1.value=String(Math.min(2022, aNow));
+  var s2=document.getElementById('vacdisp-y2'); if(s2) s2.value=String(aNow);
+  acTrabAsegurar(function(){ vacDispRender(); });
+}
+
+// Devuelve una fila por trabajador con sus periodos disponibles en el rango
+function vacDispFilas(){
+  var y1=parseInt((document.getElementById('vacdisp-y1')||{}).value)||2010;
+  var y2=parseInt((document.getElementById('vacdisp-y2')||{}).value)||2100;
+  if(y1>y2){ var t=y1; y1=y2; y2=t; }
+  var sede=(document.getElementById('vacdisp-sede')||{}).value||'';
+  var estado=(document.getElementById('vacdisp-estado')||{}).value||'';
+  var minDisp=parseInt((document.getElementById('vacdisp-min')||{}).value)||1;
+  var q=((document.getElementById('vacdisp-q')||{}).value||'').trim().toLowerCase();
+
+  var trabs=(typeof RH_DATA!=='undefined')?RH_DATA:[];
+
+  // Periodos ya disfrutados, por cédula
+  var tomadosPorCed={};
+  (typeof VAC_DATA!=='undefined'?VAC_DATA:[]).forEach(function(v){
+    var c=String(v.CEDULA||'');
+    if(!c) return;
+    if(!tomadosPorCed[c]) tomadosPorCed[c]={labels:new Set(), sinLabel:0};
+    var pn=vacNormPeriodo(v.PERIODO_CAUSADO);
+    if(pn) tomadosPorCed[c].labels.add(pn);
+    else tomadosPorCed[c].sinLabel++;
+  });
+
+  var hoy=new Date();
+  var filas=[], sinIngreso=0, sinPeriodo=0;
+
+  trabs.forEach(function(t){
+    var est=String(t.ESTADO||'').toUpperCase();
+    if(estado && est!==estado) return;
+    var sd=String(t.SEDE||'').toUpperCase();
+    if(sede && sd!==sede) return;
+    var ced=String(t.CEDULA||'');
+    var nom=t.NOMBRES||'';
+    if(q && !(nom.toLowerCase().includes(q) || ced.includes(q))) return;
+
+    var fi=t.FECHA_INGRESO||'';
+    if(!fi){ sinIngreso++; return; }
+
+    // Los retirados dejan de causar el día del retiro
+    var corte=(est==='RETIRADO')?(t.FECHA_RETIRO||''):'';
+    var calc=vacCalcCausados(fi, corte);
+    if(!calc.periodos.length) return;
+
+    var tom=tomadosPorCed[ced]||{labels:new Set(), sinLabel:0};
+    if(tom.sinLabel>0) sinPeriodo++;
+
+    var pendTodos=calc.periodos.filter(function(p){ return !tom.labels.has(p.label); });
+    var pend=pendTodos.filter(function(p){
+      var ya=parseInt(String(p.label).split('-')[0])||0;
+      return ya>=y1 && ya<=y2;
+    });
+    if(pend.length<minDisp) return;
+
+    var masAnt=pend[0];
+    var diasDesde=Math.floor((hoy-new Date(masAnt.causadoEn+'T00:00:00'))/86400000);
+
+    filas.push({
+      cedula:ced, nombre:nom, sede:sd, cargo:t.CARGO||'',
+      ingreso:fi, antiguedad:calc.aniosMeses, estado:est,
+      causados:calc.periodos.length,
+      tomados:tom.labels.size,
+      disp:pend.length,
+      dispTotal:pendTodos.length,
+      periodos:pend.map(function(p){return p.label;}).join(', '),
+      periodosTodos:pendTodos.map(function(p){return p.label;}).join(', '),
+      masAntiguo:masAnt.label,
+      causadoEn:masAnt.causadoEn,
+      diasDesde:diasDesde<0?0:diasDesde,
+      sinLabel:tom.sinLabel
+    });
+  });
+
+  // El más atrasado primero: es a quien hay que sacar antes
+  filas.sort(function(a,b){
+    if(b.disp!==a.disp) return b.disp-a.disp;
+    return b.diasDesde-a.diasDesde;
+  });
+  filas._sinIngreso=sinIngreso;
+  filas._sinPeriodo=sinPeriodo;
+  return filas;
+}
+
+function vacDispRender(){
+  var cont=document.getElementById('vacdisp-cont'); if(!cont) return;
+  if(typeof RH_DATA==='undefined' || !RH_DATA.length){
+    cont.innerHTML='<div style="text-align:center;padding:24px;color:var(--g3)">⏳ Cargando trabajadores...</div>';
+    return;
+  }
+  var filas=vacDispFilas();
+  var y1=(document.getElementById('vacdisp-y1')||{}).value||'';
+  var y2=(document.getElementById('vacdisp-y2')||{}).value||'';
+
+  var avisos='';
+  if(filas._sinIngreso>0){
+    avisos+='<div style="margin-bottom:10px;padding:9px 13px;border-radius:8px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12px;font-weight:600">'
+      +'⚠️ '+filas._sinIngreso+' trabajador(es) quedaron fuera porque no tienen fecha de ingreso registrada. Edítelos en Trabajadores para que aparezcan.</div>';
+  }
+  if(filas._sinPeriodo>0){
+    avisos+='<div style="margin-bottom:10px;padding:9px 13px;border-radius:8px;background:#e0f2fe;border:1px solid #7dd3fc;color:#075985;font-size:12px;font-weight:600">'
+      +'ℹ️ '+filas._sinPeriodo+' trabajador(es) tienen vacaciones registradas sin el periodo causado (ej. "2023-2024"). Esos disfrutes no se pueden descontar, así que su saldo puede verse más alto de lo real.</div>';
+  }
+
+  if(!filas.length){
+    cont.innerHTML=avisos+'<div style="text-align:center;padding:24px;color:var(--g3)">Nadie tiene periodos disponibles entre '+y1+' y '+y2+' con esos filtros.</div>';
+    return;
+  }
+
+  var totPer=filas.reduce(function(a,f){return a+f.disp;},0);
+  var urg=filas.filter(function(f){return f.disp>=2;}).length;
+  var tope=filas.filter(function(f){return f.disp>=3;}).length;
+
+  cont.innerHTML=avisos
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<div class="st k-n" style="padding:10px 14px"><div class="sl">Trabajadores</div><div class="sv" style="font-size:18px">'+filas.length+'</div></div>'
+      +'<div class="st k-v" style="padding:10px 14px"><div class="sl">Periodos en el rango</div><div class="sv" style="font-size:18px">'+totPer+'</div></div>'
+      +'<div class="st k-a" style="padding:10px 14px"><div class="sl">Con 2 o más</div><div class="sv" style="font-size:18px">'+urg+'</div></div>'
+      +'<div class="st k-r" style="padding:10px 14px"><div class="sl">Con 3 o más</div><div class="sv" style="font-size:18px">'+tope+'</div></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--g3);margin-bottom:8px">Ordenado por quien más periodos acumula y más tiempo lleva esperando. Por ley no deben acumularse más de 2 periodos.</div>'
+    +'<div class="tw" style="max-height:52vh;overflow:auto"><table style="font-size:12px"><thead><tr>'
+      +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th>Cargo</th><th>Ingreso</th><th>Antigüedad</th>'
+      +'<th style="text-align:center">Disp. en rango</th><th>Periodos disponibles</th>'
+      +'<th style="text-align:center">Disp. en total</th><th>Más antiguo</th>'
+      +'<th style="text-align:right">Esperando</th></tr></thead><tbody>'
+    +filas.map(function(f){
+      var cl=f.disp>=3?'#dc2626':(f.disp>=2?'#d97706':'#15803d');
+      var bg=f.disp>=3?'#fef2f2':(f.disp>=2?'#fffbeb':'');
+      var esp=f.diasDesde>=365?(Math.floor(f.diasDesde/365)+' año'+(f.diasDesde>=730?'s':'')+' '+Math.floor((f.diasDesde%365)/30)+' m'):(Math.floor(f.diasDesde/30)+' meses');
+      return '<tr'+(bg?' style="background:'+bg+'"':'')+'>'
+        +'<td><code style="font-size:11px">'+gcEsc(f.cedula)+'</code></td>'
+        +'<td><strong>'+gcEsc(f.nombre)+'</strong>'+(f.estado==='RETIRADO'?' <span class="bdg" style="background:#fee2e2;color:#991b1b">RETIRADO</span>':'')+'</td>'
+        +'<td>'+(f.sede?('<span class="bdg ba2">'+gcEsc(f.sede)+'</span>'):'—')+'</td>'
+        +'<td style="font-size:11px">'+gcEsc(f.cargo||'—')+'</td>'
+        +'<td>'+incFecha(f.ingreso)+'</td>'
+        +'<td style="font-size:11px">'+gcEsc(f.antiguedad)+'</td>'
+        +'<td style="text-align:center;font-weight:800;font-size:15px;color:'+cl+'">'+f.disp+'</td>'
+        +'<td style="font-size:11px;font-weight:600">'+gcEsc(f.periodos)+'</td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--g2)" title="'+gcEsc(f.periodosTodos)+'">'+f.dispTotal+'</td>'
+        +'<td style="font-size:11px">'+gcEsc(f.masAntiguo)+'<br><span style="color:var(--g3)">causado '+incFecha(f.causadoEn)+'</span></td>'
+        +'<td style="text-align:right;font-size:11px;font-weight:600;color:'+cl+'">'+esp+'</td></tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+
+function vacDispExcel(){
+  var filas=vacDispFilas();
+  if(!filas.length){ alert('No hay periodos disponibles con esos filtros'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var y1=(document.getElementById('vacdisp-y1')||{}).value||'';
+    var y2=(document.getElementById('vacdisp-y2')||{}).value||'';
+    var sede=(document.getElementById('vacdisp-sede')||{}).value||'Todas';
+    var rows=[];
+    rows.push(['PERIODOS DE VACACIONES DISPONIBLES']);
+    rows.push(['Periodos causados entre '+y1+' y '+y2+'  ·  Sede: '+(sede||'Todas')+'  ·  '+filas.length+' trabajador(es)']);
+    rows.push(['Generado el '+new Date().toLocaleDateString('es-CO')]);
+    rows.push([]);
+    rows.push(['Cédula','Trabajador','Sede','Cargo','Fecha ingreso','Antigüedad','Estado',
+               'Causados','Disfrutados','Disponibles en el rango','Periodos disponibles en el rango',
+               'Disponibles en total','Periodo más antiguo','Causado el','Días esperando']);
+    filas.forEach(function(f){
+      rows.push([xlCed(f.cedula), f.nombre, f.sede, f.cargo, xlFecha(f.ingreso), f.antiguedad, f.estado,
+                 f.causados, f.tomados, f.disp, f.periodos, f.dispTotal, f.masAntiguo, xlFecha(f.causadoEn), f.diasDesde]);
+    });
+    rows.push([]);
+    rows.push(['','','','','','','','','TOTAL EN EL RANGO', filas.reduce(function(a,f){return a+f.disp;},0),'',
+               filas.reduce(function(a,f){return a+f.dispTotal;},0),'','','']);
+    var ws=XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
+    ws['!cols']=[{wch:14},{wch:34},{wch:9},{wch:24},{wch:14},{wch:18},{wch:11},
+                 {wch:10},{wch:12},{wch:13},{wch:30},{wch:12},{wch:16},{wch:14},{wch:13}];
+    xlFormato(ws, 6, filas.length, ['E','N'], [], ['A','H','I','J','L','O']);
+    var COLS='ABCDEFGHIJKLMNO'.split('');
+    function est(r,st){ if(ws[r]) ws[r].s=st; }
+    est('A1',{font:{bold:true,sz:14,color:{rgb:'2D5A3D'}}});
+    est('A2',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    est('A3',{font:{italic:true,sz:10,color:{rgb:'64748B'}}});
+    COLS.forEach(function(c){
+      est(c+'5',{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'2D5A3D'}},alignment:{horizontal:'center',wrapText:true}});
+    });
+    for(var i=0;i<filas.length;i++){
+      var r=6+i, f=filas[i];
+      // Resaltar a quien acumula de más
+      var fill=f.disp>=3?'FEE2E2':(f.disp>=2?'FEF3C7':(i%2===1?'F8FAFC':''));
+      if(fill){ COLS.forEach(function(c){
+        var cc=ws[c+r]; if(cc) cc.s=Object.assign({},cc.s||{},{fill:{fgColor:{rgb:fill}}}); }); }
+      if(ws['J'+r]) ws['J'+r].s=Object.assign({},ws['J'+r].s||{},
+        {font:{bold:true,color:{rgb:f.disp>=3?'991B1B':(f.disp>=2?'92400E':'166534')}},alignment:{horizontal:'center'}});
+    }
+    var rt=6+filas.length+1;
+    est('I'+rt,{font:{bold:true,color:{rgb:'2D5A3D'}},alignment:{horizontal:'right'}});
+    est('J'+rt,{font:{bold:true,sz:12},alignment:{horizontal:'center'}});
+    ws['!autofilter']={ref:'A5:O'+(5+filas.length)};
+    ws['!freeze']={xSplit:2,ySplit:5};
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Disponibles');
+    XLSX.writeFile(wb, 'Vacaciones_disponibles_'+y1+'_'+y2+'.xlsx');
+  });
+}
+
 function vacInit(){
   acTrabAsegurar(function(){ acAdjuntarBuscador('vac-buscar', acTrabFuente, function(ced,nom){ var i=document.getElementById('vac-buscar'); if(i){i.value=ced;} vacRender(); }); });
   if(!VAC_LOADED) vacCargar();
@@ -18093,11 +18344,17 @@ function vacExportar(){
 // ════════════════════════════════════════════════════════════════
 
 // Calcula periodos causados desde fecha de ingreso hasta hoy
-function vacCalcCausados(fechaIngresoStr){
+// hastaStr (opcional): corta la causación en esa fecha. Se usa para los retirados,
+// que dejan de causar periodos el día del retiro y no hasta hoy.
+function vacCalcCausados(fechaIngresoStr, hastaStr){
   if(!fechaIngresoStr) return {periodos:[], aniosCompletos:0, aniosMeses:''};
   var fi=new Date(fechaIngresoStr+'T00:00:00');
   if(isNaN(fi.getTime())) return {periodos:[], aniosCompletos:0, aniosMeses:''};
   var hoy=new Date();
+  if(hastaStr){
+    var hx=new Date(String(hastaStr).slice(0,10)+'T00:00:00');
+    if(!isNaN(hx.getTime()) && hx<hoy) hoy=hx;
+  }
   // Cada aniversario causa un periodo
   var periodos=[];
   var anioActual=fi.getFullYear();
