@@ -5422,10 +5422,12 @@ function calcTots(){
     tc+=(parseFloat(lab.dataset.c)||0)*cant;
   }
   var alim=parseFloat(document.getElementById('r-alim').value)||0;
-  document.getElementById('pago-val').textContent=cop(tp);
-  document.getElementById('cobro-lbl').textContent='Cobro Riopaila: '+cop(tc);
+  // El auxilio de alimentación va para el trabajador Y lo paga Riopaila:
+  // suma en los dos lados, no es un valor aparte.
+  document.getElementById('pago-val').textContent=cop(tp+alim);
+  document.getElementById('cobro-lbl').textContent='Cobro Riopaila: '+cop(tc+alim);
   var alimLbl=document.getElementById('alim-lbl');
-  if(alimLbl){if(alim>0){alimLbl.textContent='Aux. alimentación: '+cop(alim);alimLbl.style.display='block';}else{alimLbl.style.display='none';}}
+  if(alimLbl){if(alim>0){alimLbl.textContent='Incluye aux. alimentación: '+cop(alim);alimLbl.style.display='block';}else{alimLbl.style.display='none';}}
   document.getElementById('alrt-rend').style.display=(tp>0&&tp<UMBRAL)?'flex':'none';
 }
 
@@ -5729,7 +5731,8 @@ function carDCRender(semSel, semStr){
   var dcPago=dcPagoLab+dcPagoVig;
   var dcCobroLab=mis.reduce(function(s,r){return s+(r.cobro||0);},0);
   var dcCobroVig=mis.reduce(function(s,r){return s+(r.cobroVig||0);},0);
-  var dcCobro=dcCobroLab+dcCobroVig;
+  var dcAlim=mis.reduce(function(s,r){return s+(r.alim||0);},0);
+  var dcCobro=dcCobroLab+dcCobroVig+dcAlim;
   // % Costo Laboral = SOLO pago labores / SOLO cobro labores
   // (vigilancia se calcula con tarifas distintas, no es comparable directamente)
   var dcPctCL=dcCobroLab>0?Math.round((dcPagoLab/dcCobroLab)*1000)/10:0;
@@ -6012,6 +6015,12 @@ var TD_REGS_CACHE=[];
 // caracteres y con cientos de miles de registros llegan a coincidir, de modo
 // que registros legítimos se perdían y los totales salían bajos y distintos
 // en cada consulta. La clave combina los datos que identifican al registro.
+// Cobro total a Riopaila de un registro. El auxilio de alimentación lo paga
+// Riopaila, así que entra al cobro junto con labores y vigilancia.
+function cobroTotR(r){
+  return (r.cobro||0)+(r.cobroVig||0)+(r.alim||0);
+}
+
 function regClave(r){
   return [r.id, r.ced, r.sem, r.dia, r.tipo||'', r.labId||'', r.nov||'',
           r.cant||0, r.pago||0, r.fReg||''].join('|');
@@ -6137,10 +6146,11 @@ function carMRRender(){
   var mrPago=result.reduce(function(s,r){return s+(r.pago||0);},0);
   var mrCobro=result.reduce(function(s,r){return s+(r.cobro||0);},0);
   var mrCobroV=result.reduce(function(s,r){return s+(r.cobroVig||0);},0);
+  var mrAlim=result.reduce(function(s,r){return s+(r.alim||0);},0);
   document.getElementById('mr-p').textContent='$'+cop(mrPago);
   document.getElementById('mr-c').textContent='$'+cop(mrCobro);
   document.getElementById('mr-cv').textContent='$'+cop(mrCobroV);
-  document.getElementById('mr-ct').textContent='$'+cop(mrCobro+mrCobroV);
+  document.getElementById('mr-ct').textContent='$'+cop(mrCobro+mrCobroV+mrAlim);
   document.getElementById('mr-a').textContent='$'+cop(result.reduce(function(s,r){return s+(r.alim||0);},0));
   // Costo laboral %
   var totCobroTodo=mrCobro+mrCobroV;
@@ -6206,7 +6216,7 @@ function carMRRenderPorDia(result){
     var fechaTxt=fecha?fmtFecha(fecha):'';
     var nEmpleados=new Set(grupo.regs.map(function(r){return r.ced;})).size;
     var totalPago=grupo.regs.reduce(function(s,r){return s+(r.pago||0);},0);
-    var totalCobro=grupo.regs.reduce(function(s,r){return s+(r.cobro||0)+(r.cobroVig||0);},0);
+    var totalCobro=grupo.regs.reduce(function(s,r){return s+cobroTotR(r);},0);
     var esDom=esDomFest(fecha);
     var bg=esDom?'linear-gradient(135deg,#fee2e2,#fecaca)':'linear-gradient(135deg,#dbeafe,#bfdbfe)';
     var border=esDom?'#dc2626':'#2563eb';
@@ -6282,7 +6292,7 @@ function carMRRenderPorEmp(result){
   var diasOrden=['L','M','MI','J','V','S','D'];
   var html=empArr.map(function(e){
     var totalPago=e.regs.reduce(function(s,r){return s+(r.pago||0);},0);
-    var totalCobro=e.regs.reduce(function(s,r){return s+(r.cobro||0)+(r.cobroVig||0);},0);
+    var totalCobro=e.regs.reduce(function(s,r){return s+cobroTotR(r);},0);
     // Días en los que tiene registros
     var diasReps=[...new Set(e.regs.map(function(r){return r.dia;}))].sort(function(a,b){return diasOrden.indexOf(a)-diasOrden.indexOf(b);});
 
@@ -6761,6 +6771,9 @@ function carTodos(desde){
     // ── KPI cards: pago, cobro labores, cobro vigilancia, cobro total y aux. alimentación ──
     var totPago=0, totCobroLab=0, totCobroVig=0, totAlim=0;
     result.forEach(function(r){
+      // El auxilio se cuenta siempre: un registro de vigilancia también puede traerlo
+      // y antes se perdía por el return de abajo.
+      totAlim     += (r.alim  || 0);
       if(r.esVig){
         // Vigilancia norte: el pago se liquida en nómina, pero el COBRO a Riopaila es horas × tarifa
         totCobroVig += cobroVigDeRegistro(r);
@@ -6768,9 +6781,8 @@ function carTodos(desde){
       }
       totPago     += (r.pago  || 0);
       totCobroLab += (r.cobro || 0);
-      totAlim     += (r.alim  || 0);
     });
-    var totCobroTotal = totCobroLab + totCobroVig;
+    var totCobroTotal = totCobroLab + totCobroVig + totAlim;
     var kpiN=document.getElementById('td-kpi-n');
     var kpiP=document.getElementById('td-kpi-p');
     var kpiC=document.getElementById('td-kpi-c');
@@ -6898,7 +6910,7 @@ function calcIC(){
       var s=parseInt(r.sem); return s>=R.s1 && s<=R.s2;
     });
     var by={};
-    data.forEach(function(r){var k=r.coord+'|'+r.sem;if(!by[k])by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};by[k].emp.add(r.ced);by[k].tar++;by[k].pago+=r.pago;by[k].cobro+=(r.cobro||0)+(r.cobroVig||0);});
+    data.forEach(function(r){var k=r.coord+'|'+r.sem;if(!by[k])by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};by[k].emp.add(r.ced);by[k].tar++;by[k].pago+=r.pago;by[k].cobro+=cobroTotR(r);});
     var rows=Object.values(by).sort(function(a,b){return a.coord.localeCompare(b.coord)||a.sem.localeCompare(b.sem);});
     var tP=0,tC=0,tT=0; rows.forEach(function(r){tP+=r.pago;tC+=r.cobro;tT+=r.tar;});
     tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><strong>'+r.coord+'</strong></td><td>'+r.adm+'</td><td><span class="bdg ba2">S'+r.sem+'</span></td><td>'+r.emp.size+'</td><td>'+r.tar+'</td><td>'+cop(r.pago)+'</td><td>'+cop(r.cobro)+'</td><td>'+cop(r.cobro-r.pago)+'</td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
@@ -6926,11 +6938,11 @@ function calcIE(){
     data.forEach(function(r){
       if(!by[r.ced])by[r.ced]={emp:r.emp,ced:r.ced,coords:new Set(),dias:new Set(),tar:0,pago:0,cobro:0,labs:{}};
       var g=by[r.ced];
-      g.coords.add(r.coord);g.dias.add(r.dia);g.tar++;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);
+      g.coords.add(r.coord);g.dias.add(r.dia);g.tar++;g.pago+=r.pago;g.cobro+=cobroTotR(r);
       // desglose por labor dentro del trabajador
       var lk=r.labId||r.lab||'?';
       if(!g.labs[lk])g.labs[lk]={id:r.labId||'',lab:r.lab||r.labId||'?',u:r.u||'',veces:0,cant:0,dias:new Set(),pago:0,cobro:0};
-      var L=g.labs[lk];L.veces++;L.cant+=(r.cant||0);L.dias.add(r.sem+'_'+r.dia);L.pago+=r.pago;L.cobro+=(r.cobro||0)+(r.cobroVig||0);
+      var L=g.labs[lk];L.veces++;L.cant+=(r.cant||0);L.dias.add(r.sem+'_'+r.dia);L.pago+=r.pago;L.cobro+=cobroTotR(r);
     });
     IE_ROWS=Object.values(by);
     IE_RANGO=R.usaFecha?('S'+R.s1+'–S'+R.s2):(R.s1===R.s2?('S'+R.s1):('S'+R.s1+'–S'+R.s2));
@@ -7124,7 +7136,7 @@ function calcIL(){
       var s=parseInt(r.sem); return s>=s1 && s<=s2;
     });
     var by={};
-    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),dOrd:0,nOrd:0,dFest:0,nFest:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=(r.cobro||0)+(r.cobroVig||0);g.trab.add(r.ced);var sg=vigSegHoras(r);g.dOrd+=sg.dOrd;g.nOrd+=sg.nOrd;g.dFest+=sg.dFest;g.nFest+=sg.nFest;if(r.domFest)g.df++;});
+    data.forEach(function(r){if(!by[r.labId])by[r.labId]={id:r.labId,lab:r.lab,u:r.u,veces:0,cant:0,pago:0,cobro:0,trab:new Set(),dOrd:0,nOrd:0,dFest:0,nFest:0,df:0};var g=by[r.labId];g.veces++;g.cant+=r.cant;g.pago+=r.pago;g.cobro+=cobroTotR(r);g.trab.add(r.ced);var sg=vigSegHoras(r);g.dOrd+=sg.dOrd;g.nOrd+=sg.nOrd;g.dFest+=sg.dFest;g.nFest+=sg.nFest;if(r.domFest)g.df++;});
     var rows=Object.values(by).sort(function(a,b){return b.pago-a.pago;});
     (function(){ var Tv=getCFG(), vg={}; data.forEach(function(r){ if(!(r.esVig||((r.vigHd||0)+(r.vigHn||0)>0)))return; (vg[r.labId]=vg[r.labId]||{}); (vg[r.labId][r.ced]=vg[r.labId][r.ced]||[]).push(r); }); Object.keys(vg).forEach(function(lab){ var t=0; Object.keys(vg[lab]).forEach(function(ced){ t+=vigPagoWorker(vg[lab][ced],Tv).total; }); if(by[lab]) by[lab].pagoVig=t; }); })();
     tb.innerHTML=rows.length?rows.map(function(r){return '<tr><td><code style="font-size:10px;color:var(--g3)">'+r.id+'</code></td><td>'+r.lab+'</td><td>'+r.u+'</td><td><strong>'+r.trab.size+'</strong></td><td style="color:var(--g3)">'+r.veces+'</td><td>'+r.cant.toFixed(1)+'</td><td>'+r.dOrd.toFixed(1)+'</td><td>'+r.nOrd.toFixed(1)+'</td><td>'+r.dFest.toFixed(1)+'</td><td>'+r.nFest.toFixed(1)+'</td><td>'+(r.df?'<span class="bdg ba2">'+r.df+'</span>':'0')+'</td><td>'+cop(r.pago)+'</td><td>'+(r.pagoVig?cop(r.pagoVig):'—')+'</td><td>'+cop(r.cobro)+'</td></tr>';}).join(''):'<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--g3)">Sin datos en el rango</td></tr>';
@@ -7133,7 +7145,7 @@ function calcIL(){
     data.forEach(function(r){
       var k=(r.coord||'?')+'|'+(r.adm||'?');
       if(!byCA[k]) byCA[k]={coord:r.coord||'',adm:r.adm||'',trab:new Set(),veces:0,cant:0,dOrd:0,nOrd:0,dFest:0,nFest:0,cobro:0};
-      var g=byCA[k]; g.veces++; g.cant+=r.cant; var sg=vigSegHoras(r); g.dOrd+=sg.dOrd; g.nOrd+=sg.nOrd; g.dFest+=sg.dFest; g.nFest+=sg.nFest; g.cobro+=(r.cobro||0)+(r.cobroVig||0); g.trab.add(r.ced);
+      var g=byCA[k]; g.veces++; g.cant+=r.cant; var sg=vigSegHoras(r); g.dOrd+=sg.dOrd; g.nOrd+=sg.nOrd; g.dFest+=sg.dFest; g.nFest+=sg.nFest; g.cobro+=cobroTotR(r); g.trab.add(r.ced);
     });
     var caRows=Object.values(byCA).sort(function(a,b){return b.cobro-a.cobro;});
     (function(){ var Tv=getCFG(), vg={}; data.forEach(function(r){ if(!(r.esVig||((r.vigHd||0)+(r.vigHn||0)>0)))return; var k=(r.coord||'?')+'|'+(r.adm||'?'); (vg[k]=vg[k]||{}); (vg[k][r.ced]=vg[k][r.ced]||[]).push(r); }); Object.keys(vg).forEach(function(k){ var t=0; Object.keys(vg[k]).forEach(function(ced){ t+=vigPagoWorker(vg[k][ced],Tv).total; }); if(byCA[k]) byCA[k].pagoVig=t; }); })();
@@ -11114,7 +11126,7 @@ function carSalRender(semDesde,semHasta,semDesdeNum,semHastaNum){
     if(!byC[r.coord]){
         byC[r.coord]={coord:r.coord,adm:r.adm,sem:r.sem,cobro:0,cobroVig:0,cobHist:0,sem0:0,sede:getSedeCo(r.coord),contrato:''};
     }
-    byC[r.coord].cobro+=r.cobro||0;
+    byC[r.coord].cobro+=(r.cobro||0)+(r.alim||0);
     byC[r.coord].cobroVig+=r.cobroVig||0;
   });
   // Los cobros históricos ya vienen incluidos cuando la base hizo la suma
@@ -12395,7 +12407,7 @@ function jefeCalcular(qna, sems){
   regs.forEach(function(r){
     var k=String(parseInt(r.sem)||0), z=zonaDe(r.coord);
     var Z=zonas[z][k]; if(!Z) return;
-    Z.cobro+=(r.cobro||0)+(r.cobroVig||0);
+    Z.cobro+=cobroTotR(r);
     if(r.esVig){ Z.horasVig+=(r.vigHd||0)+(r.vigHn||0); }
     else { Z.reporteLab+=(r.pago||0); }
     var kk=z+'|'+k+'|'+r.ced;
@@ -13977,7 +13989,7 @@ function consConstruirYRender(s1, s2){
     }
     if(adm) CONS_DATA[k].adms[adm]=1;
     if(!CONS_DATA[k].semanas[s]) CONS_DATA[k].semanas[s]={rep:0, fac:0};
-    CONS_DATA[k].semanas[s].rep+=(r.cobro||0)+(r.cobroVig||0);
+    CONS_DATA[k].semanas[s].rep+=cobroTotR(r);
   });
 
   // 2) De COBROS_HIST (cobros históricos, sem != 0 son cobros semanales; sem=0 es saldo cierre 2025)
@@ -14529,7 +14541,7 @@ function clConstruirYRender(s1, s2){
     if(esVig){
       // VIGILANCIA NORTE
       if(!CL_DATA[k].vig[s]) CL_DATA[k].vig[s]={pago:0, cobro:0, hd:0, hn:0, horas:0, regs:[]};
-      CL_DATA[k].vig[s].cobro+=(r.cobroVig||0);
+      CL_DATA[k].vig[s].cobro+=(r.cobroVig||0)+(r.alim||0);
       CL_DATA[k].vig[s].hd+=(r.vigHd||0);
       CL_DATA[k].vig[s].hn+=(r.vigHn||0);
       CL_DATA[k].vig[s].horas+=((r.vigHd||0)+(r.vigHn||0));
@@ -14538,7 +14550,7 @@ function clConstruirYRender(s1, s2){
       // LABORES (no vigilancia)
       if(!CL_DATA[k].lab[s]) CL_DATA[k].lab[s]={pago:0, cobro:0};
       CL_DATA[k].lab[s].pago+=(r.pago||0);
-      CL_DATA[k].lab[s].cobro+=(r.cobro||0);
+      CL_DATA[k].lab[s].cobro+=(r.cobro||0)+(r.alim||0);
     }
   });
 
@@ -22668,7 +22680,7 @@ function renderCobrosAdmin(){
   regs.forEach(function(r){
     var k=r.coord+'|'+r.sem;
     if(!by[k]) by[k]={coord:r.coord,adm:r.adm,sem:r.sem,emp:new Set(),tar:0,pago:0,cobro:0};
-    by[k].cobro+=(r.cobro||0)+(r.cobroVig||0); // cobro TOTAL = labores + vigilancia
+    by[k].cobro+=cobroTotR(r); // cobro TOTAL = labores + vigilancia + aux. alimentación
     if(!r.esVig){ by[k].emp.add(r.ced); by[k].tar++; by[k].pago+=(r.pago||0); }
   });
   var rows=Object.values(by).sort(function(a,b){
@@ -22856,14 +22868,14 @@ function rsRender(){
     var cant=parseFloat(r.cant)||0;
     g.cant+=cant;
     g.pago+=(r.pago||0);
-    g.cobro+=(r.cobro||0)+(r.cobroVig||0);
+    g.cobro+=cobroTotR(r);
     if(r.esVig) g.horas+=(r.vigHd||0)+(r.vigHn||0);
     var c=String(r.ced||'');
     if(!g.trabs[c]) g.trabs[c]={ced:c, nom:r.emp||'', cant:0, pago:0, cobro:0, dias:{}};
     if(!g.trabs[c].nom && r.emp) g.trabs[c].nom=r.emp;
     g.trabs[c].cant+=cant;
     g.trabs[c].pago+=(r.pago||0);
-    g.trabs[c].cobro+=(r.cobro||0)+(r.cobroVig||0);
+    g.trabs[c].cobro+=cobroTotR(r);
     if(r.dia){ g.trabs[c].dias[r.dia]=1; g.dias[r.dia]=1; }
   });
   var labs=Object.keys(porLab).map(function(k){return porLab[k];})
