@@ -1912,8 +1912,9 @@ async function accionGetConsolidadoCoord(body, env) {
   if (co.length) {
     const coordId = co[0].id; adm = co[0].administrador || ''; sede = co[0].sede || '';
     // Reportes por semana (lo que reportó a Riopaila = cobro labores + cobro vigilancia)
-    const reps = await sbAll(env, `detalle_dia?select=semana,cobro_riopaila,cobro_vigilancia&coordinador_id=eq.${coordId}`);
-    reps.forEach((r) => { const s = normSem(r.semana); if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].rep += Number(r.cobro_riopaila || 0) + Number(r.cobro_vigilancia || 0); });
+    const reps = await sbAll(env, `detalle_dia?select=semana,cobro_riopaila,cobro_vigilancia,auxilio_alim&coordinador_id=eq.${coordId}`);
+    // El auxilio de alimentación lo paga Riopaila, así que entra al cobro.
+    reps.forEach((r) => { const s = normSem(r.semana); if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].rep += Number(r.cobro_riopaila || 0) + Number(r.cobro_vigilancia || 0) + Number(r.auxilio_alim || 0); });
     // Facturación por semana (detallado de Riopaila)
     const dets = await sbAll(env, `detallado_factura?select=semana,valor_cobro&coordinador_id=eq.${coordId}`);
     dets.forEach((d) => { const s = normSem(d.semana); if (!semanas[s]) semanas[s] = { rep: 0, fac: 0 }; semanas[s].fac += Number(d.valor_cobro || 0); });
