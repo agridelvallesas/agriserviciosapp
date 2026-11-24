@@ -3590,30 +3590,103 @@ const ADMINS=['JOSE QUICENO','JHON BERNAL','JORGE CASTILLO','JULIAN BONILLA','JU
 
 // ── CALENDARIO ──
 // Lunes de la semana 1 = 29 de diciembre de 2025
-const SEM1_LUNES = new Date(2025, 11, 29);
+// ── CALENDARIO DE SEMANAS, POR AÑO ──
+// La semana 01 de cada año arranca el lunes indicado, y cada semana va de
+// lunes a domingo. Estos son los valores de respaldo: al iniciar sesión el
+// servidor envía los de la tabla calendario_anios y sobrescriben estos, así
+// que para estrenar un año se cambia un renglón en la base, no el código.
+var CAL_ANIOS = {
+  2026: { ancla: new Date(2025, 11, 29).getTime(), semanas: 52 },
+  2027: { ancla: new Date(2026, 11, 28).getTime(), semanas: 52 }
+};
 
-// ── FESTIVOS COLOMBIA 2026 ──
-const FESTIVOS_2026 = [
-  '2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03',
-  '2026-05-01','2026-05-18','2026-06-08','2026-06-15','2026-06-29',
-  '2026-07-13','2026-07-20','2026-08-07','2026-08-17','2026-10-12','2026-11-02',
-  '2026-11-16','2026-12-08','2026-12-25'
-];
+// Reemplaza los valores de respaldo con los que manda el servidor
+function calendarioAplicar(lista){
+  if(!lista || !lista.length) return;
+  var nuevo={};
+  lista.forEach(function(c){
+    var a=parseInt(c.anio); if(!a||!c.ancla) return;
+    var p=String(c.ancla).slice(0,10).split('-');
+    nuevo[a]={ ancla:new Date(+p[0], +p[1]-1, +p[2]).getTime(), semanas:parseInt(c.semanas)||52 };
+  });
+  if(Object.keys(nuevo).length){ CAL_ANIOS=nuevo; ANIO_ACTIVO=anioDeFecha(new Date()); }
+}
+
+function anclaDeAnio(anio){
+  var c=CAL_ANIOS[parseInt(anio)];
+  return c ? c.ancla : CAL_ANIOS[2026].ancla;
+}
+function semanasDeAnio(anio){
+  var c=CAL_ANIOS[parseInt(anio)];
+  return c ? c.semanas : 52;
+}
+function aniosDelCalendario(){
+  return Object.keys(CAL_ANIOS).map(Number).sort(function(a,b){return a-b;});
+}
+// Año al que pertenece una fecha SEGÚN EL CALENDARIO DE SEMANAS.
+// Ojo: no es el año del calendario común. La semana 01 de 2027 empieza
+// el 28 de diciembre de 2026, así que ese día ya es "año 2027".
+function anioDeFecha(fecha){
+  var ts=fecha.getTime();
+  var anios=aniosDelCalendario();
+  for(var i=anios.length-1;i>=0;i--){ if(ts>=CAL_ANIOS[anios[i]].ancla) return anios[i]; }
+  return anios[0];
+}
+// Año sobre el que están trabajando las pantallas. Arranca en el de hoy.
+var ANIO_ACTIVO = (function(){
+  var ts=new Date().getTime(), a=[2026,2027];
+  for(var i=a.length-1;i>=0;i--){ if(ts>=CAL_ANIOS[a[i]].ancla) return a[i]; }
+  return 2026;
+})();
+
+const SEM1_LUNES = new Date(2025, 11, 29);  // se conserva por compatibilidad
+
+// ── FESTIVOS DE COLOMBIA, POR AÑO ──
+// Verificados contra el calendario oficial. Incluyen el Día de Nuestra Señora
+// del Rosario de Chiquinquirá (9 de julio, trasladable al lunes siguiente),
+// festivo nuevo que rige desde 2026. Son 19 al año.
+// Para agregar un año: un renglón más en este objeto.
+const FESTIVOS = {
+  2026: [
+    '2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03','2026-05-01',
+    '2026-05-18','2026-06-08','2026-06-15','2026-06-29','2026-07-13','2026-07-20',
+    '2026-08-07','2026-08-17','2026-10-12','2026-11-02','2026-11-16','2026-12-08',
+    '2026-12-25'
+  ],
+  2027: [
+    '2027-01-01','2027-01-11','2027-03-22','2027-03-25','2027-03-26','2027-05-01',
+    '2027-05-10','2027-05-31','2027-06-07','2027-07-05','2027-07-12','2027-07-20',
+    '2027-08-07','2027-08-16','2027-10-18','2027-11-01','2027-11-15','2027-12-08',
+    '2027-12-25'
+  ]
+};
+
+// Convierte una fecha a 'YYYY-MM-DD' en hora local
+function isoLocal(fecha){
+  return fecha.getFullYear()+'-'+String(fecha.getMonth()+1).padStart(2,'0')
+        +'-'+String(fecha.getDate()).padStart(2,'0');
+}
+// ¿Esa fecha es festivo? Busca en el año que corresponda, no en una lista fija.
+function esFestivo(fecha){
+  if(!fecha||isNaN(fecha.getTime())) return false;
+  var lista=FESTIVOS[fecha.getFullYear()];
+  if(!lista) return false;          // año sin festivos cargados
+  return lista.indexOf(isoLocal(fecha))>=0;
+}
+// Años que tienen festivos cargados, para avisar cuando falte alguno
+function aniosConFestivos(){ return Object.keys(FESTIVOS).map(Number).sort(); }
 
 function esDomFest(fecha){
-  var dow = fecha.getDay(); // 0=domingo
-  if(dow === 0) return true;
-  var iso = fecha.getFullYear()+'-'+String(fecha.getMonth()+1).padStart(2,'0')+'-'+String(fecha.getDate()).padStart(2,'0');
-  return FESTIVOS_2026.includes(iso);
+  if(!fecha||isNaN(fecha.getTime())) return false;
+  if(fecha.getDay() === 0) return true;   // domingo
+  return esFestivo(fecha);
 }
 
 // Festivo entre L-S (NO domingo) — aplica ajuste $68.091
 function esFestivoLSab(fecha){
   if(!fecha||isNaN(fecha.getTime())) return false;
-  var dow = fecha.getDay();
-  if(dow === 0) return false; // domingo va por otra vía
-  var iso = fecha.getFullYear()+'-'+String(fecha.getMonth()+1).padStart(2,'0')+'-'+String(fecha.getDate()).padStart(2,'0');
-  return FESTIVOS_2026.includes(iso);
+  if(fecha.getDay() === 0) return false;  // domingo va por otra vía
+  return esFestivo(fecha);
 }
 
 var AJUSTE_FESTIVO = 68091; // valor fijo día festivo L-S
@@ -3636,11 +3709,16 @@ const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov'
 
 // Retorna la fecha real de un día dentro de una semana
 // sem: '16', dia: 'L','M','MI','J','V','S','D'
-function getFecha(sem, dia){
+function getFecha(sem, dia, anio){
   var semNum = parseInt(sem) - 1; // 0-indexed
   var diaOffset = DIAS_OFFSET[dia] !== undefined ? DIAS_OFFSET[dia] : 0;
-  var ms = SEM1_LUNES.getTime() + (semNum * 7 + diaOffset) * 86400000;
+  var ms = anclaDeAnio(anio || ANIO_ACTIVO) + (semNum * 7 + diaOffset) * 86400000;
   return new Date(ms);
+}
+// Inverso: de una fecha a su año y su semana
+function anioSemDeFecha(fecha){
+  var a=anioDeFecha(fecha);
+  return { anio:a, sem:Math.floor((fecha.getTime()-anclaDeAnio(a))/(7*86400000))+1 };
 }
 
 // Formatea fecha como "lun 13 abr"
@@ -3661,9 +3739,9 @@ function getDiasMes(sem, dia){
 }
 
 // Retorna descripción de rango de semana "13-19 abr 2026"
-function getRangoSem(sem){
-  var lunes = getFecha(sem, 'L');
-  var domingo = getFecha(sem, 'D');
+function getRangoSem(sem, anio){
+  var lunes = getFecha(sem, 'L', anio);
+  var domingo = getFecha(sem, 'D', anio);
   var mesL = MESES[lunes.getMonth()];
   var mesD = MESES[domingo.getMonth()];
   if(mesL === mesD){
@@ -3694,8 +3772,8 @@ function cobroVigDeRegistro(r){
 var PERMISOS_SUBIDA = [];      // permisos vigentes traídos del backend
 
 // Fecha/hora límite para reportar una semana
-function getPlazoSem(sem){
-  var dom = getFecha(sem, 'D');                 // domingo = fin de semana
+function getPlazoSem(sem, anio){
+  var dom = getFecha(sem, 'D', anio);           // domingo = fin de semana
   var lim = new Date(dom.getTime() + PLAZO_DIAS*86400000);
   lim.setHours(23,59,59,999);
   return lim;
@@ -3707,12 +3785,15 @@ function fmtPlazo(d){
 }
 
 // ¿Este coordinador tiene permiso vigente para esa semana?
-function tienePermisoSubida(sem, coord){
+function tienePermisoSubida(sem, anio, coord){
   var s=String(parseInt(sem)||0);
+  var a=parseInt(anio)||ANIO_ACTIVO;
   var c=String(coord||S.u||'').trim().toUpperCase();
   var ahora=Date.now();
   return (PERMISOS_SUBIDA||[]).some(function(p){
     if(String(parseInt(p.SEMANA)||0)!==s) return false;
+    // Los permisos viejos no traen año: esos se aceptan como antes
+    if(p.ANIO && (parseInt(p.ANIO)||0)!==a) return false;
     if(String(p.COORDINADOR||'').trim().toUpperCase()!==c) return false;
     var v=new Date(String(p.VENCE||'').replace(' ','T')+':00');
     return isNaN(v.getTime()) ? true : v.getTime()>ahora;
@@ -3721,19 +3802,19 @@ function tienePermisoSubida(sem, coord){
 
 // Puerta principal: ¿puede subir registros de esta semana?
 // Devuelve {ok, plazo, vencido, permiso}
-function puedeSubirSemana(sem){
-  var plazo=getPlazoSem(sem);
+function puedeSubirSemana(sem, anio){
+  var plazo=getPlazoSem(sem, anio);
   var vencido=Date.now()>plazo.getTime();
   // Solo aplica a coordinadores; admin/nómina no se bloquean
   if(S.rol!=='c') return {ok:true, plazo:plazo, vencido:vencido, permiso:false};
   if(!vencido)   return {ok:true, plazo:plazo, vencido:false, permiso:false};
-  var perm=tienePermisoSubida(sem);
+  var perm=tienePermisoSubida(sem, anio);
   return {ok:perm, plazo:plazo, vencido:true, permiso:perm};
 }
 
 // Mensaje estándar cuando la semana está cerrada
-function msgSemanaCerrada(sem){
-  var p=getPlazoSem(sem);
+function msgSemanaCerrada(sem, anio){
+  var p=getPlazoSem(sem, anio);
   return '🔒 La semana '+sem+' ya está CERRADA. El plazo venció el '+fmtPlazo(p)+
          '. Pide autorización al administrador para poder subirla.';
 }
@@ -4450,6 +4531,9 @@ function cargarDatosSheets(){
       });
     }
 
+    // El calendario de semanas manda sobre los valores de respaldo del código
+    if(data.calendario) calendarioAplicar(data.calendario);
+
     // Actualizar quincenas si vienen de Sheets
     if(data.quincenas&&data.quincenas.length){
       QNAS.length=0;
@@ -4585,24 +4669,46 @@ function poblarSelsSems(){
       ph2.value=''; ph2.textContent='— Solo una —'; ph2.selected=true;
       el.appendChild(ph2);
     }
-    for(var i=1;i<=52;i++){
-      var v=String(i).padStart(2,'0');
-      var o=document.createElement('option');
-      o.value=v;
-      // Mostrar rango de fechas en el select
-      try{ o.textContent='Sem '+v+' ('+getRangoSem(v)+')'; }
-      catch(e){ o.textContent='Semana '+v; }
-      // En NUEVO REGISTRO: marcar con 🔒 las semanas fuera de plazo
-      if(id==='r-sem'){
-        try{
-          var pz=puedeSubirSemana(v);
-          if(!pz.ok) o.textContent='🔒 '+o.textContent+' — cerrada';
-          else if(pz.permiso) o.textContent='🔓 '+o.textContent+' — autorizada';
-        }catch(e){}
+    // Los selectores del coordinador traen el año dentro de cada opción, para
+    // que no se pueda confundir la semana 01 de un año con la de otro. Muestran
+    // el año en curso y, si existe, la cola del anterior para reportes tardíos.
+    var conAnio = (id==='r-sem' || id==='mr-sem');
+    var bloques;
+    if(conAnio){
+      bloques=[];
+      var prev=ANIO_ACTIVO-1;
+      if(CAL_ANIOS[prev]){
+        var nPrev=semanasDeAnio(prev);
+        bloques.push({anio:prev, desde:Math.max(1,nPrev-7), hasta:nPrev});
       }
-      el.appendChild(o);
+      bloques.push({anio:ANIO_ACTIVO, desde:1, hasta:semanasDeAnio(ANIO_ACTIVO)});
+    } else {
+      bloques=[{anio:ANIO_ACTIVO, desde:1, hasta:semanasDeAnio(ANIO_ACTIVO)}];
     }
-    if(id!=='cm-sems' && id!=='r-sem') el.value=getSemActual();
+    var variosAnios = bloques.length>1;
+
+    bloques.forEach(function(b){
+      for(var i=b.desde;i<=b.hasta;i++){
+        var v=String(i).padStart(2,'0');
+        var o=document.createElement('option');
+        o.value = conAnio ? semVal(b.anio, v) : v;
+        try{
+          o.textContent='Sem '+v+(variosAnios?(' · '+b.anio):'')+' ('+getRangoSem(v, b.anio)+')';
+        }catch(e){ o.textContent='Semana '+v+(variosAnios?(' · '+b.anio):''); }
+        // En NUEVO REGISTRO: marcar con 🔒 las semanas fuera de plazo
+        if(id==='r-sem'){
+          try{
+            var pz=puedeSubirSemana(v, b.anio);
+            if(!pz.ok) o.textContent='🔒 '+o.textContent+' — cerrada';
+            else if(pz.permiso) o.textContent='🔓 '+o.textContent+' — autorizada';
+          }catch(e){}
+        }
+        el.appendChild(o);
+      }
+    });
+    if(id!=='cm-sems' && id!=='r-sem'){
+      el.value = conAnio ? semVal(ANIO_ACTIVO, getSemActual()) : getSemActual();
+    }
   });
   // Coords en selects admin
   ['td-co','ic-co','ie-co','cm-co','nom-co'].forEach(function(id){
@@ -4982,21 +5088,37 @@ function initReg(){
   }
 }
 
+// Los selectores de semana del coordinador guardan "2027|01": el año y la
+// semana juntos, para que no haya forma de confundir la 01 de un año con la
+// de otro. Esta función los separa, y aguanta los valores viejos sin año.
+function semSel(id){
+  var el=(typeof id==='string')?document.getElementById(id):id;
+  var v=el?String(el.value||''):'';
+  if(v.indexOf('|')<0) return { anio:ANIO_ACTIVO, sem:v };
+  var p=v.split('|');
+  return { anio:parseInt(p[0])||ANIO_ACTIVO, sem:p[1]||'' };
+}
+// Para armar el valor de una opción
+function semVal(anio, sem){ return anio+'|'+sem; }
+
 function getSemActual(){
-  // Calcular semana actual basada en hoy vs SEM1_LUNES (29 dic 2025)
-  var hoy=new Date();
-  var diff=hoy.getTime()-SEM1_LUNES.getTime();
-  var semNum=Math.floor(diff/(7*86400000))+1;
-  semNum=Math.max(1,Math.min(52,semNum));
-  return String(semNum).padStart(2,'0');
+  // Semana de hoy dentro de su propio año de calendario
+  var r=anioSemDeFecha(new Date());
+  var n=Math.max(1, Math.min(semanasDeAnio(r.anio), r.sem));
+  return String(n).padStart(2,'0');
+}
+// Igual que la anterior pero diciendo también a qué año pertenece
+function getAnioSemActual(){
+  var r=anioSemDeFecha(new Date());
+  return { anio:r.anio, sem:String(Math.max(1,Math.min(semanasDeAnio(r.anio),r.sem))).padStart(2,'0') };
 }
 
 // Pinta el aviso del plazo debajo del selector de semana (registro del coordinador)
-function updPlazoAviso(sem){
+function updPlazoAviso(sem, anio){
   var cont=document.getElementById('r-plazo-aviso');
   if(!cont) return;
   if(!sem){ cont.style.display='none'; return; }
-  var pz=puedeSubirSemana(sem);
+  var pz=puedeSubirSemana(sem, anio);
   var txt, bg, bd, col;
   if(pz.permiso){
     txt='🔓 Semana vencida, pero tienes AUTORIZACIÓN del administrador para subirla.';
@@ -5022,7 +5144,7 @@ function updPlazoAviso(sem){
 }
 
 function updSemLabel(){
-  var sem=document.getElementById('r-sem')&&document.getElementById('r-sem').value||'';
+  var _ss=semSel('r-sem'); var sem=_ss.sem, semAnio=_ss.anio;
   var riShow=document.getElementById('r-sem-rango-show');
   var psub=document.getElementById('psub');
   if(!sem){
@@ -5031,17 +5153,17 @@ function updSemLabel(){
     return;
   }
   var ri=document.getElementById('r-sem-rango');
-  if(ri) ri.value=getRangoSem(sem);
+  if(ri) ri.value=getRangoSem(sem, semAnio);
   // Mostrar también en el header visible del rediseño
-  if(riShow) riShow.textContent=getRangoSem(sem);
-  if(psub) psub.textContent='Semana '+sem+' · '+getRangoSem(sem);
-  updPlazoAviso(sem);
+  if(riShow) riShow.textContent=getRangoSem(sem, semAnio);
+  if(psub) psub.textContent='Semana '+sem+' · '+getRangoSem(sem, semAnio);
+  updPlazoAviso(sem, semAnio);
   // Si hay día seleccionado, actualizar fecha
   if(S.diaSel) selDiaActualizar(sem, S.diaSel);
 }
 
 function selDiaActualizar(sem, dia){
-  var fecha=getFecha(sem, dia);
+  var fecha=getFecha(sem, dia, semAnio);
   var domFest=esDomFest(fecha);
   var lbl=document.getElementById('dia-fecha-lbl');
   if(lbl){
@@ -5156,11 +5278,13 @@ async function enviarLote(){
   // Última red: ninguna semana del lote puede estar fuera de plazo
   var _cerradas=[];
   LOTE.forEach(function(r){
-    var s=String(parseInt(r.sem)||0);
-    if(_cerradas.indexOf(s)<0 && !puedeSubirSemana(r.sem).ok) _cerradas.push(s);
+    var a=parseInt(r.anio)||ANIO_ACTIVO;
+    var s=a+'|'+String(parseInt(r.sem)||0);
+    if(_cerradas.indexOf(s)<0 && !puedeSubirSemana(r.sem, a).ok) _cerradas.push(s);
   });
   if(_cerradas.length){
-    msgR('🔒 No se puede enviar: la(s) semana(s) '+_cerradas.join(', ')+' ya están cerradas por plazo. Pide autorización al administrador.','r');
+    var _lista=_cerradas.map(function(x){var p=x.split('|');return 'Sem '+p[1]+' de '+p[0];}).join(', ');
+    msgR('🔒 No se puede enviar: '+_lista+' ya está cerrada por plazo. Pide autorización al administrador.','r');
     return;
   }
   var _semOk=await confirmarSemanasLote();
@@ -5194,7 +5318,12 @@ async function enviarLote(){
   btnEnv.textContent='Enviando...';
   var guardadoOk=false, errEnvio='';
   try{
-    var resp=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:LOTE})});
+    // Cada registro lleva el año de su semana, para que no se confunda
+    // la semana 01 de 2027 con la 01 de 2026.
+    var loteConAnio=LOTE.map(function(r){
+      return Object.assign({}, r, {anio: r.anio || ANIO_ACTIVO});
+    });
+    var resp=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:loteConAnio})});
     var txt=await resp.text(); var dres=null; try{ dres=JSON.parse(txt); }catch(e){}
     if(resp.ok && dres && dres.ok) guardadoOk=true;
     else errEnvio=(dres&&dres.error)?dres.error:('respuesta del servidor '+resp.status);
@@ -5220,14 +5349,14 @@ async function enviarLote(){
 }
 
 function selDia(btn,dia){
-  var sem=document.getElementById('r-sem').value;
+  var _ss2=semSel('r-sem'); var sem=_ss2.sem, semAnio=_ss2.anio;
   if(!sem){
     msgR('⚠ Primero elige la SEMANA (arriba, en el encabezado verde) y luego el día','r');
     var selEl=document.getElementById('r-sem'); if(selEl){ try{ selEl.focus(); }catch(e){} }
     return;
   }
-  var _pz=puedeSubirSemana(sem);
-  if(!_pz.ok){ msgR(msgSemanaCerrada(sem),'r'); return; }
+  var _pz=puedeSubirSemana(sem, semAnio);
+  if(!_pz.ok){ msgR(msgSemanaCerrada(sem, semAnio),'r'); return; }
   document.querySelectorAll('.dia, .dia-btn-r').forEach(function(b){
     b.classList.remove('sel');
     b.style.borderColor='';
@@ -5264,8 +5393,8 @@ function chgTipo(){
   document.getElementById('sec-vac').style.display=t==='vacio'?'block':'none';
   // Mostrar/ocultar aviso festivo
   if(t==='vacio'&&S.diaSel){
-    var sem=document.getElementById('r-sem').value;
-    var fecha=getFecha(sem,S.diaSel);
+    var _ss3=semSel('r-sem');
+    var fecha=getFecha(_ss3.sem, S.diaSel, _ss3.anio);
     updFestPanel(esFestivoLSab(fecha));
   } else {
     var panel=document.getElementById('sec-vac-fest');
@@ -5435,15 +5564,15 @@ function guardar(){ agregarAlLote(); }
 
 async function agregarAlLote(){
   var empSel=document.getElementById('r-emp');
-  var sem=document.getElementById('r-sem').value;
+  var _ss4=semSel('r-sem'); var sem=_ss4.sem, semAnio=_ss4.anio;
   var dia=S.diaSel;
   var ced=empSel.value;
   var nom=ced?(document.getElementById('emp-ac-chip-name')&&document.getElementById('emp-ac-chip-name').textContent)||ced:'';
   var tipo=document.getElementById('r-tipo').value;
   if(!ced){msgR('⚠ Selecciona un empleado','r');return;}
   if(!sem){msgR('⚠ Primero elige la SEMANA (arriba, en el encabezado verde)','r');return;}
-  var _pzLote=puedeSubirSemana(sem);
-  if(!_pzLote.ok){msgR(msgSemanaCerrada(sem),'r');return;}
+  var _pzLote=puedeSubirSemana(sem, semAnio);
+  if(!_pzLote.ok){msgR(msgSemanaCerrada(sem, semAnio),'r');return;}
   if(!dia){msgR('⚠ Selecciona el día de trabajo','r');return;}
   var regs=[];
   if(tipo==='labor'){
@@ -5460,11 +5589,11 @@ async function agregarAlLote(){
         var hd=parseFloat(document.getElementById('vhd'+i).value)||0;
         var hn=parseFloat(document.getElementById('vhn'+i).value)||0;
         if(hd+hn<=0){msgR('⚠ Ingresa al menos una hora en la tarea '+i+' (Vigilancia Maquinaria)','r');return;}
-        var fecha=getFecha(sem,dia);
+        var fecha=getFecha(sem, dia, semAnio);
         var domFest=esDomFest(fecha);
         var tarifaVig=parseFloat(o.dataset.c)||VIG_COBRO_TARIFA;
         var cobroVig=Math.round((hd+hn)*tarifaVig);
-        regs.push({id:'r'+Date.now()+'_'+i,coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,dia:dia,tipo:'labor',
+        regs.push({id:'r'+Date.now()+'_'+i,coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,anio:semAnio,dia:dia,tipo:'labor',
           labId:o.value,lab:'VIGILANCIA MAQUINARIA',u:'H',cant:hd+hn,
           pago:vigSur?Math.round((hd+hn)*(parseFloat(o.dataset.p)||0)):0,
           cobro:vigSur?Math.round((hd+hn)*(parseFloat(o.dataset.c)||0)):0,
@@ -5485,7 +5614,7 @@ async function agregarAlLote(){
         }
         var pago=(parseFloat(o.dataset.p)||0)*cant;
         var cobro=(parseFloat(o.dataset.c)||0)*cant;
-        regs.push({id:'r'+Date.now()+'_'+i,coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,dia:dia,tipo:'labor',
+        regs.push({id:'r'+Date.now()+'_'+i,coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,anio:semAnio,dia:dia,tipo:'labor',
           labId:o.value,lab:o.dataset.d||o.text||'',u:o.dataset.u,cant:cant,pago:pago,cobro:cobro,cobroVig:0,
           nov:'',alim:i===1?alim:0,obsTarea:obsVal,esVig:false,vigHd:0,vigHn:0,domFest:false});
       }
@@ -5514,7 +5643,7 @@ async function agregarAlLote(){
       if(oe){ oe.focus(); oe.style.borderColor='var(--r)'; }
       return;
     }
-    regs.push({id:'r'+Date.now(),coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,dia:dia,tipo:'novedad',
+    regs.push({id:'r'+Date.now(),coord:S.u,adm:S.adm,ced:ced,emp:nom,sem:sem,anio:semAnio,dia:dia,tipo:'novedad',
       labId:'',lab:'',u:'',cant:0,pago:0,cobro:0,cobroVig:0,nov:nov,obs:obs,alim:0,obsTarea:'',esVig:false,vigHd:0,vigHn:0,domFest:false});
   } else {
     // Verificar si el día vacío es festivo L-S → pago ajuste automático
@@ -6038,7 +6167,7 @@ var TD_SIGUIENTE_FILA=2;
 var TD_HAY_MAS=false;
 
 function carMR(desde){
-  var sem=document.getElementById('mr-sem').value;
+  var _ssm=semSel('mr-sem'); var sem=_ssm.sem, mrAnio=_ssm.anio;
 
   // Si es nueva búsqueda limpiar caché
   if(!desde){
@@ -6472,8 +6601,8 @@ function permisosInit(){
       var v=String(i).padStart(2,'0');
       var o=document.createElement('option');
       o.value=v;
-      var cerrada=Date.now()>getPlazoSem(v).getTime();
-      o.textContent='Sem '+v+' ('+getRangoSem(v)+')'+(cerrada?' 🔒':'');
+      var cerrada=Date.now()>getPlazoSem(v, ANIO_ACTIVO).getTime();
+      o.textContent='Sem '+v+' ('+getRangoSem(v, ANIO_ACTIVO)+')'+(cerrada?' 🔒':'');
       selS.appendChild(o);
     }
     selS.value=String(Math.max(1,act-1)).padStart(2,'0');
@@ -12657,7 +12786,7 @@ function guardarNota(){
     nov:'',alim:0,obsTarea:txt,esVig:false,vigHd:0,vigHn:0,domFest:false
   };
 
-  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:[nota]})})
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'guardar',registros:[Object.assign({},nota,{anio:nota.anio||ANIO_ACTIVO})]})})
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.ok) throw new Error(data.error||'Error');
@@ -13691,7 +13820,7 @@ async function rcGuardar(){
     rcMsg('⏳ Guardando novedad...','n');
     try{
       var rN=await fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({accion:'guardar',registros:[regNov]})});
+        body:JSON.stringify({accion:'guardar',registros:[Object.assign({},regNov,{anio:regNov.anio||ANIO_ACTIVO})]})});
       var dN=await rN.json();
       if(dN&&dN.ok){
         rcMsg('✓ Novedad registrada: '+getNov(novCod)+' · '+nom,'v');
@@ -13755,10 +13884,10 @@ async function rcGuardar(){
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     accion:'guardar',
-    coord:coord, adm:adm, sem:sem,
+    coord:coord, adm:adm, sem:sem, anio:ANIO_ACTIVO,
     registros:[{
       id:'r'+Date.now(),
-      coord:coord, adm:adm, sem:sem,
+      coord:coord, adm:adm, sem:sem, anio:ANIO_ACTIVO,
       ced:ced, emp:nom, dia:dia, tipo:'labor',
       labId:labId, lab:labNom, u:u, cant:cant,
       pago:pago, cobro:esVigFinal?0:cobro, alim:alim,
