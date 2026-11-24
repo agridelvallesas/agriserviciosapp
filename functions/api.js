@@ -519,8 +519,11 @@ async function accionGetRegistros(body, env) {
   const lote = (filtroSem || semDesde) ? 5000 : 3000;
   const offset = Math.max(0, desde - 2);
 
-  const cols = 'id,coordinador_id,semana,cedula,dia,fecha,tipo,id_labor,unidad,cantidad,pago_trabajador,cobro_riopaila,auxilio_alim,novedad,observacion,es_vigilancia,vig_hd,vig_hn,dom_fest,cobro_vigilancia,obs_tarea,fecha_registro,coordinadores(nombre,administrador),trabajadores(nombres)';
+  const cols = 'id,coordinador_id,anio,semana,cedula,dia,fecha,tipo,id_labor,unidad,cantidad,pago_trabajador,cobro_riopaila,auxilio_alim,novedad,observacion,es_vigilancia,vig_hd,vig_hn,dom_fest,cobro_vigilancia,obs_tarea,fecha_registro,coordinadores(nombre,administrador),trabajadores(nombres)';
   let path = `detalle_dia?select=${cols}&order=fecha_registro`;
+  // Sin el año, la semana 01 de 2026 y la de 2027 saldrían revueltas
+  const filtroAnio = parseInt(body.anio) || 0;
+  if (filtroAnio) path += `&anio=eq.${filtroAnio}`;
   if (semDesde && semHasta) {
     path += `&semana=gte.${semDesde}&semana=lte.${semHasta}`;
   } else if (semDesde) {
@@ -542,6 +545,7 @@ async function accionGetRegistros(body, env) {
     id: String(f.id || '').trim(),
     coord: f.coordinadores ? String(f.coordinadores.nombre || '').trim() : '',
     adm: f.coordinadores ? String(f.coordinadores.administrador || '').trim() : '',
+    anio: parseInt(f.anio) || null,
     sem: String(f.semana == null ? '' : f.semana).trim(),
     ced: String(f.cedula == null ? '' : f.cedula).trim(),
     emp: f.trabajadores ? String(f.trabajadores.nombres || '').trim() : '',
@@ -579,7 +583,8 @@ async function accionVerificarDuplicado(body, env) {
   if (!ced || !sem || !dia || !labId) return { ok: true, existe: false };
 
   const cols = 'id,semana,cedula,dia,fecha,tipo,id_labor,unidad,cantidad,pago_trabajador,cobro_riopaila,auxilio_alim,novedad,observacion,obs_tarea,coordinadores(nombre,administrador),trabajadores(nombres)';
-  const path = `detalle_dia?select=${cols}&tipo=eq.labor&semana=eq.${parseInt(sem)}&cedula=eq.${parseInt(ced.replace(/,/g, ''))}&dia=eq.${encodeURIComponent(dia)}&id_labor=eq.${encodeURIComponent(labId)}&limit=1`;
+  const anioDup = parseInt(body.anio) || anioDeFecha(new Date());
+  const path = `detalle_dia?select=${cols}&tipo=eq.labor&anio=eq.${anioDup}&semana=eq.${parseInt(sem)}&cedula=eq.${parseInt(ced.replace(/,/g, ''))}&dia=eq.${encodeURIComponent(dia)}&id_labor=eq.${encodeURIComponent(labId)}&limit=1`;
   const rows = await sb(env, path);
   if (!rows.length) return { ok: true, existe: false };
 
@@ -716,7 +721,8 @@ async function accionCoberturaSemanas(body, env) {
 
   // 2) Días subidos (combinaciones únicas coord+semana+día vía vista cobertura_dias,
   //    para no traer decenas de miles de filas y pasar el límite de subrequests)
-  const filasDD = await sbAll(env, `cobertura_dias?select=coordinador_id,semana,dia&semana=gte.${desde}`);
+  const anioCob = parseInt(body.anio) || anioDeFecha(new Date());
+  const filasDD = await sbAll(env, `cobertura_dias?select=coordinador_id,semana,dia&anio=eq.${anioCob}&semana=gte.${desde}`);
   for (const r of filasDD) {
     const info = idInfo.get(r.coordinador_id);
     if (!info) continue;
@@ -2009,7 +2015,8 @@ async function accionGetIndiceDup(body, env) {
   const semanas = (Array.isArray(body.semanas) ? body.semanas : [])
     .map((x) => parseInt(x)).filter((x) => x > 0 && x < 60);
   if (!semanas.length) return { ok: true, semanas: [], items: [] };
-  const rows = await sbAll(env, `detalle_dia?select=cedula,semana,dia,id_labor,coordinadores(nombre)&tipo=eq.labor&semana=in.(${semanas.join(',')})`);
+  const anioDups = parseInt(body.anio) || anioDeFecha(new Date());
+  const rows = await sbAll(env, `detalle_dia?select=cedula,semana,dia,id_labor,coordinadores(nombre)&tipo=eq.labor&anio=eq.${anioDups}&semana=in.(${semanas.join(',')})`);
   const items = rows.map((f) => [
     String(f.cedula == null ? '' : f.cedula).trim(),
     parseInt(f.semana) || 0,
@@ -2037,7 +2044,7 @@ async function accionVerificarDuplicadosLote(body, env) {
     for (let i = 0; i < ceds.length; i += 80) {
       const lista = ceds.slice(i, i + 80).map((c) => parseInt(c)).filter((c) => !isNaN(c)).join(',');
       if (!lista) continue;
-      const rows = await sbAll(env, `detalle_dia?select=id,cedula,semana,dia,id_labor,coordinadores(nombre)&tipo=eq.labor&semana=eq.${parseInt(sem)}&cedula=in.(${lista})`);
+      const rows = await sbAll(env, `detalle_dia?select=id,cedula,semana,dia,id_labor,coordinadores(nombre)&tipo=eq.labor&anio=eq.${parseInt(body.anio) || anioDeFecha(new Date())}&semana=eq.${parseInt(sem)}&cedula=in.(${lista})`);
       rows.forEach((f) => existentes.push({
         id: String(f.id || ''), ced: norm(f.cedula), sem: parseInt(f.semana) || 0,
         dia: String(f.dia || '').trim(), labId: String(f.id_labor || '').trim(),
