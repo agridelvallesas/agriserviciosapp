@@ -21,6 +21,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* Iconos Lucide: heredan el color del texto y el grosor de línea */
+.ict{width:17px;height:17px;flex-shrink:0;fill:none;stroke:currentColor;
+     stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 .icb{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;
      stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 .ico{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;
@@ -342,7 +344,7 @@ tfoot td{background:var(--gf);font-weight:700}
      Toman solos el color del texto que los rodea: en un boton verde salen
      blancos, en la barra salen grises, sin que haya que tocarlos.
      .ico = 18px (barra lateral) · .icb = 16px (botones) -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol><symbol id="i-arrow-left-right" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4" /> <path d="M4 7h16" /> <path d="m16 21 4-4-4-4" /> <path d="M20 17H4" /></symbol><symbol id="i-arrow-right-left" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4" /> <path d="M20 7H4" /> <path d="m8 21-4-4 4-4" /> <path d="M4 17h16" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /> <rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /> <line x1="8" x2="16" y1="6" y2="6" /> <line x1="16" x2="16" y1="14" y2="18" /> <path d="M16 10h.01" /> <path d="M12 10h.01" /> <path d="M8 10h.01" /> <path d="M12 14h.01" /> <path d="M8 14h.01" /> <path d="M12 18h.01" /> <path d="M8 18h.01" /></symbol><symbol id="i-calendar-check" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m9 15 2 2 4-4" /></symbol><symbol id="i-calendar-range" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M16 2v3" /> <path d="M3 9h18" /> <path d="M8 2v3" /> <path d="M17 13h-6" /> <path d="M13 17H7" /> <path d="M7 13h.01" /> <path d="M17 17h.01" /></symbol><symbol id="i-chart-line" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></symbol><symbol id="i-chart-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol><symbol id="i-clipboard-list" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /> <path d="M15 6h1v4" /> <path d="m6.134 14.768.866-.5 2 3.464" /> <circle cx="16" cy="8" r="6" /></symbol><symbol id="i-copy-check" viewBox="0 0 24 24"><path d="m12 15 2 2 4-4" /> <rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z" /></symbol><symbol id="i-file-plus-2" viewBox="0 0 24 24"><path d="M11.35 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5.35" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M14 19h6" /> <path d="M17 16v6" /></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol><symbol id="i-hand-coins" viewBox="0 0 24 24"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /> <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" /> <path d="m2 16 6 6" /> <circle cx="16" cy="9" r="2.9" /> <circle cx="6" cy="5" r="3" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /> <rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" /> <path d="M2 6h4" /> <path d="M2 10h4" /> <path d="M2 14h4" /> <path d="M2 18h4" /> <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /> <path d="M12 22V12" /> <polyline points="3.29 7 12 12 20.71 7" /> <path d="m7.5 4.27 9 5.15" /></symbol><symbol id="i-package-minus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M21 13V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-package-plus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M19 14v6" /> <path d="M21 10.535V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-receipt-text" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></symbol><symbol id="i-scroll-text" viewBox="0 0 24 24"><path d="M15 12h-5" /> <path d="M15 8h-5" /> <path d="M19 17V5a2 2 0 0 0-2-2H4" /> <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M11 2v2" /> <path d="M5 2v2" /> <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /> <path d="M8 15a6 6 0 0 0 12 0v-3" /> <circle cx="20" cy="10" r="2" /></symbol><symbol id="i-sticky-note" viewBox="0 0 24 24"><path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" /> <path d="M15 3v5a1 1 0 0 0 1 1h5" /></symbol><symbol id="i-tree-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" /> <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" /> <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" /> <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4" /> <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /> <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /> <rect x="6" y="14" width="12" height="8" rx="1" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-file-spreadsheet" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M8 13h2" /> <path d="M14 13h2" /> <path d="M8 17h2" /> <path d="M14 17h2" /></symbol><symbol id="i-square-pen" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /> <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" /></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-eraser" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /> <path d="m5.082 11.09 8.828 8.828" /></symbol><symbol id="i-building-2" viewBox="0 0 24 24"><path d="M10 12h4" /> <path d="M10 8h4" /> <path d="M14 21v-3a2 2 0 0 0-4 0v3" /> <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /> <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" /> <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M16 17h6v-6" /> <path d="m22 17-8.5-8.5-5 5L2 7" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /> <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /> <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M7 21h10" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M12 18v-6" /> <path d="m9 15 3 3 3-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol><symbol id="i-arrow-left-right" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4" /> <path d="M4 7h16" /> <path d="m16 21 4-4-4-4" /> <path d="M20 17H4" /></symbol><symbol id="i-arrow-right-left" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4" /> <path d="M20 7H4" /> <path d="m8 21-4-4 4-4" /> <path d="M4 17h16" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /> <rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /> <line x1="8" x2="16" y1="6" y2="6" /> <line x1="16" x2="16" y1="14" y2="18" /> <path d="M16 10h.01" /> <path d="M12 10h.01" /> <path d="M8 10h.01" /> <path d="M12 14h.01" /> <path d="M8 14h.01" /> <path d="M12 18h.01" /> <path d="M8 18h.01" /></symbol><symbol id="i-calendar-check" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m9 15 2 2 4-4" /></symbol><symbol id="i-calendar-range" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M16 2v3" /> <path d="M3 9h18" /> <path d="M8 2v3" /> <path d="M17 13h-6" /> <path d="M13 17H7" /> <path d="M7 13h.01" /> <path d="M17 17h.01" /></symbol><symbol id="i-chart-line" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></symbol><symbol id="i-chart-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol><symbol id="i-clipboard-list" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /> <path d="M15 6h1v4" /> <path d="m6.134 14.768.866-.5 2 3.464" /> <circle cx="16" cy="8" r="6" /></symbol><symbol id="i-copy-check" viewBox="0 0 24 24"><path d="m12 15 2 2 4-4" /> <rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z" /></symbol><symbol id="i-file-plus-2" viewBox="0 0 24 24"><path d="M11.35 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5.35" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M14 19h6" /> <path d="M17 16v6" /></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol><symbol id="i-hand-coins" viewBox="0 0 24 24"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /> <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" /> <path d="m2 16 6 6" /> <circle cx="16" cy="9" r="2.9" /> <circle cx="6" cy="5" r="3" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /> <rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" /> <path d="M2 6h4" /> <path d="M2 10h4" /> <path d="M2 14h4" /> <path d="M2 18h4" /> <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /> <path d="M12 22V12" /> <polyline points="3.29 7 12 12 20.71 7" /> <path d="m7.5 4.27 9 5.15" /></symbol><symbol id="i-package-minus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M21 13V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-package-plus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M19 14v6" /> <path d="M21 10.535V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-receipt-text" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></symbol><symbol id="i-scroll-text" viewBox="0 0 24 24"><path d="M15 12h-5" /> <path d="M15 8h-5" /> <path d="M19 17V5a2 2 0 0 0-2-2H4" /> <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M11 2v2" /> <path d="M5 2v2" /> <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /> <path d="M8 15a6 6 0 0 0 12 0v-3" /> <circle cx="20" cy="10" r="2" /></symbol><symbol id="i-sticky-note" viewBox="0 0 24 24"><path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" /> <path d="M15 3v5a1 1 0 0 0 1 1h5" /></symbol><symbol id="i-tree-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" /> <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" /> <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" /> <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4" /> <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /> <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /> <rect x="6" y="14" width="12" height="8" rx="1" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-file-spreadsheet" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M8 13h2" /> <path d="M14 13h2" /> <path d="M8 17h2" /> <path d="M14 17h2" /></symbol><symbol id="i-square-pen" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /> <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" /></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-eraser" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /> <path d="m5.082 11.09 8.828 8.828" /></symbol><symbol id="i-building-2" viewBox="0 0 24 24"><path d="M10 12h4" /> <path d="M10 8h4" /> <path d="M14 21v-3a2 2 0 0 0-4 0v3" /> <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /> <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" /> <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M16 17h6v-6" /> <path d="m22 17-8.5-8.5-5 5L2 7" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /> <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /> <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M7 21h10" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M12 18v-6" /> <path d="m9 15 3 3 3-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="19" x2="19" y1="8" y2="14" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-hard-hat" viewBox="0 0 24 24"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /> <path d="M14 6a6 6 0 0 1 6 6v3" /> <path d="M4 15v-3a6 6 0 0 1 6-6" /> <rect x="2" y="15" width="20" height="4" rx="1" /></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M12 16h.01" /> <path d="M16 16h.01" /> <path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" /> <path d="M8 16h.01" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /> <path d="M12 7v5l4 2" /></symbol><symbol id="i-search-check" viewBox="0 0 24 24"><path d="m8 11 2 2 4-4" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol></svg>
 
 <!-- LOGIN — Wizard 2 pasos -->
 <div id="lscreen" class="l-wrap">
@@ -826,7 +828,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- NOTAS COORDINADOR -->
     <div class="page" id="p-notas">
       <div class="card" style="max-width:580px">
-        <div class="ct">📝 Nueva nota semanal</div>
+        <div class="ct"><svg class="ict"><use href="#i-square-pen"/></svg> Nueva nota semanal</div>
         <div class="fg">
           <div class="fld"><label>Semana</label><select id="nota-sem"></select></div>
           <div class="fld full"><label>Nota / Observación</label>
@@ -846,7 +848,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════════ COORDINADOR — COBRO VS FACTURACIÓN ══════════ -->
     <div class="page" id="p-cvf" style="max-width:900px;margin-left:auto;margin-right:auto">
       <div class="card">
-        <div class="ct">💵 Cobro vs Facturación <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Tu consolidado semanal: lo que reportaste vs lo facturado por Riopaila</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-arrow-left-right"/></svg> Cobro vs Facturación <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Tu consolidado semanal: lo que reportaste vs lo facturado por Riopaila</span></div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
           <div class="fld" style="margin:0;min-width:110px"><label style="font-size:10px">Semana desde</label><input type="number" id="cvf-s1" value="1" min="1" max="53" onchange="cvfRender()"/></div>
           <div class="fld" style="margin:0;min-width:110px"><label style="font-size:10px">Semana hasta</label><input type="number" id="cvf-s2" value="53" min="1" max="53" onchange="cvfRender()"/></div>
@@ -859,7 +861,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════ COORDINADOR — RESUMEN DE LABORES POR SEMANA ══════ -->
     <div class="page" id="p-res-sem">
       <div class="card" style="margin-bottom:12px">
-        <div class="ct">📊 Resumen de labores por semana
+        <div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Resumen de labores por semana
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Qué se hizo, cuánto y quiénes</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Semana</label>
@@ -1011,7 +1013,7 @@ tfoot td{background:var(--gf);font-weight:700}
                   <th onclick="sortTable('mr-t2',7,true)" style="cursor:pointer;padding:8px;text-align:right">Pago ↕</th>
                   <th onclick="sortTable('mr-t2',8,true)" style="cursor:pointer;padding:8px;text-align:right">Cobro ↕</th>
                   <th onclick="sortTable('mr-t2',9,true)" style="cursor:pointer;padding:8px;text-align:right">Aux.Alim ↕</th>
-                  <th style="padding:8px;text-align:center">⚠️</th>
+                  <th style="padding:8px;text-align:center" title="Novedad"><svg class="icb"><use href="#i-triangle-alert"/></svg></th>
                 </tr>
               </thead>
               <tbody id="mr-tb"></tbody>
@@ -1081,7 +1083,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <!-- Informe por labor -->
       <div id="td-inf-lab" style="display:none" class="card">
-        <div class="ct">📊 Informe por labor: <span id="td-inf-lab-nombre" style="color:var(--a)"></span></div>
+        <div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Informe por labor: <span id="td-inf-lab-nombre" style="color:var(--a)"></span></div>
         <div class="sg" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
           <div class="st"><div class="sl">Registros</div><div class="sv" id="td-il-n">0</div></div>
           <div class="st"><div class="sl">Total unidades</div><div class="sv" id="td-il-u" style="font-size:14px">0</div></div>
@@ -1116,7 +1118,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <th onclick="sortTable('td-t',9,true)" style="cursor:pointer">Pago ↕</th>
           <th onclick="sortTable('td-t',10,true)" style="cursor:pointer">Cobro ↕</th>
           <th onclick="sortTable('td-t',11,true)" style="cursor:pointer">Aux.Alim ↕</th>
-          <th>⚠️</th>
+          <th title="Novedad"><svg class="icb"><use href="#i-triangle-alert"/></svg></th>
           <th>Obs. novedad</th>
           <th>Obs. tarea</th>
           <th onclick="sortTable('td-t',15)" style="cursor:pointer">Fecha reg. ↕</th>
@@ -1130,7 +1132,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ════ PERMISOS DE SUBIDA TARDÍA (ADMIN) ════ -->
     <div class="page" id="p-permisos">
       <div class="card" style="margin-bottom:10px">
-        <div class="ct">🔓 Permisos de subida tardía</div>
+        <div class="ct"><svg class="ict"><use href="#i-lock-open"/></svg> Permisos de subida tardía</div>
         <p style="margin:4px 0 0;font-size:12px;color:var(--g3);max-width:720px">
           Los coordinadores tienen plazo para reportar una semana hasta el <strong>miércoles a las 11:59 pm</strong>
           de la semana siguiente (3 días después del domingo). Vencido el plazo la semana queda cerrada.
@@ -1172,7 +1174,7 @@ tfoot td{background:var(--gf);font-weight:700}
       <div class="card" style="margin-bottom:10px">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
           <div>
-            <h3 style="margin:0 0 4px">🗓️ Cobertura de semanas por coordinador</h3>
+            <h3 style="margin:0 0 4px"><svg class="ict"><use href="#i-calendar-check"/></svg> Cobertura de semanas por coordinador</h3>
             <p style="margin:0;font-size:12px;color:var(--g3);max-width:640px">Panorama de qué días subió cada coordinador en cada semana (desde la 17). Cada celda muestra <strong>LUN·MAR·MIE·JUE·VIE·SAB</strong>: en verde el día que sí subió, en rojo el que falta, y ⚑ los festivos (no cuentan).</p>
           </div>
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -1341,7 +1343,7 @@ tfoot td{background:var(--gf);font-weight:700}
         </div></div>
         <div class="card"><div class="tw"><table id="il-t"><thead><tr><th>Código</th><th>Labor</th><th>Unidad</th><th title="Trabajadores distintos (sin repetir)">Trabajadores</th><th title="Total de reportes (un mismo trabajador puede aparecer varias veces)">Veces</th><th>Total cant.</th><th title="Horas diurnas NO festivas">H. día ord.</th><th title="Horas nocturnas NO festivas">H. noche ord.</th><th title="Horas diurnas en dominical/festivo">H. día fest.</th><th title="Horas nocturnas en dominical/festivo">H. noche fest.</th><th title="Reportes en domingo o festivo">Dom/Fest</th><th>Total pago</th><th title="Pago de vigilancia calculado igual que la nómina">Pago vig.</th><th>Total cobro</th></tr></thead><tbody id="il-tb"></tbody></table></div></div>
         <div class="card" id="il-desglose-card" style="display:none">
-          <div class="ct">👥 Desglose por coordinador / administrador <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Quiénes realizaron lo filtrado</span></div>
+          <div class="ct"><svg class="ict"><use href="#i-users"/></svg> Desglose por coordinador / administrador <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Quiénes realizaron lo filtrado</span></div>
           <div class="tw"><table id="il-desglose" class="ordenable">
             <thead><tr><th>Coordinador</th><th>Administrador</th><th>Sede</th><th title="Trabajadores distintos">Trabajadores</th><th>Veces</th><th>Cant.</th><th title="Diurnas NO festivas">H. día ord.</th><th title="Nocturnas NO festivas">H. noche ord.</th><th title="Diurnas festivo/dom">H. día fest.</th><th title="Nocturnas festivo/dom">H. noche fest.</th><th title="Pago de vigilancia como la nómina">Pago vig.</th><th>Cobro</th></tr></thead>
             <tbody id="il-desglose-tb"></tbody>
@@ -1470,7 +1472,7 @@ tfoot td{background:var(--gf);font-weight:700}
          ════════════════════════════════════════ -->
     <div class="page" id="p-costo-lab">
       <div class="card no-print">
-        <div class="ct">💼 Costo Laboral por coordinador-administrador
+        <div class="ct"><svg class="ict"><use href="#i-briefcase"/></svg> Costo Laboral por coordinador-administrador
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Compara pago a trabajadores vs cobro a Riopaila — útil para ver márgenes</span>
         </div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
@@ -1567,7 +1569,7 @@ tfoot td{background:var(--gf);font-weight:700}
          ════════════════════════════════════════ -->
     <div class="page" id="p-accesos">
       <div class="card no-print">
-        <div class="ct">🔑 Usuarios <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Accesos a la app</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-key-round"/></svg> Usuarios <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Accesos a la app</span></div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
           <div class="fld" style="min-width:150px;margin:0"><label>Usuario</label><input type="text" id="us-user" placeholder="Nombre de usuario"/></div>
           <div class="fld" style="min-width:130px;margin:0"><label>Contraseña</label><input type="text" id="us-pass" placeholder="Clave"/></div>
@@ -1588,7 +1590,7 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
       </div>
       <div class="card no-print">
-        <div class="ct">🧑‍🌾 Coordinadores <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Maestro de coordinadores</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-users"/></svg> Coordinadores <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Maestro de coordinadores</span></div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
           <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Nombre</label><input type="text" id="co-nom" placeholder="Nombre del coordinador"/></div>
           <div class="fld" style="flex:1;min-width:180px;margin:0"><label>Administrador</label><input type="text" id="co-adm" placeholder="Administrador de campo"/></div>
@@ -1610,7 +1612,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
     <div class="page" id="p-rrhh">
       <div class="card no-print">
-        <div class="ct">👥 Trabajadores
+        <div class="ct"><svg class="ict"><use href="#i-users"/></svg> Trabajadores
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Maestro de información de Recursos Humanos</span>
         </div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
@@ -1677,7 +1679,7 @@ tfoot td{background:var(--gf);font-weight:700}
          ════════════════════════════════════════ -->
     <div class="page" id="p-vacac">
       <div class="card no-print">
-        <div class="ct">🌴 Vacaciones de trabajadores
+        <div class="ct"><svg class="ict"><use href="#i-tree-palm"/></svg> Vacaciones de trabajadores
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Control de periodos disfrutados · Generación de cartas</span>
         </div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
@@ -1756,7 +1758,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div id="rhcfg-emp" class="rhcfg-pane">
         <div class="card">
-          <div class="ct">🏢 Datos de la empresa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Salen en el encabezado y pie de todas las cartas y actas</span></div>
+          <div class="ct"><svg class="ict"><use href="#i-building-2"/></svg> Datos de la empresa <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Salen en el encabezado y pie de todas las cartas y actas</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="fld" style="margin:0"><label>Nombre / Razón social</label><input type="text" id="emp-nombre"/></div>
             <div class="fld" style="margin:0"><label>NIT</label><input type="text" id="emp-nit"/></div>
@@ -1772,7 +1774,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div id="rhcfg-plt" class="rhcfg-pane" style="display:none">
         <div class="card">
-          <div class="ct">📜 Plantillas de cartas</div>
+          <div class="ct"><svg class="ict"><use href="#i-mail"/></svg> Plantillas de cartas</div>
           <p style="color:var(--g3);font-size:13px;margin:6px 0 12px">Crea y edita las plantillas de cartas (laboral, retiro, vacaciones, etc.) que se usan al generar cartas.</p>
           <button class="btn ba" onclick="go('plantillas')"><svg class="icb"><use href="#i-square-pen"/></svg> Abrir editor de plantillas</button>
         </div>
@@ -1780,7 +1782,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div id="rhcfg-hoja" class="rhcfg-pane" style="display:none">
         <div class="card">
-          <div class="ct">📄 Campos de la hoja de datos <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Marca los que quieres que aparezcan al imprimir</span></div>
+          <div class="ct"><svg class="ict"><use href="#i-file-text"/></svg> Campos de la hoja de datos <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Marca los que quieres que aparezcan al imprimir</span></div>
           <div id="rhcfg-campos"><div style="padding:20px;text-align:center;color:var(--g3)">⏳ Cargando...</div></div>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
             <button class="btn bg" onclick="rhCfgCamposTodos(true)"><svg class="icb"><use href="#i-check"/></svg> Marcar todos</button>
@@ -1792,7 +1794,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div id="rhcfg-list" class="rhcfg-pane" style="display:none">
         <div class="card">
-          <div class="ct">📋 Listas desplegables <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">EPS, pensión, ARL, cajas, cesantías, países y niveles educativos</span></div>
+          <div class="ct"><svg class="ict"><use href="#i-list"/></svg> Listas desplegables <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">EPS, pensión, ARL, cajas, cesantías, países y niveles educativos</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
             <div class="fld" style="min-width:180px;margin:0"><label style="font-size:10px">Lista</label>
               <select id="rhcl-tipo" onchange="rhCatListRender()">
@@ -1812,7 +1814,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <div id="rhcfg-con" class="rhcfg-pane" style="display:none">
         <div class="card">
-          <div class="ct">🏷️ Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
+          <div class="ct"><svg class="ict"><use href="#i-tag"/></svg> Clasificación de conceptos de acumulados <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Define el tipo y la categoría de cada concepto para el importador</span></div>
           <div id="gc-body"><div style="text-align:center;color:var(--g3);padding:24px">⏳ Cargando conceptos...</div></div>
         </div>
       </div>
@@ -1820,7 +1822,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
     <div class="page" id="p-cartas">
       <div class="card">
-        <div class="ct">📜 Generar carta <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Elige el trabajador y el tipo de carta</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-mail"/></svg> Generar carta <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Elige el trabajador y el tipo de carta</span></div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
           <div class="fld" style="flex:2;min-width:240px;margin:0"><label>Trabajador</label>
             <div style="position:relative"><input type="text" id="cr-trab" placeholder="Nombre o cédula..." autocomplete="off" style="width:100%"/>
@@ -1852,7 +1854,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
     <div class="page" id="p-plantillas">
       <div class="card no-print">
-        <div class="ct">📜 Plantillas de cartas
+        <div class="ct"><svg class="ict"><use href="#i-mail"/></svg> Plantillas de cartas
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Sistema modular reutilizable · Crea y edita plantillas con variables dinámicas</span>
         </div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -2081,8 +2083,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
       <!-- SECCIÓN VIGILANCIA MAQUINARIA -->
       <div class="card" style="margin-top:4px;border-left:3px solid var(--f)">
-        <div class="ct" style="color:var(--f)">
-          🔧 Vigilancia Maquinaria — Liquidación por quincena
+        <div class="ct" style="color:var(--f)"><svg class="ict"><use href="#i-wrench"/></svg> Vigilancia Maquinaria — Liquidación por quincena
           <button class="btn bg no-print" style="font-size:11px;padding:4px 10px" onclick="expCSV('vig-res','vig_quincena')"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
         </div>
 
@@ -2143,7 +2144,7 @@ tfoot td{background:var(--gf);font-weight:700}
           <div style="font-size:11px;font-weight:600;color:var(--g2);margin-bottom:4px;cursor:pointer;user-select:none" onclick="togSection('vig-turnos-body','vig-turnos-ico')">Turnos ingresados <span id="vig-turnos-ico" style="color:var(--g3)">▼</span></div>
           <div id="vig-turnos-body">
           <div class="tw"><table id="vig-turnos-t"><thead><tr>
-            <th>Empleado</th><th>Fecha</th><th>Tipo</th><th>Hs diurnas</th><th>Hs nocturnas</th><th>Dom/Fest</th><th class="no-print">✕</th>
+            <th>Empleado</th><th>Fecha</th><th>Tipo</th><th>Hs diurnas</th><th>Hs nocturnas</th><th>Dom/Fest</th><th class="no-print" title="Eliminar"><svg class="icb"><use href="#i-trash-2"/></svg></th>
           </tr></thead><tbody id="vig-turnos-tb"></tbody></table></div>
           </div>
         </div>
@@ -2196,7 +2197,7 @@ tfoot td{background:var(--gf);font-weight:700}
       <!-- CONFIGURACIÓN NÓMINA -->
       <div id="nom-cfg" style="display:none">
         <div class="card" style="max-width:700px">
-          <div class="ct">⚙️ Tarifas de Vigilancia Maquinaria
+          <div class="ct"><svg class="ict"><use href="#i-settings"/></svg> Tarifas de Vigilancia Maquinaria
             <span style="font-size:11px;font-weight:400;color:var(--g3)">Actualizables cuando cambien (ej. julio 2026)</span>
           </div>
           <div class="alrt ag" style="margin-bottom:16px">
@@ -2300,7 +2301,7 @@ tfoot td{background:var(--gf);font-weight:700}
            ════════════════════════════════════════ -->
       <div id="nom-cnom" style="display:none">
         <div class="card no-print">
-          <div class="ct">🧾 Construcción de nómina
+          <div class="ct"><svg class="ict"><use href="#i-receipt-text"/></svg> Construcción de nómina
             <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Trae la liquidación calculada y completa los conceptos manuales</span>
           </div>
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -2581,7 +2582,7 @@ tfoot td{background:var(--gf);font-weight:700}
       <!-- ── DETALLADO POR COORDINADOR ── -->
       <div id="fac-det" style="display:none">
         <div class="card">
-          <div class="ct">📎 Ingresar detallado por coordinador</div>
+          <div class="ct"><svg class="ict"><use href="#i-paperclip"/></svg> Ingresar detallado por coordinador</div>
           <div class="alrt ag" style="margin-bottom:12px">
             <span>ℹ️</span><span>Selecciona la responsable y semana, marca las facturas a incluir, y luego ingresa el valor por coordinador según el detallado de Riopaila.</span>
           </div>
@@ -2652,7 +2653,7 @@ tfoot td{background:var(--gf);font-weight:700}
             </div>
             <div id="det-lista-wrap" style="display:none;margin-bottom:10px">
               <div class="tw"><table><thead><tr>
-                <th>Coordinador</th><th>Admin</th><th>Semana</th><th>Valor detallado</th><th class="no-print">✕</th>
+                <th>Coordinador</th><th>Admin</th><th>Semana</th><th>Valor detallado</th><th class="no-print" title="Eliminar"><svg class="icb"><use href="#i-trash-2"/></svg></th>
               </tr></thead><tbody id="det-lista-tb"></tbody>
               <tfoot id="det-lista-tf"></tfoot></table></div>
             </div>
@@ -2757,7 +2758,7 @@ tfoot td{background:var(--gf);font-weight:700}
            ════════════════════════════════════════ -->
       <div id="fac-cons" style="display:none">
         <div class="card no-print">
-          <div class="ct">📊 Consolidado semanal Reportes vs Facturación
+          <div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Consolidado semanal Reportes vs Facturación
             <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Comparativo semana a semana por coordinador-administrador para enviar a supervisores</span>
           </div>
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
@@ -2886,7 +2887,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
         <!-- Resumen por semana -->
         <div class="card" id="fi-sem-card" style="display:none">
-          <div class="ct">📅 Facturado por semana</div>
+          <div class="ct"><svg class="ict"><use href="#i-calendar"/></svg> Facturado por semana</div>
           <div class="tw"><table id="fi-sem-t"><thead><tr>
             <th>Semana(s)</th><th>N° Facturas</th><th>Total facturado</th><th>Pagado</th><th>Pendiente</th><th>Estado</th>
           </tr></thead><tbody id="fi-sem-tb"></tbody>
@@ -2895,7 +2896,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
         <!-- Tabla detalle facturas -->
         <div class="card">
-          <div class="ct">📋 Detalle de facturas</div>
+          <div class="ct"><svg class="ict"><use href="#i-clipboard-list"/></svg> Detalle de facturas</div>
           <div class="tw"><table id="fi-t"><thead><tr>
             <th onclick="sortTable('fi-t',0)" style="cursor:pointer">Fecha ↕</th>
             <th onclick="sortTable('fi-t',1)" style="cursor:pointer">Vence ↕</th>
@@ -2916,7 +2917,7 @@ tfoot td{background:var(--gf);font-weight:700}
       <!-- ── CONFIGURACIÓN DE FACTURACIÓN ── -->
       <div id="fac-cfg" style="display:none">
         <div class="card" style="margin-bottom:12px">
-          <div class="ct">👥 Responsables de facturación
+          <div class="ct"><svg class="ict"><use href="#i-users"/></svg> Responsables de facturación
             <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Su correo se pone automáticamente en copia al radicar</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--gf);border-radius:8px;padding:10px;margin-bottom:10px">
             <input type="hidden" id="fcr-id"/>
@@ -2931,7 +2932,7 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
 
         <div class="card">
-          <div class="ct">✉️ Plantilla del correo de radicación</div>
+          <div class="ct"><svg class="ict"><use href="#i-mail"/></svg> Plantilla del correo de radicación</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px">
             <div class="fld" style="margin:0"><label style="font-size:10px">Para (archivo de Riopaila)</label>
               <input type="text" id="fcf-para" placeholder="archivo.riopaila@riopaila-castilla.com"/></div>
@@ -2959,7 +2960,7 @@ tfoot td{background:var(--gf);font-weight:700}
       <!-- ── COBROS HISTÓRICOS ── -->
       <div id="fac-hist" style="display:none">
         <div class="card">
-          <div class="ct">📥 Cobros históricos — semanas anteriores
+          <div class="ct"><svg class="ict"><use href="#i-history"/></svg> Cobros históricos — semanas anteriores
             <button class="btn bg no-print" style="font-size:11px;padding:3px 10px" onclick="carCobrosHist()"><svg class="icb"><use href="#i-refresh-cw"/></svg> Cargar desde Sheets</button>
             <button class="btn bg no-print" style="font-size:11px;padding:3px 10px" onclick="expCSV('hist-t','cobros_historicos')"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
           </div>
@@ -2985,7 +2986,7 @@ tfoot td{background:var(--gf);font-weight:700}
               <button class="btn bf" onclick="addCobrosHist()" style="height:34px;margin-top:16px">+ Agregar</button>
             </div>
             <div id="hist-nuevos-wrap" style="display:none;margin-top:10px">
-              <div class="tw"><table><thead><tr><th>Coordinador</th><th>Admin</th><th>Sem</th><th>Valor</th><th class="no-print">✕</th></tr></thead>
+              <div class="tw"><table><thead><tr><th>Coordinador</th><th>Admin</th><th>Sem</th><th>Valor</th><th class="no-print" title="Eliminar"><svg class="icb"><use href="#i-trash-2"/></svg></th></tr></thead>
               <tbody id="hist-nuevos-tb"></tbody></table></div>
               <button class="btn bv" style="margin-top:8px" onclick="guardarCobrosHist()"><svg class="icb"><use href="#i-save"/></svg> Guardar en Sheets</button>
             </div>
@@ -3017,7 +3018,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- CONSOLIDADO NÓMINA -->
     <div class="page" id="p-nom-cons">
       <div class="card no-print">
-        <div class="ct">🧮 Consolidado de nómina por quincena</div>
+        <div class="ct"><svg class="ict"><use href="#i-calculator"/></svg> Consolidado de nómina por quincena</div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div class="fld" style="flex:2;min-width:200px"><label>Quincena</label><select id="nc-q"></select></div>
           <div class="fld" style="min-width:120px"><label>Sede</label>
@@ -3080,7 +3081,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- NOTAS ADMIN -->
     <div class="page" id="p-notas-adm">
       <div class="card">
-        <div class="ct">📝 Notas de coordinadores
+        <div class="ct"><svg class="ict"><use href="#i-notebook-pen"/></svg> Notas de coordinadores
           <button class="btn bg no-print" style="font-size:11px;padding:3px 10px" onclick="carNotasAdm()"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -3096,7 +3097,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- REGISTRAR POR COORDINADOR -->
     <div class="page" id="p-reg-coord">
       <div class="card" style="max-width:600px">
-        <div class="ct">✍️ Registrar en nombre de un coordinador</div>
+        <div class="ct"><svg class="ict"><use href="#i-file-pen"/></svg> Registrar en nombre de un coordinador</div>
         <div class="alrt ag" style="margin-bottom:14px">
           <span>ℹ️</span><span>Selecciona el coordinador y completa el registro. Se guardará como si lo hubiera registrado él.</span>
         </div>
@@ -3175,7 +3176,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- NUEVO EMPLEADO -->
     <div class="page" id="p-nemp">
       <div class="card" style="max-width:520px">
-        <div class="ct">➕ Agregar nuevo empleado</div>
+        <div class="ct"><svg class="ict"><use href="#i-user-plus"/></svg> Agregar nuevo empleado</div>
         <div class="fg">
           <div class="fld"><label>Cédula</label><input type="text" id="ne-ced" placeholder="Ej: 1234567890"/></div>
           <div class="fld"><label>Sede</label>
@@ -3349,7 +3350,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════ FACTURACIÓN — CONTRATOS ══════ -->
     <div class="page" id="p-contratos">
       <div class="card" style="margin-bottom:12px">
-        <div class="ct">📜 Contratos SAP de prestación de servicios
+        <div class="ct"><svg class="ict"><use href="#i-scroll-text"/></svg> Contratos SAP de prestación de servicios
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Valor contratado, facturado por año y saldo disponible</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Facturado hasta</label>
@@ -3368,7 +3369,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════ RH — AUSENTISMO ══════ -->
     <div class="page" id="p-aus">
       <div class="card" style="margin-bottom:12px">
-        <div class="ct">📉 Informe de ausentismo
+        <div class="ct"><svg class="ict"><use href="#i-trending-down"/></svg> Informe de ausentismo
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Días perdidos sobre días programados</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:160px;margin:0"><label style="font-size:10px">Periodo</label>
@@ -3391,7 +3392,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════ RH — INGRESOS Y RETIROS ══════ -->
     <div class="page" id="p-iyr">
       <div class="card" style="margin-bottom:12px">
-        <div class="ct">🔄 Ingresos y retiros
+        <div class="ct"><svg class="ict"><use href="#i-arrow-right-left"/></svg> Ingresos y retiros
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Movimiento de personal por periodo</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:120px;margin:0"><label style="font-size:10px">Año</label>
@@ -3484,7 +3485,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════ SST — INFORME DE ENTREGAS ══════ -->
     <div class="page" id="p-inv-inf">
       <div class="card" style="margin-bottom:12px">
-        <div class="ct">📋 Informe de entregas de dotación
+        <div class="ct"><svg class="ict"><use href="#i-clipboard-list"/></svg> Informe de entregas de dotación
           <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Qué se entregó, a quién y cuándo, por categoría</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Desde</label><input type="date" id="iinf-d1"/></div>
@@ -3516,7 +3517,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <!-- ══════════ SST — CONFIGURACIÓN ══════════ -->
     <div class="page" id="p-inv-cfg" style="max-width:760px;margin-left:auto;margin-right:auto">
       <div class="card">
-        <div class="ct">👷 Auxiliares <span style="font-size:11px;font-weight:400;color:var(--g3)">· entregan los elementos (campo Auxiliar en Salida)</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-hard-hat"/></svg> Auxiliares <span style="font-size:11px;font-weight:400;color:var(--g3)">· entregan los elementos (campo Auxiliar en Salida)</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
           <div class="fld" style="flex:2;min-width:200px;margin:0"><input type="text" id="cfg-aux-nom" placeholder="Nombre del auxiliar" style="font-size:14px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px"/></div>
           <button class="btn bv" onclick="invCfgGuardar('auxiliar')" style="height:40px"><svg class="icb"><use href="#i-plus"/></svg> Agregar</button>
@@ -3524,7 +3525,7 @@ tfoot td{background:var(--gf);font-weight:700}
         <div class="tw"><table id="cfg-aux-t"><thead><tr><th>Auxiliar</th><th style="width:110px">Acción</th></tr></thead><tbody id="cfg-aux-tb"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="ct">🏭 Proveedores / orígenes <span style="font-size:11px;font-weight:400;color:var(--g3)">· campo Origen en Registrar entrada</span></div>
+        <div class="ct"><svg class="ict"><use href="#i-factory"/></svg> Proveedores / orígenes <span style="font-size:11px;font-weight:400;color:var(--g3)">· campo Origen en Registrar entrada</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
           <div class="fld" style="flex:2;min-width:200px;margin:0"><input type="text" id="cfg-prov-nom" placeholder="Nombre del proveedor" style="font-size:14px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px"/></div>
           <button class="btn bv" onclick="invCfgGuardar('proveedor')" style="height:40px"><svg class="icb"><use href="#i-plus"/></svg> Agregar</button>
@@ -9641,7 +9642,7 @@ function ctrRender(){
     CTR_DATA.forEach(function(c){ maxA=Math.max(maxA, c._fac.porAnio[a]||0); });
   });
   var colores=['#15803d','#b45309','#1d4ed8','#6d28d9'];
-  html+='<div class="card" style="margin-bottom:12px"><div class="ct">📊 Facturación por año</div>'
+  html+='<div class="card" style="margin-bottom:12px"><div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Facturación por año</div>'
     +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px">'
     +CTR_DATA.map(function(c,i){
       return '<span style="font-size:11.5px;display:flex;align-items:center;gap:6px">'
@@ -9663,7 +9664,7 @@ function ctrRender(){
     }).join('')+'</div></div>';
 
   // ── Tabla consolidada, como la hoja que entrega la empresa ──
-  html+='<div class="card"><div class="ct">📋 Consolidado de contratos</div>'
+  html+='<div class="card"><div class="ct"><svg class="ict"><use href="#i-clipboard-list"/></svg> Consolidado de contratos</div>'
     +'<div class="tw"><table id="ctr-t"><thead><tr>'
       +'<th>Planta</th><th>Contrato SAP</th><th style="text-align:right">Valor del contrato</th>'
       +listaAnios.map(function(a){return '<th style="text-align:right">Facturado '+a+'</th>';}).join('')
@@ -12405,7 +12406,7 @@ function cuadreRender(){
   })();
 
   var caja0='<div class="card" style="margin-bottom:12px">'
-    +'<div class="ct">📊 Pago a trabajadores por semana — cómo se refleja en la nómina</div>'
+    +'<div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Pago a trabajadores por semana — cómo se refleja en la nómina</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">'
     +'<thead>'
     +'<tr style="background:var(--gf);font-size:10px;text-transform:uppercase;letter-spacing:.3px">'
@@ -12455,7 +12456,7 @@ function cuadreRender(){
   }
   var baseTrab=tSal+tDom;
   var caja1='<div class="card" style="margin-bottom:12px">'
-    +'<div class="ct">🧾 De dónde sale el total de la nómina</div>'
+    +'<div class="ct"><svg class="ict"><use href="#i-receipt-text"/></svg> De dónde sale el total de la nómina</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
     +'<tr><td colspan="2" style="padding:8px 10px 2px;font-weight:800;color:var(--g2)">Pago a trabajadores (reportado por coordinadores)</td></tr>'
     +'<tr><td style="padding:2px 10px 2px 24px;color:var(--g3)">Días normales L-S reportados por coordinadores</td><td style="padding:2px 10px;text-align:right;color:#111">$'+cop(tSal)+'</td></tr>'
@@ -12489,7 +12490,7 @@ function cuadreRender(){
       +'</tr>';
   }).join('');
   var caja2='<div class="card">'
-    +'<div class="ct">🔎 Verificación por semana: registros vs liquidado</div>'
+    +'<div class="ct"><svg class="ict"><use href="#i-search-check"/></svg> Verificación por semana: registros vs liquidado</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">'
     +'<thead><tr style="background:var(--gf)">'
     +'<th style="padding:8px;text-align:left">Semana</th>'
@@ -16234,8 +16235,8 @@ function ausRender(){
   }).join('');
 
   cont.innerHTML='<div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">'
-    +'<div class="card"><div class="ct">🩺 Causas del ausentismo</div>'+(causasHtml||'<div style="color:var(--g3);font-size:12px">Sin ausencias registradas en el periodo.</div>')+'</div>'
-    +'<div class="card"><div class="ct">📅 Base del cálculo</div>'
+    +'<div class="card"><div class="ct"><svg class="ict"><use href="#i-stethoscope"/></svg> Causas del ausentismo</div>'+(causasHtml||'<div style="color:var(--g3);font-size:12px">Sin ausencias registradas en el periodo.</div>')+'</div>'
+    +'<div class="card"><div class="ct"><svg class="ict"><use href="#i-calendar"/></svg> Base del cálculo</div>'
       +'<div style="font-size:12px;line-height:1.9;color:var(--g2)">'
         +'Periodo: <strong>'+incFecha(R.desde)+' al '+incFecha(R.hasta)+'</strong><br>'
         +'Días hábiles (lunes a sábado, sin festivos): <strong>'+R.diasHabiles+'</strong><br>'
@@ -16244,7 +16245,7 @@ function ausRender(){
         +'<span style="color:var(--g3);font-size:11px">Los días sin registro no se cuentan como ausentismo: pueden ser reportes pendientes de subir.</span>'
       +'</div></div>'
     +'</div>'
-    +'<div class="card" style="margin-top:12px"><div class="ct">👥 Detalle por trabajador'
+    +'<div class="card" style="margin-top:12px"><div class="ct"><svg class="ict"><use href="#i-users"/></svg> Detalle por trabajador'
       +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Haz clic en una fila para ver día por día</span></div>'
     +'<div class="tw" style="max-height:56vh;overflow:auto"><table class="ordenable" id="aus-t"><thead><tr>'
       +'<th>Cédula</th><th>Trabajador</th><th>Sede</th><th style="text-align:center">Programados</th>'
@@ -17153,10 +17154,10 @@ function incInformeRender(){
       +'<div class="st"><div class="sl">Total a pagar</div><div class="sv gv">'+cop(totGen)+'</div></div>'
       +'<div class="st"><div class="sl">Asume la empresa</div><div class="sv" style="color:var(--a)">'+cop(tot(R,'empEG')+tot(R,'empAT'))+'</div></div>'
     +'</div>'
-    +'<div class="card" style="margin-bottom:12px"><div class="ct">📋 Detalle por incapacidad — '+gcEsc(INC_INF.qna)+'</div>'
+    +'<div class="card" style="margin-bottom:12px"><div class="ct"><svg class="ict"><use href="#i-clipboard-list"/></svg> Detalle por incapacidad — '+gcEsc(INC_INF.qna)+'</div>'
       +'<div class="tw" style="max-height:44vh;overflow:auto"><table class="ordenable" id="inci-t-det"><thead>'+encab+'</thead><tbody>'
       +D.map(filaDet).join('')+totRow(D)+'</tbody></table></div></div>'
-    +'<div class="card"><div class="ct">📊 Resumen por trabajador '
+    +'<div class="card"><div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Resumen por trabajador '
       +'<span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Los días del periodo se consolidan corridos desde la primera fecha</span></div>'
       +'<div class="tw" style="max-height:44vh;overflow:auto"><table class="ordenable" id="inci-t-res"><thead>'+encab+'</thead><tbody>'
       +R.map(function(r){
@@ -24629,13 +24630,13 @@ function invInfRender(){
   // Resumen por elemento (lo más pedido primero)
   var resumen=Object.keys(prods).map(function(p){return {p:p,c:prods[p]};}).sort(function(a,b){return b.c-a.c;});
   cont.innerHTML='<div class="card" style="margin-bottom:12px">'
-    +'<div class="ct">📦 Resumen por elemento</div>'
+    +'<div class="ct"><svg class="ict"><use href="#i-package"/></svg> Resumen por elemento</div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
     +resumen.map(function(r){
       return '<span style="background:var(--vs);border:1px solid var(--bd);border-radius:99px;padding:4px 11px;font-size:12px">'
         +gcEsc(r.p)+' <strong style="color:var(--v)">'+r.c+'</strong></span>';
     }).join('')+'</div></div>'
-    +'<div class="card"><div class="ct">📋 Detalle de entregas</div>'
+    +'<div class="card"><div class="ct"><svg class="ict"><use href="#i-clipboard-list"/></svg> Detalle de entregas</div>'
     +'<div class="tw" style="max-height:60vh;overflow:auto"><table class="ordenable" id="iinf-t"><thead><tr>'
       +'<th>Cédula</th><th>Trabajador</th><th>Fecha de entrega</th><th>Categoría</th><th>Elemento</th><th style="text-align:center">Cantidad</th>'
     +'</tr></thead><tbody>'
