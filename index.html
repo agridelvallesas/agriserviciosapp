@@ -467,6 +467,13 @@ tfoot td{background:var(--gf);font-weight:700}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <!-- Año de trabajo: aparece solo cuando hay más de un año con datos -->
+        <div id="anio-wrap" style="display:none;align-items:center;gap:5px">
+          <span style="font-size:10px;font-weight:700;color:var(--g3);text-transform:uppercase;letter-spacing:.04em">Año</span>
+          <select id="anio-sel" onchange="cambiarAnio(this.value)"
+            style="height:28px;border:1px solid var(--bd);border-radius:7px;padding:0 6px;
+                   font-size:12px;font-weight:800;color:var(--v);background:#fff;cursor:pointer"></select>
+        </div>
         <span class="rbdg" id="rbdg" style="background:var(--v);color:#fff">—</span>
         <span style="font-size:11px;color:var(--g3)" id="tfecha"></span>
       </div>
@@ -4593,7 +4600,7 @@ function cargarDatosSheets(){
 
 // ── CARGAR REGISTROS DESDE SHEETS ──
 function cargarRegistrosSheets(sem, coord){
-  var filtro={accion:'getRegistros', sem:sem||''};
+  var filtro={accion:'getRegistros', anio:ANIO_ACTIVO, sem:sem||''};
   if(S.rol==='c') filtro.coord=S.u;
   else if(coord) filtro.coord=coord;
 
@@ -4653,6 +4660,7 @@ function logout(){
 // POBLAR SELECTS (después del login)
 // ══════════════════════════════════════════
 function poblarSelsSems(){
+  pintarSelectorAnio();
   // Semanas
   var semIds=['r-sem','mr-sem','da-sem','td-sem','td-sem2','ic-s1','ic-s2','ie-s1','ie-s2','il-s1','il-s2','cm-sems','cn-sem','fs-sem','fi-sem','mb-sem','fi2-s1','fi2-s2','me-sem'];
   semIds.forEach(function(id){
@@ -5092,6 +5100,47 @@ function initReg(){
 // Los selectores de semana del coordinador guardan "2027|01": el año y la
 // semana juntos, para que no haya forma de confundir la 01 de un año con la
 // de otro. Esta función los separa, y aguanta los valores viejos sin año.
+// ── AÑO DE TRABAJO ────────────────────────────────────────────────
+// Un solo control para todo el sistema, como el calendario de SIEM.
+// Solo se muestra cuando hay más de un año con datos: hasta el 27 de
+// diciembre nadie lo va a ver, porque solo existe 2026.
+function pintarSelectorAnio(){
+  var wrap=document.getElementById('anio-wrap');
+  var sel=document.getElementById('anio-sel');
+  if(!wrap||!sel) return;
+  var anios=aniosDelCalendario().filter(function(a){ return a<=anioDeFecha(new Date()); });
+  if(anios.length<2){ wrap.style.display='none'; return; }
+  sel.innerHTML='';
+  anios.slice().reverse().forEach(function(a){
+    var o=document.createElement('option');
+    o.value=String(a); o.textContent=String(a);
+    sel.appendChild(o);
+  });
+  sel.value=String(ANIO_ACTIVO);
+  wrap.style.display='flex';
+}
+
+function cambiarAnio(a){
+  a=parseInt(a)||ANIO_ACTIVO;
+  if(a===ANIO_ACTIVO) return;
+  ANIO_ACTIVO=a;
+  // Lo cargado en memoria es de otro año: hay que soltarlo
+  REGS=[]; TD_REGS_CACHE=[]; MR_CACHE=[];
+  ALL_REGS_LOADED=false; ALL_REGS_PARCIAL=false;
+  if(typeof CONS_DATA!=='undefined') CONS_DATA={};
+  if(typeof SAL_SRV!=='undefined') SAL_SRV=null;
+  if(typeof CL_DATA!=='undefined') CL_DATA={};
+  if(typeof BR_ROWS!=='undefined') BR_ROWS=[];
+  // Los selectores de semana se rearman con las semanas de ese año
+  if(typeof poblarSelsSems==='function') poblarSelsSems();
+  pintarSelectorAnio();
+  var t=document.getElementById('rmsg');
+  if(t){ t.style.display='block'; t.style.background='var(--vs)'; t.style.color='var(--v)';
+         t.textContent='Trabajando sobre el año '+a; }
+  // Volver a dibujar la pantalla en la que esté
+  if(PG_ACTUAL && typeof go==='function'){ try{ go(PG_ACTUAL); }catch(e){} }
+}
+
 function semSel(id){
   var el=(typeof id==='string')?document.getElementById(id):id;
   var v=el?String(el.value||''):'';
@@ -6204,7 +6253,7 @@ function carMR(desde){
   }
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros',
+    accion:'getRegistros', anio:ANIO_ACTIVO,
     sem:sem||'',
     coord:S.u||'',
     desde:desde||2
@@ -6872,7 +6921,7 @@ function carTodos(desde){
   if(cntEl) cntEl.textContent='⏳ Cargando...';
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros',
+    accion:'getRegistros', anio:ANIO_ACTIVO,
     sem:sem2?'':(sem||''),
     semDesde:sem?parseInt(sem):0,
     semHasta:sem2?parseInt(sem2):0,
@@ -7377,7 +7426,7 @@ function precargarSemanasRecientes(){
     }
     // Cargar silenciosamente sin mostrar progreso (background)
     fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      accion:'getRegistros', sem:sem, desde:2
+      accion:'getRegistros', anio:ANIO_ACTIVO, sem:sem, desde:2
     })})
     .then(function(r){return r.json();})
     .then(function(data){
@@ -7397,7 +7446,7 @@ function precargarSemanasRecientes(){
 
 function cargarLotesBackground(sem, desde, regsAcum, callback){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros', sem:sem, desde:desde
+    accion:'getRegistros', anio:ANIO_ACTIVO, sem:sem, desde:desde
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -7463,7 +7512,7 @@ function cargarSemanaCompleta(sem, callback){
 
   showProgreso('Cargando registros de Sem '+parseInt(sem)+' (lote 1)...');
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros', sem:sem||'', desde:2
+    accion:'getRegistros', anio:ANIO_ACTIVO, sem:sem||'', desde:2
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -7484,7 +7533,7 @@ function cargarSemanaCompleta(sem, callback){
 function cargarSemanaCompletaSiguiente(sem, desde, lote, regsAcumulados, callback){
   showProgreso('Cargando registros de Sem '+parseInt(sem)+' (lote '+lote+')...');
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros', sem:sem||'', desde:desde
+    accion:'getRegistros', anio:ANIO_ACTIVO, sem:sem||'', desde:desde
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -11152,7 +11201,7 @@ function cargarTodosRegsRapido(callback, forceReload){
   function siguienteLote(){
     if(typeof showProgreso==='function') showProgreso('⏳ Cargando registros (lote desde fila '+desde+')...');
     fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      accion:'getRegistros', sem:'', desde:desde
+      accion:'getRegistros', anio:ANIO_ACTIVO, sem:'', desde:desde
     })})
     .then(function(r){return r.json();})
     .then(function(data){
@@ -12834,7 +12883,7 @@ function carNotas(){
   var lista=document.getElementById('notas-lista');
   if(lista) lista.innerHTML='<div style="text-align:center;padding:20px;color:var(--g3)">⏳ Cargando tus notas...</div>';
   // El backend filtra por el coordinador (mapea su nombre a id), así que trae solo sus notas
-  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:'',tipo:'nota',coord:S.u})})
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',anio:ANIO_ACTIVO,sem:'',tipo:'nota',coord:S.u})})
   .then(function(r){return r.json();})
   .then(function(data){
     NOTAS_COORD=(data&&data.ok&&data.registros)?data.registros.filter(function(r){return r.tipo==='nota';}):[];
@@ -12930,7 +12979,7 @@ function calcIco(){
   if(!enMem.length){
     var btn=document.querySelector('#nom-ico .btn.bn');
     if(btn){btn.textContent='⏳ Cargando...';btn.disabled=true;}
-    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:''})})
+    fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',anio:ANIO_ACTIVO,sem:''})})
     .then(function(r){return r.json();})
     .then(function(data){
       if(btn){btn.textContent='Generar informe';btn.disabled=false;}
@@ -13647,7 +13696,7 @@ function carNotasAdm(){
   }
 
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    accion:'getRegistros', sem:filtSem||'', coord:filtCo||'', tipo:'nota'
+    accion:'getRegistros', anio:ANIO_ACTIVO, sem:filtSem||'', coord:filtCo||'', tipo:'nota'
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -23091,7 +23140,7 @@ function rsInit2(){}
 function cargarSemanaCoord(sem, cb){
   var s=parseInt(sem)||0;
   if(!s||DC_SEMS_CARGADAS[s]){ if(cb)cb(true); return; }
-  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',sem:String(s),coord:S.u})})
+  fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getRegistros',anio:ANIO_ACTIVO,sem:String(s),coord:S.u})})
   .then(function(r){return r.json();})
   .then(function(d){
     if(d&&d.ok){
