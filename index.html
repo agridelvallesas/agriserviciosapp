@@ -4556,11 +4556,12 @@ function cargarDatosSheets(){
 
     // Re-inicializar registro si está abierto (para refrescar tarifas/empleados por sede)
     if(S.rol==='c'){
-      // Limpiar y reconstruir el form de registro con los datos correctos de sede
-      S.tc=0;
+      // Limpiar y reconstruir el form de registro con los datos correctos de sede.
+      // El contador solo se reinicia si el formulario está vacío: si el coordinador
+      // ya tenía una tarea escrita, ponerlo en cero la dejaba invisible al guardar.
       var tw=document.getElementById('tw');
-      if(tw&&tw.children.length===0) {chgTipo();addT();}
-      else {rebuilTarSelects();}
+      if(tw&&tw.children.length===0) { S.tc=0; chgTipo(); addT(); }
+      else { sincTareas(); rebuilTarSelects(); }
     }
     // Cargar cobros históricos en background para saldos
     fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'getCobrosHist'})})
@@ -5067,7 +5068,7 @@ function initReg(){
   if(!document.getElementById('tw').children.length){
     S.tc=0; chgTipo(); addT();
   } else {
-    rebuilTarSelects();
+    sincTareas(); rebuilTarSelects();
   }
   updSemLabel();
   renderLote();
@@ -5407,6 +5408,22 @@ function chkAux(){
   document.getElementById('alrt-aux').style.display=NOV_AUX.includes(nov)?'flex':'none';
 }
 
+// El contador de tareas tiene que ir a la par con las filas que hay en
+// pantalla. Cuando se desajustaba, el total salía en $0 y "Agregar al lote"
+// decía que no había tareas, aunque la tarea estuviera ahí llena.
+// Esta función lo vuelve a deducir de la pantalla, que es la única verdad.
+function sincTareas(){
+  var tw=document.getElementById('tw');
+  if(!tw){ S.tc=0; return 0; }
+  var max=0;
+  tw.querySelectorAll('.tarea').forEach(function(d){
+    var n=parseInt(String(d.id||'').replace(/[^0-9]/g,''))||0;
+    if(n>max) max=n;
+  });
+  S.tc=max;
+  return max;
+}
+
 function addT(){
   S.tc++;
   var n=S.tc;
@@ -5524,6 +5541,7 @@ function calcT(n){
 }
 
 function calcTots(){
+  sincTareas();   // el total se calcula sobre las tareas que de verdad hay
   var tp=0,tc=0;
   for(var i=1;i<=S.tc;i++){
     var lab=document.getElementById('lab'+i);
@@ -5576,6 +5594,7 @@ async function agregarAlLote(){
   if(!dia){msgR('⚠ Selecciona el día de trabajo','r');return;}
   var regs=[];
   if(tipo==='labor'){
+    sincTareas();   // por si algo desajustó el contador mientras llenaban
     var alim=parseFloat(document.getElementById('r-alim').value)||0;
     for(var i=1;i<=S.tc;i++){
       var lab=document.getElementById('lab'+i);
@@ -5675,14 +5694,14 @@ function limpiarForm(){
     b.style.background='';
     b.style.color='';
   });
+  // Limpiar observaciones ANTES de borrar las tareas, no después
+  for(var _i=1;_i<=S.tc;_i++){var _o=document.getElementById('obs'+_i);if(_o)_o.value='';}
   S.diaSel=null; S.tc=0;
   document.getElementById('tw').innerHTML='';
   document.getElementById('r-tipo').value='labor';
   document.getElementById('r-nov').value='';
   document.getElementById('r-obs').value='';
   document.getElementById('r-alim').value='';
-  // Limpiar observaciones de tareas
-  for(var _i=1;_i<=S.tc;_i++){var _o=document.getElementById('obs'+_i);if(_o)_o.value='';}
   document.getElementById('rmsg').style.display='none';
   document.getElementById('alrt-rend').style.display='none';
   document.getElementById('alrt-aux').style.display='none';
