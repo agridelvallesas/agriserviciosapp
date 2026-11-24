@@ -16398,6 +16398,214 @@ function ausExcel(){
   });
 }
 
+// ══════════════════════════════════════════
+// GRÁFICAS DE BARRAS AGRUPADAS — SVG, sin librerías
+// ------------------------------------------------------------
+// Se dibujan en SVG y no en canvas a propósito: salen nítidas al
+// imprimir y al exportar a PDF, heredan los colores del sistema y
+// no dependen de que cargue nada de internet.
+//
+// grafBarras({
+//   titulo:  'RETIROS',
+//   etiquetas: ['ENE','FEB',...],        // eje horizontal
+//   series: [ {nombre:'Norte', color:'#2563eb', datos:[12,3,...]},
+//             {nombre:'Sur',   color:'#dc2626', datos:[6,6,...]} ],
+//   alto: 240
+// })  →  cadena con el <svg> listo
+// ══════════════════════════════════════════
+function grafBarras(cfg){
+  var etq=cfg.etiquetas||[], ser=cfg.series||[];
+  if(!etq.length||!ser.length) return '';
+  var W=560, H=cfg.alto||240;
+  var mIzq=34, mDer=10, mArr=cfg.titulo?26:10, mAba=44;
+  var ancho=W-mIzq-mDer, alto=H-mArr-mAba;
+
+  // Escala: siempre arranca en cero y el tope se redondea a algo legible
+  var maxD=0;
+  ser.forEach(function(s){ (s.datos||[]).forEach(function(v){ if(v>maxD) maxD=v; }); });
+  if(maxD<=0) maxD=1;
+  // Si los datos son cuentas enteras (personas, días), el eje no puede tener
+  // decimales: "2.3 retiros" no significa nada.
+  var enteros=true;
+  ser.forEach(function(s){ (s.datos||[]).forEach(function(v){ if(v%1!==0) enteros=false; }); });
+  var paso, tope, nLineas;
+  if(enteros){
+    var cand=[1,2,5,10,20,25,50,100,200,250,500,1000,2000,5000];
+    for(var ci=0;ci<cand.length;ci++){ if(Math.ceil(maxD/cand[ci])<=6){ paso=cand[ci]; break; } }
+    if(!paso) paso=Math.ceil(maxD/6);
+    tope=Math.ceil(maxD/paso)*paso;
+    nLineas=Math.max(2, Math.round(tope/paso));
+  } else {
+    paso=Math.pow(10, Math.floor(Math.log(maxD)/Math.LN10));
+    if(maxD/paso<2) paso/=5; else if(maxD/paso<5) paso/=2;
+    tope=Math.ceil(maxD/paso)*paso;
+    nLineas=Math.max(2, Math.min(6, Math.round(tope/paso)));
+  }
+  var y=function(v){ return mArr+alto-(v/tope)*alto; };
+
+  var p=[];
+  if(cfg.titulo){
+    p.push('<text x="'+(W/2)+'" y="16" text-anchor="middle" font-size="13" font-weight="800" fill="#1f2937">'
+      +gcEsc(cfg.titulo)+'</text>');
+  }
+  // Líneas de referencia y números del eje
+  for(var i=0;i<=nLineas;i++){
+    var v=tope*i/nLineas, yy=y(v);
+    p.push('<line x1="'+mIzq+'" y1="'+yy.toFixed(1)+'" x2="'+(W-mDer)+'" y2="'+yy.toFixed(1)
+      +'" stroke="'+(i===0?'#94a3b8':'#e2e8f0')+'" stroke-width="1"/>');
+    p.push('<text x="'+(mIzq-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#64748b">'
+      +(Math.round(v*10)/10)+'</text>');
+  }
+  // Barras
+  var anchoGrupo=ancho/etq.length;
+  var sep=Math.min(10, anchoGrupo*0.18);
+  var anchoBarra=Math.max(3,(anchoGrupo-sep)/ser.length);
+  etq.forEach(function(e,gi){
+    var x0=mIzq+gi*anchoGrupo+sep/2;
+    ser.forEach(function(s,si){
+      var v=(s.datos&&s.datos[gi])||0;
+      var x=x0+si*anchoBarra, yv=y(v), h=mArr+alto-yv;
+      if(h>0.5){
+        p.push('<rect x="'+x.toFixed(1)+'" y="'+yv.toFixed(1)+'" width="'+(anchoBarra-1.5).toFixed(1)
+          +'" height="'+h.toFixed(1)+'" fill="'+s.color+'" rx="1.5"><title>'
+          +gcEsc(s.nombre+' · '+e+': '+v)+'</title></rect>');
+      }
+      if(v>0){
+        p.push('<text x="'+(x+(anchoBarra-1.5)/2).toFixed(1)+'" y="'+(yv-3).toFixed(1)
+          +'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+s.color+'">'+v+'</text>');
+      }
+    });
+    // Etiqueta del mes, partida en dos renglones si es larga
+    var cx=mIzq+gi*anchoGrupo+anchoGrupo/2;
+    var txt=String(e), corte=(txt.length>5&&anchoGrupo<52);
+    if(corte){
+      p.push('<text x="'+cx.toFixed(1)+'" y="'+(mArr+alto+13)+'" text-anchor="middle" font-size="9" fill="#475569">'
+        +gcEsc(txt.slice(0,4))+'</text>');
+      p.push('<text x="'+cx.toFixed(1)+'" y="'+(mArr+alto+23)+'" text-anchor="middle" font-size="9" fill="#475569">'
+        +gcEsc(txt.slice(4))+'</text>');
+    } else {
+      p.push('<text x="'+cx.toFixed(1)+'" y="'+(mArr+alto+14)+'" text-anchor="middle" font-size="9.5" fill="#475569">'
+        +gcEsc(txt)+'</text>');
+    }
+  });
+  // Convenciones
+  var lx=mIzq, ly=H-8;
+  ser.forEach(function(s){
+    p.push('<rect x="'+lx+'" y="'+(ly-8)+'" width="9" height="9" fill="'+s.color+'" rx="1.5"/>');
+    p.push('<text x="'+(lx+13)+'" y="'+ly+'" font-size="10" fill="#334155">'+gcEsc(s.nombre)+'</text>');
+    lx+=18+String(s.nombre).length*5.6;
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" '
+    +'role="img" aria-label="'+gcEsc((cfg.titulo||'Gráfica')+': '
+    +ser.map(function(s){return s.nombre+' '+(s.datos||[]).join(', ');}).join(' · '))+'">'
+    +p.join('')+'</svg>';
+}
+
+// ══════════════════════════════════════════
+// INGRESOS Y RETIROS — resumen mensual y gráficas
+// ══════════════════════════════════════════
+var IYR_MES_CORTO=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
+                   'AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+// Cuenta ingresos y retiros por mes y por sede dentro del rango consultado
+function iyrPorMes(filas, enRango, anio){
+  var m=[];
+  for(var i=0;i<12;i++) m.push({iN:0,iS:0,rN:0,rS:0});
+  filas.forEach(function(f){
+    var sede=String(f.sede||'').toUpperCase();
+    var esN=(sede==='NORTE'), esS=(sede==='SUR');
+    if(f.ingreso && enRango(f.ingreso)){
+      var pi=String(f.ingreso).split('-');
+      if(!anio || pi[0]===String(anio)){
+        var ki=parseInt(pi[1])-1;
+        if(ki>=0&&ki<12){ if(esN) m[ki].iN++; else if(esS) m[ki].iS++; }
+      }
+    }
+    if(f.retiro && enRango(f.retiro)){
+      var pr=String(f.retiro).split('-');
+      if(!anio || pr[0]===String(anio)){
+        var kr=parseInt(pr[1])-1;
+        if(kr>=0&&kr<12){ if(esN) m[kr].rN++; else if(esS) m[kr].rS++; }
+      }
+    }
+  });
+  return m;
+}
+
+function iyrPanel(filas, enRango, anio){
+  var m=iyrPorMes(filas, enRango, anio);
+  // Solo hasta el mes que tenga algo, para no dibujar meses vacíos del futuro
+  var ultimo=0;
+  m.forEach(function(x,i){ if(x.iN+x.iS+x.rN+x.rS>0) ultimo=i; });
+  var hasta=Math.max(ultimo, new Date().getMonth());
+  var vis=m.slice(0,hasta+1);
+  var etq=IYR_MES_CORTO.slice(0,hasta+1).map(function(x){return x.slice(0,3);});
+  if(!vis.length) return '';
+
+  var tot={iN:0,iS:0,rN:0,rS:0};
+  vis.forEach(function(x){ tot.iN+=x.iN; tot.iS+=x.iS; tot.rN+=x.rN; tot.rS+=x.rS; });
+
+  // ── Tabla mensual ──
+  var filasHtml=vis.map(function(x,i){
+    var ti=x.iN+x.iS, tr=x.rN+x.rS;
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--g1)">'+IYR_MES_CORTO[i]+'</td>'
+      +'<td style="text-align:center;color:#1d4ed8">'+x.iN+'</td>'
+      +'<td style="text-align:center;color:#1d4ed8">'+x.iS+'</td>'
+      +'<td style="text-align:center;font-weight:800;background:#eff6ff;color:#1e3a8a">'+ti+'</td>'
+      +'<td style="text-align:center;color:#b91c1c">'+x.rN+'</td>'
+      +'<td style="text-align:center;color:#b91c1c">'+x.rS+'</td>'
+      +'<td style="text-align:center;font-weight:800;background:#fef2f2;color:#991b1b">'+tr+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(ti-tr>=0?'var(--v)':'var(--r)')+'">'
+        +((ti-tr)>0?'+':'')+(ti-tr)+'</td></tr>';
+  }).join('');
+
+  var tabla='<div class="tw"><table style="font-size:12.5px"><thead>'
+    +'<tr><th rowspan="2" style="vertical-align:bottom">Mes</th>'
+      +'<th colspan="3" style="text-align:center;background:#dbeafe;color:#1e3a8a">INGRESOS</th>'
+      +'<th colspan="3" style="text-align:center;background:#fee2e2;color:#991b1b">RETIROS</th>'
+      +'<th rowspan="2" style="vertical-align:bottom;text-align:center">Neto</th></tr>'
+    +'<tr><th style="text-align:center">Norte</th><th style="text-align:center">Sur</th>'
+      +'<th style="text-align:center">Total</th>'
+      +'<th style="text-align:center">Norte</th><th style="text-align:center">Sur</th>'
+      +'<th style="text-align:center">Total</th></tr></thead><tbody>'
+    +filasHtml
+    +'</tbody><tfoot><tr style="background:var(--gf);font-weight:800">'
+      +'<td>TOTAL</td>'
+      +'<td style="text-align:center;color:#1d4ed8">'+tot.iN+'</td>'
+      +'<td style="text-align:center;color:#1d4ed8">'+tot.iS+'</td>'
+      +'<td style="text-align:center;background:#dbeafe;color:#1e3a8a">'+(tot.iN+tot.iS)+'</td>'
+      +'<td style="text-align:center;color:#b91c1c">'+tot.rN+'</td>'
+      +'<td style="text-align:center;color:#b91c1c">'+tot.rS+'</td>'
+      +'<td style="text-align:center;background:#fee2e2;color:#991b1b">'+(tot.rN+tot.rS)+'</td>'
+      +'<td style="text-align:center;color:'+((tot.iN+tot.iS-tot.rN-tot.rS)>=0?'var(--v)':'var(--r)')+'">'
+        +(((tot.iN+tot.iS-tot.rN-tot.rS))>0?'+':'')+(tot.iN+tot.iS-tot.rN-tot.rS)+'</td>'
+    +'</tr></tfoot></table></div>';
+
+  // ── Las cuatro gráficas ──
+  var AZ='#2563eb', RJ='#dc2626';
+  var g=function(t,s){ return '<div class="card" style="padding:10px;margin:0">'
+      +grafBarras({titulo:t, etiquetas:etq, series:s, alto:230})+'</div>'; };
+
+  var graficas='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin-top:12px">'
+    + g('INGRESOS', [{nombre:'Norte',color:AZ,datos:vis.map(function(x){return x.iN;})},
+                     {nombre:'Sur',  color:RJ,datos:vis.map(function(x){return x.iS;})}])
+    + g('RETIROS',  [{nombre:'Norte',color:AZ,datos:vis.map(function(x){return x.rN;})},
+                     {nombre:'Sur',  color:RJ,datos:vis.map(function(x){return x.rS;})}])
+    + g('INGRESOS vs RETIROS — NORTE',
+        [{nombre:'Ingresos',color:AZ,datos:vis.map(function(x){return x.iN;})},
+         {nombre:'Retiros', color:RJ,datos:vis.map(function(x){return x.rN;})}])
+    + g('INGRESOS vs RETIROS — SUR',
+        [{nombre:'Ingresos',color:AZ,datos:vis.map(function(x){return x.iS;})},
+         {nombre:'Retiros', color:RJ,datos:vis.map(function(x){return x.rS;})}])
+    +'</div>';
+
+  return '<div class="card" style="margin-bottom:12px">'
+    +'<div class="ct"><svg class="ict"><use href="#i-chart-column"/></svg> Movimiento por mes'
+      +(anio?(' — '+anio):'')+'</div>'
+    +tabla+graficas+'</div>';
+}
+
 function iyrInit(){
   var sel=document.getElementById('iyr-anio');
   if(sel && !sel.options.length){
@@ -16531,7 +16739,9 @@ function iyrRender(){
   } else {
     cuerpo=filas.map(iyrFila).join('');
   }
-  cont.innerHTML=diag+avisoSin+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table'+(agrupar?'':' class="ordenable"')+' id="iyr-t"><thead><tr>'
+  var anioSel=(document.getElementById('iyr-anio')||{}).value||'';
+  var panel=iyrPanel(filas, enRango, anioSel);
+  cont.innerHTML=diag+avisoSin+panel+'<div class="card"><div class="tw" style="max-height:64vh;overflow:auto"><table'+(agrupar?'':' class="ordenable"')+' id="iyr-t"><thead><tr>'
     +'<th>Cédula</th><th>Trabajador</th><th>Fecha de ingreso</th><th>Fecha de retiro</th>'
     +'<th>Sede</th><th>Tipo</th><th>Motivo del retiro</th><th>Estado</th></tr></thead><tbody>'
     +cuerpo+'</tbody></table></div></div>';
