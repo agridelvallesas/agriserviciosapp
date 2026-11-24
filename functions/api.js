@@ -288,12 +288,78 @@ async function mapaTarifaDesc(env) {
 //  Semana 1 = lunes 29 dic 2025. Se trabaja en UTC para no desfasar días.
 // ---------------------------------------------------------------------
 const DIAS_OFFSET = { L: 0, M: 1, MI: 2, J: 3, V: 4, S: 5, D: 6 };
-const FESTIVOS_2026 = new Set(['1/1','12/1','23/3','2/4','3/4','1/5','18/5','8/6','15/6','29/6','20/7','7/8','17/8','12/10','2/11','16/11','8/12','25/12']);
-function fechaDeSemanaDia(sem, dia) {
+// Festivos por año, con fecha completa. Antes estaban como 'día/mes' sin año,
+// lo que servía en 2026 pero habría dado festivos corridos en 2027, porque los
+// trasladables (Ley Emiliani) caen en fecha distinta cada año.
+const FESTIVOS = new Set([
+  '2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03','2026-05-01',
+  '2026-05-18','2026-06-08','2026-06-15','2026-06-29','2026-07-13','2026-07-20',
+  '2026-08-07','2026-08-17','2026-10-12','2026-11-02','2026-11-16','2026-12-08',
+  '2026-12-25',
+  '2027-01-01','2027-01-11','2027-03-22','2027-03-25','2027-03-26','2027-05-01',
+  '2027-05-10','2027-05-31','2027-06-07','2027-07-05','2027-07-12','2027-07-20',
+  '2027-08-07','2027-08-16','2027-10-18','2027-11-01','2027-11-15','2027-12-08',
+  '2027-12-25'
+]);
+function esFestivoISO(iso) { return FESTIVOS.has(String(iso).slice(0, 10)); }
+// ── Calendario de semanas, por año ──────────────────────────────────────
+// El arranque de cada año vive en la tabla calendario_anios. Estos valores
+// son el respaldo: si la tabla no se puede leer, el sistema sigue andando.
+const CAL_DEFECTO = {
+  2026: { ancla: Date.UTC(2025, 11, 29), semanas: 52 },
+  2027: { ancla: Date.UTC(2026, 11, 28), semanas: 52 },
+};
+let CAL_ANIOS = Object.assign({}, CAL_DEFECTO);
+let CAL_LEIDO = 0;   // cuándo se leyó la tabla por última vez
+
+// Lee la tabla y mezcla lo que encuentre sobre los valores de respaldo.
+// Se guarda un minuto en memoria para no consultar en cada operación.
+async function cargarCalendario(env) {
+  if (Date.now() - CAL_LEIDO < 60000) return CAL_ANIOS;
+  try {
+    const filas = await sb(env, 'calendario_anios?select=anio,lunes_sem1,num_semanas');
+    const nuevo = Object.assign({}, CAL_DEFECTO);
+    for (const f of filas) {
+      const a = parseInt(f.anio);
+      if (!a || !f.lunes_sem1) continue;
+      const p = String(f.lunes_sem1).slice(0, 10).split('-').map(Number);
+      nuevo[a] = { ancla: Date.UTC(p[0], p[1] - 1, p[2]), semanas: parseInt(f.num_semanas) || 52 };
+    }
+    CAL_ANIOS = nuevo;
+    CAL_LEIDO = Date.now();
+  } catch (e) { /* se sigue con los valores de respaldo */ }
+  return CAL_ANIOS;
+}
+
+function anclaDeAnio(anio) {
+  const c = CAL_ANIOS[parseInt(anio)];
+  return c ? c.ancla : CAL_ANIOS[2026].ancla;
+}
+// Año al que pertenece una fecha según el calendario de semanas.
+// No es el año del calendario común: la semana 01 de 2027 arranca en diciembre.
+function anioDeFecha(fecha) {
+  const d = (fecha instanceof Date) ? fecha : new Date(String(fecha).slice(0, 10) + 'T12:00:00Z');
+  const ts = d.getTime();
+  const anios = Object.keys(CAL_ANIOS).map(Number).sort((x, y) => y - x);
+  for (const a of anios) if (ts >= CAL_ANIOS[a].ancla) return a;
+  return anios[anios.length - 1];
+}
+function fechaDeSemanaDia(sem, dia, anio) {
   const s = parseInt(sem, 10) || 1;
   const off = DIAS_OFFSET[dia] !== undefined ? DIAS_OFFSET[dia] : 0;
-  const base = Date.UTC(2025, 11, 29); // lunes 29 dic 2025
-  return new Date(base + ((s - 1) * 7 + off) * 86400000);
+  return new Date(anclaDeAnio(anio || anioDeFecha(new Date())) + ((s - 1) * 7 + off) * 86400000);
+}
+// Inverso: de una fecha a su año y su semana. Única definición en el servidor.
+function anioSemanaDeFecha(fecha) {
+  const d = (fecha instanceof Date) ? fecha : new Date(String(fecha).slice(0, 10) + 'T12:00:00Z');
+  const anio = anioDeFecha(d);
+  return { anio, semana: Math.floor((d.getTime() - anclaDeAnio(anio)) / (7 * 86400000)) + 1 };
+}
+function semanaDeFecha(fecha) { return anioSemanaDeFecha(fecha).semana; }
+// Código del día de la semana que usa el sistema
+function diaDeFecha(fecha) {
+  const d = (fecha instanceof Date) ? fecha : new Date(String(fecha).slice(0, 10) + 'T12:00:00Z');
+  return ['D', 'L', 'M', 'MI', 'J', 'V', 'S'][d.getUTCDay()];
 }
 function isoDate(d) {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD para columnas date
@@ -303,10 +369,10 @@ function ddmmyyyy(iso) {
   const p = String(iso).slice(0, 10).split('-');
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso);
 }
-function esDomFest(sem, dia) {
-  const d = fechaDeSemanaDia(sem, dia);
+function esDomFest(sem, dia, anio) {
+  const d = fechaDeSemanaDia(sem, dia, anio);
   if (d.getUTCDay() === 0) return true; // domingo
-  return FESTIVOS_2026.has(`${d.getUTCDate()}/${d.getUTCMonth() + 1}`);
+  return esFestivoISO(d.toISOString().slice(0, 10));
 }
 
 // ---------------------------------------------------------------------
@@ -336,10 +402,17 @@ async function accionLogin(body, env) {
 // ---------------------------------------------------------------------
 async function accionGetDatos(body, env) {
   const sede = body && body.sede ? String(body.sede).trim().toUpperCase() : '';
+  await cargarCalendario(env);   // el navegador lo necesita para calcular fechas
   const [empleados, tarifas, coordinadores, quincenas] = await Promise.all([
     getEmpleados(sede, env), getTarifas(sede, env), getCoordinadores(env), getQuincenas(env),
   ]);
-  return { ok: true, empleados, tarifas, coordinadores, quincenas };
+  // Calendario de semanas por año, para que el navegador use el mismo ancla
+  const calendario = Object.keys(CAL_ANIOS).map((k) => ({
+    anio: parseInt(k),
+    ancla: new Date(CAL_ANIOS[k].ancla).toISOString().slice(0, 10),
+    semanas: CAL_ANIOS[k].semanas,
+  }));
+  return { ok: true, empleados, tarifas, coordinadores, quincenas, calendario };
 }
 async function getEmpleados(sede, env) {
   const filas = await sb(env, 'trabajadores?select=cedula,nombres,sede');
@@ -400,15 +473,18 @@ async function accionGuardar(body, env) {
   const registros = body.registros || [];
   if (!registros.length) return { ok: false, error: 'No hay registros que guardar' };
 
+  await cargarCalendario(env);
   const coordMap = await mapaCoordPorNombre(env);
   const ahora = new Date().toISOString();
+  const anioPorDefecto = anioDeFecha(new Date());
   const filas = registros.map((r) => ({
     id: crypto.randomUUID().slice(0, 18),
     coordinador_id: coordMap.get(String(r.coord || '').trim().toUpperCase()) || null,
+    anio: parseInt(r.anio) || anioPorDefecto,
     semana: parseInt(r.sem) || null,
     cedula: parseInt(String(r.ced || '').replace(/,/g, '')) || null,
     dia: r.dia || '',
-    fecha: isoDate(fechaDeSemanaDia(r.sem, r.dia)),
+    fecha: isoDate(fechaDeSemanaDia(r.sem, r.dia, parseInt(r.anio) || anioPorDefecto)),
     tipo: r.tipo || 'labor',
     id_labor: r.labId || '',
     unidad: r.u || '',
@@ -421,7 +497,7 @@ async function accionGuardar(body, env) {
     es_vigilancia: !!r.esVig,
     vig_hd: r.vigHd || 0,
     vig_hn: r.vigHn || 0,
-    dom_fest: esDomFest(r.sem, r.dia),   // recalculado por fecha real
+    dom_fest: esDomFest(r.sem, r.dia, parseInt(r.anio) || anioPorDefecto),   // recalculado por fecha real
     cobro_vigilancia: r.cobroVig || 0,
     obs_tarea: r.obsTarea || '',
     fecha_registro: ahora,
@@ -528,6 +604,7 @@ async function accionVerificarDuplicado(body, env) {
 
 // EDITAR REGISTRO — actualiza por id
 async function accionEditarReg(body, env) {
+  await cargarCalendario(env);
   const id = String(body.id || '').trim();
   if (!id) return { ok: false, error: 'Registro no encontrado' };
   const coordMap = await mapaCoordPorNombre(env);
@@ -536,7 +613,8 @@ async function accionEditarReg(body, env) {
     semana: parseInt(body.sem) || null,
     cedula: parseInt(String(body.ced || '').replace(/,/g, '')) || null,
     dia: body.dia || '',
-    fecha: isoDate(fechaDeSemanaDia(body.sem, body.dia)),
+    anio: parseInt(body.anio) || anioDeFecha(new Date()),
+    fecha: isoDate(fechaDeSemanaDia(body.sem, body.dia, parseInt(body.anio) || anioDeFecha(new Date()))),
     tipo: body.tipo || 'labor',
     id_labor: body.labId || '',
     unidad: body.u || '',
@@ -617,12 +695,11 @@ async function sbAll(env, path, pageSize = 1000) {
 }
 
 // COBERTURA DE SEMANAS — qué días subió cada coordinador vs los esperados
-// (usa la lista de festivos CORRECTA de Colombia 2026)
-const FESTIVOS_COBERTURA = new Set(['1/1','12/1','23/3','2/4','3/4','1/5','18/5','8/6','15/6','29/6','20/7','7/8','17/8','12/10','2/11','16/11','8/12','25/12']);
+// Usa la misma lista de festivos que el resto del servidor, para que no se
+// desfasen entre sí. Antes había dos listas separadas y ambas incompletas.
 async function accionCoberturaSemanas(body, env) {
   const desde = parseInt(body && body.semDesde) || 17;
-  const SEM1 = Date.UTC(2025, 11, 29);
-  let semActual = Math.floor((Date.now() - SEM1) / (7 * 86400000)) + 1;
+  let semActual = semanaDeFecha(new Date());
   if (semActual < desde) semActual = desde;
 
   // 1) Todos los coordinadores del maestro
@@ -658,12 +735,11 @@ async function accionCoberturaSemanas(body, env) {
   const offset = { L: 0, M: 1, MI: 2, J: 3, V: 4, S: 5 };
   const semanas = [];
   for (let sn = desde; sn <= semActual; sn++) {
-    const lunes = SEM1 + (sn - 1) * 7 * 86400000;
+    const lunes = anclaDeAnio(anioDeFecha(new Date())) + (sn - 1) * 7 * 86400000;
     const exp = [], fest = [];
     for (const cod of codigos) {
       const f = new Date(lunes + offset[cod] * 86400000);
-      const etq = f.getUTCDate() + '/' + (f.getUTCMonth() + 1);
-      if (FESTIVOS_COBERTURA.has(etq)) fest.push(cod); else exp.push(cod);
+      if (esFestivoISO(f.toISOString().slice(0, 10))) fest.push(cod); else exp.push(cod);
     }
     semanas.push({ n: sn, exp, fest });
   }
@@ -2691,7 +2767,7 @@ function ausDiasHabiles(desde, hasta) {
   const fin = new Date(hasta + 'T12:00:00Z');
   while (d <= fin) {
     const dow = d.getUTCDay();                       // 0 = domingo
-    if (dow !== 0 && !FESTIVOS_2026.has(`${d.getUTCDate()}/${d.getUTCMonth() + 1}`)) {
+    if (dow !== 0 && !esFestivoISO(d.toISOString().slice(0, 10))) {
       out.push(d.toISOString().slice(0, 10));
     }
     d.setUTCDate(d.getUTCDate() + 1);
@@ -2880,7 +2956,7 @@ async function accionDetalleAusentismo(body, env) {
   while (d <= fin) {
     const f = d.toISOString().slice(0, 10);
     const dow = d.getUTCDay();
-    const esFestivo = FESTIVOS_2026.has(`${d.getUTCDate()}/${d.getUTCMonth() + 1}`);
+    const esFestivo = esFestivoISO(f);
     const fuera = (ing && f < ing) || (ret && f > ret);
     let estado, nota = '';
     if (dow === 0) { estado = 'DOMINGO'; }
@@ -2915,12 +2991,15 @@ async function accionClasificarDia(body, env) {
   const nov = String(body.novedad || '').trim().toUpperCase();
   if (!ced || !fecha || !nov) return { ok: false, error: 'Faltan datos del día' };
 
-  // Semana y día de la semana que corresponden a esa fecha
-  const d = new Date(fecha + 'T12:00:00Z');
-  const DIAS = ['D', 'L', 'M', 'MI', 'J', 'V', 'S'];
-  const dia = DIAS[d.getUTCDay()];
-  const inicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const semana = Math.ceil((((d - inicio) / 86400000) + inicio.getUTCDay() + 1) / 7);
+  // Semana y día que corresponden a esa fecha, con la MISMA regla del resto
+  // del sistema. Antes aquí se calculaba la semana con una fórmula genérica
+  // que arrancaba el 1 de enero y contaba de domingo a sábado: los sábados y
+  // domingos quedaban una semana corrida.
+  await cargarCalendario(env);
+  const dia = diaDeFecha(fecha);
+  const sm = anioSemanaDeFecha(fecha);
+  const semana = sm.semana;
+  const anio = sm.anio;
 
   // No duplicar: si ya hay algo registrado ese día, se informa
   const ya = await sb(env, `detalle_dia?select=id,tipo,novedad&cedula=eq.${ced}&fecha=eq.${fecha}&limit=1`);
@@ -2936,14 +3015,14 @@ async function accionClasificarDia(body, env) {
   await sbWrite(env, 'POST', 'detalle_dia', {
     id: crypto.randomUUID().slice(0, 18),
     coordinador_id: coordId,
-    semana, cedula: ced, dia, fecha,
+    anio, semana, cedula: ced, dia, fecha,
     tipo: 'novedad', id_labor: '', unidad: '', cantidad: 0,
     pago_trabajador: 0, cobro_riopaila: 0, auxilio_alim: 0,
     novedad: nov,
     observacion: String(body.observacion || 'Clasificado desde el informe de ausentismo'),
     fecha_registro: new Date().toISOString(),
   });
-  return { ok: true, semana, dia };
+  return { ok: true, anio, semana, dia };
 }
 
 
