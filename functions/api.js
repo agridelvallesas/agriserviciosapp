@@ -87,8 +87,23 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!PORTADAS.has(accion)) return await reenviarLegacy(body, env);
 
+    // ── sesión ──────────────────────────────────────────────────
+    // El rol sale del token firmado, nunca de lo que diga el navegador.
+    if (!SIN_SESION.has(accion)) {
+      const ses = await leerSesion(body.tk, env);
+      if (ses) {
+        body._ses = ses;
+      } else if (authModo(env) === 'exigir') {
+        return json({
+          ok: false, cod: 'SESION_INVALIDA',
+          error: 'Su sesión venció o no ha iniciado sesión. Vuelva a entrar.',
+        });
+      }
+      // en modo 'aviso' sigue sin token, para poder desplegar sin tumbar la app
+    }
+
     let r;
-    if      (accion === 'version')            r = accionVersion();
+    if      (accion === 'version')            r = accionVersion(env);
     if      (accion === 'login')              r = await accionLogin(body, env);
     else if (accion === 'getDatos')           r = await accionGetDatos(body, env);
     else if (accion === 'guardar')            r = await accionGuardar(body, env);
@@ -431,7 +446,16 @@ async function accionLogin(body, env) {
     const c = filas.find((r) => String(r.nombre || '').trim().toUpperCase() === usuario);
     adminCampo = c ? String(c.administrador || '').trim() : '';
   }
-  return { ok: true, usuario: u.usuario, rol, adminCampo, sede: String(u.sede || 'TODAS').trim().toUpperCase() };
+  const salida = {
+    ok: true, usuario: u.usuario, rol, adminCampo,
+    sede: String(u.sede || 'TODAS').trim().toUpperCase(),
+  };
+  salida.tk = await firmarSesion(salida, env);
+  if (!salida.tk) {
+    // sin AUTH_SECRET no se puede firmar: se avisa en vez de fallar en silencio
+    salida.aviso_sesion = 'Falta configurar AUTH_SECRET en Cloudflare: la sesión no queda protegida.';
+  }
+  return salida;
 }
 
 // ---------------------------------------------------------------------
@@ -3301,10 +3325,19 @@ const ENC_A_TRAB = {
   talla_impermeable: 'talla_impermeable',
 };
 
+// El rol se toma de la sesión firmada. Antes salía de body.rol, que lo
+// manda el navegador: bastaba con decir "soy SST" para ver la salud.
 function encVeSalud(body) {
-  const rol = String((body && body.rol) || '').trim().toLowerCase();
-  const usr = String((body && body.usuario) || '').trim().toUpperCase();
+  const ses = body && body._ses;
+  const rol = String((ses ? ses.rol : (body && body.rol)) || '').trim().toLowerCase();
+  const usr = String((ses ? ses.usuario : (body && body.usuario)) || '').trim().toUpperCase();
   return rol === 's' || rol === 'sst' || usr === 'ADMIN';
+}
+
+// Quién hizo la acción: de la sesión firmada si la hay.
+function encUsuario(body) {
+  const ses = body && body._ses;
+  return String((ses ? ses.usuario : (body && body.usuario)) || '');
 }
 
 function encLimpiaTexto(v) {
@@ -4163,6 +4196,105 @@ async function accionEncuestaRevisar(body, env) {
 }
 
 // =====================================================================
+// SESIONES
+// ---------------------------------------------------------------------
+// Antes de esto el login era solo una pantalla: comprobaba la clave y
+// devolvía el rol, pero ninguna acción verificaba nada. Cualquiera que
+// conociera la dirección /api podía pedir los trabajadores, la nómina o
+// las encuestas sin usuario ni clave.
+//
+// Ahora el login entrega un token firmado y cada acción lo exige. El rol
+// viaja DENTRO del token firmado, así que ya no sirve que el navegador
+// diga "soy SST" para ver los datos de salud.
+//
+// Variables de entorno (Cloudflare → Settings → Variables):
+//   AUTH_SECRET  (secreta)  cualquier texto largo y aleatorio
+//   AUTH_MODO               'aviso' mientras se despliega, 'exigir' después
+// =====================================================================
+
+// Las únicas que no piden sesión.
+// Las encPub* las protege el token de la jornada, que valida la base.
+const SIN_SESION = new Set([
+  'login', 'version',
+  'encPubAbrir', 'encPubGuardar', 'encPubEnviar',
+]);
+
+const SESION_HORAS = 12;
+
+function authModo(env) {
+  const m = String((env && env.AUTH_MODO) || '').trim().toLowerCase();
+  return m === 'exigir' ? 'exigir' : 'aviso';
+}
+
+function b64uDe(bytes) {
+  let s = '';
+  const b = new Uint8Array(bytes);
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64uA(txt) {
+  let s = String(txt).replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+}
+
+// La clave se guarda en caché atada AL SECRETO que la generó. Si se
+// guardara suelta, un token firmado con otro secreto se daría por bueno
+// y rotar AUTH_SECRET no invalidaría los tokens viejos.
+let _claveAuth = null;
+let _claveAuthDe = null;
+async function claveAuth(env) {
+  const secreto = env && env.AUTH_SECRET ? String(env.AUTH_SECRET) : '';
+  if (!secreto) return null;
+  if (_claveAuth && _claveAuthDe === secreto) return _claveAuth;
+  _claveAuth = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secreto),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']
+  );
+  _claveAuthDe = secreto;
+  return _claveAuth;
+}
+
+async function firmarSesion(datos, env) {
+  const k = await claveAuth(env);
+  if (!k) return '';
+  const carga = {
+    u: String(datos.usuario || ''),
+    r: String(datos.rol || ''),
+    a: String(datos.adminCampo || ''),
+    s: String(datos.sede || ''),
+    exp: Date.now() + SESION_HORAS * 3600 * 1000,
+  };
+  const txt = b64uDe(new TextEncoder().encode(JSON.stringify(carga)));
+  const firma = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(txt));
+  return txt + '.' + b64uDe(firma);
+}
+
+// Devuelve los datos de la sesión, o null si el token falta, está mal
+// firmado o ya venció.
+async function leerSesion(tk, env) {
+  if (!tk || typeof tk !== 'string' || tk.indexOf('.') < 0) return null;
+  const k = await claveAuth(env);
+  if (!k) return null;
+  const partes = tk.split('.');
+  if (partes.length !== 2) return null;
+  let valida = false;
+  try {
+    valida = await crypto.subtle.verify('HMAC', k, b64uA(partes[1]),
+      new TextEncoder().encode(partes[0]));
+  } catch (_) { return null; }
+  if (!valida) return null;
+  let carga;
+  try { carga = JSON.parse(new TextDecoder().decode(b64uA(partes[0]))); }
+  catch (_) { return null; }
+  if (!carga || !carga.exp || Date.now() > carga.exp) return null;
+  return { usuario: carga.u, rol: carga.r, adminCampo: carga.a, sede: carga.s, exp: carga.exp };
+}
+
+// =====================================================================
 // VERSION — para saber que api.js esta vivo en el servidor.
 // Desde la consola del navegador:
 //   fetch('/api',{method:'POST',body:JSON.stringify({accion:'version'})})
@@ -4212,12 +4344,13 @@ const API_MODULOS = [
   'nomina', 'facturacion', 'rrhh', 'vacaciones', 'inventario-sst',
   'calendario-por-anio', 'encuesta-sociodemografica',
 ];
-function accionVersion() {
+function accionVersion(env) {
   return {
     ok: true,
     version: API_VERSION,
     modulos: API_MODULOS,
     acciones: ACCIONES_CONOCIDAS,
+    sesiones: (env && env.AUTH_SECRET) ? authModo(env) : 'SIN AUTH_SECRET',
     servidor: new Date().toISOString(),
   };
 }
