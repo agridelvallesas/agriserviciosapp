@@ -25712,7 +25712,22 @@ function encCargar(){
   var anio = (document.getElementById('enc-anio')||{}).value || '';
   var tipo = (document.getElementById('enc-tipo')||{}).value || '';
   encPost({accion:'getEncuestas', anio:anio, tipo:tipo}).then(function(d){
-    if(!d || !d.ok){ if(cont) cont.innerHTML = '<div class="card" style="color:var(--r)">No se pudieron cargar las encuestas: '+((d&&d.error)||'?')+'</div>'; return; }
+    if(!d || !d.ok){
+      var err = (d && d.error) || '?';
+      if(cont){
+        cont.innerHTML = (String(err).indexOf('Acci') >= 0 && String(err).indexOf('desconocida') >= 0)
+          ? '<div class="card" style="border-left:3px solid #b45309">'
+            + '<div style="font-weight:700;color:#b45309;display:flex;align-items:center;gap:7px">'
+            + '<svg class="ict"><use href="#i-triangle-alert"/></svg> Falta subir el api.js</div>'
+            + '<div style="font-size:12.5px;color:var(--g2);margin-top:6px">'
+            + 'La página nueva ya está, pero el servidor todavía corre el api.js anterior y no conoce esta sección.<br><br>'
+            + 'Revise que el archivo haya quedado en <code>functions/api.js</code>, que el despliegue de Cloudflare '
+            + 'haya terminado, y recargue con Ctrl+Shift+R.</div>'
+            + '<div style="font-size:11px;color:var(--g3);margin-top:8px">Respuesta del servidor: '+encEsc(err)+'</div></div>'
+          : '<div class="card" style="color:var(--r)">No se pudieron cargar las encuestas: '+encEsc(err)+'</div>';
+      }
+      return;
+    }
     ENC_ROWS = d.data || [];
     encRender();
   }).catch(function(e){
