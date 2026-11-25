@@ -64,6 +64,12 @@ const PORTADAS = new Set([
   'getIncapacidades', 'guardarIncapacidad', 'eliminarIncapacidad', 'buscarCie10', 'informeIncapacidades',
   'revisarIncapacidad',
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
+  // Módulo SST — Encuesta sociodemográfica:
+  'getEncuestas', 'getEncuesta', 'getEncuestaHistorial', 'getEncuestasResumen',
+  'guardarEncuesta', 'editarEncuesta', 'eliminarEncuesta',
+  'encuestaComparar', 'encuestaAplicar',
+  // Diagnóstico: qué api.js está vivo
+  'version',
 ]);
 
 export async function onRequestPost({ request, env }) {
