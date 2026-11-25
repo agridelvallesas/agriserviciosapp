@@ -68,6 +68,9 @@ const PORTADAS = new Set([
   'getEncuestas', 'getEncuesta', 'getEncuestaHistorial', 'getEncuestasResumen',
   'guardarEncuesta', 'editarEncuesta', 'eliminarEncuesta',
   'encuestaComparar', 'encuestaAplicar',
+  // Consolidado de nómina (lo último que salía hacia Apps Script):
+  'getNominaQna', 'guardarNominaQna',
+  'getConceptosNom', 'guardarConceptoNom', 'eliminarConceptoNom',
   // Diagnóstico: qué api.js está vivo
   'version',
 ]);
@@ -176,6 +179,11 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'encuestaComparar')     r = await accionEncuestaComparar(body, env);
     else if (accion === 'encuestaAplicar')      r = await accionEncuestaAplicar(body, env);
     else if (accion === 'getEncuestasResumen')  r = await accionGetEncuestasResumen(body, env);
+    else if (accion === 'getNominaQna')         r = await accionGetNominaQna(body, env);
+    else if (accion === 'guardarNominaQna')     r = await accionGuardarNominaQna(body, env);
+    else if (accion === 'getConceptosNom')      r = await accionGetConceptosNom(body, env);
+    else if (accion === 'guardarConceptoNom')   r = await accionGuardarConceptoNom(body, env);
+    else if (accion === 'eliminarConceptoNom')  r = await accionEliminarConceptoNom(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
@@ -3625,6 +3633,175 @@ async function accionGetEncuestasResumen(body, env) {
 }
 
 // =====================================================================
+// CONSOLIDADO DE NÓMINA — conceptos manuales
+// ---------------------------------------------------------------------
+// Las últimas cinco acciones que seguían saliendo hacia Apps Script
+// contra una hoja de Google. Ahora van contra Supabase.
+// =====================================================================
+
+// Lee un valor de dinero. En Colombia el punto separa miles y la coma
+// decimales, al reves de como lo lee parseFloat: sin esto, '$ 1.250.000'
+// se volveria 1,25 y dañaria una liquidacion sin que nadie lo note.
+// La pantalla manda un numero de verdad; esto es para el cargue del
+// historico y para cualquier llamada que traiga texto.
+function nomNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+
+  let t = String(v).trim().replace(/[^\d.,\-]/g, '');
+  if (!t || t === '-') return 0;
+
+  const neg = t.indexOf('-') === 0;
+  t = t.replace(/-/g, '');
+
+  const punto = t.lastIndexOf('.');
+  const coma  = t.lastIndexOf(',');
+
+  if (punto >= 0 && coma >= 0) {
+    // el que va de ultimo es el decimal; el otro separa miles
+    if (coma > punto) t = t.replace(/\./g, '').replace(',', '.');
+    else              t = t.replace(/,/g, '');
+  } else if (coma >= 0) {
+    // solo coma: decimal a la colombiana  (1,5 -> 1.5)
+    t = t.replace(/,/g, '.');
+  } else if (punto >= 0) {
+    // solo punto: 1.250.000 y 1.250 son miles; 1.25 es decimal
+    const partes = t.split('.');
+    const ultima = partes[partes.length - 1];
+    if (partes.length > 2 || ultima.length === 3) t = partes.join('');
+  }
+
+  const n = parseFloat(t);
+  if (!isFinite(n)) return 0;
+  return neg ? -n : n;
+}
+function nomCed(v) {
+  const d = String(v === null || v === undefined ? '' : v).replace(/\D/g, '');
+  return d ? parseInt(d, 10) : 0;
+}
+function nomTxt(v) {
+  const s = String(v === null || v === undefined ? '' : v).trim();
+  return s === '' ? null : s;
+}
+
+// --------------------------------------------------------------
+// Los valores digitados de una quincena.
+// Devuelve [{cedula, concepto, valor}] — la misma forma que
+// entregaba Apps Script, para que la pantalla no cambie.
+// --------------------------------------------------------------
+async function accionGetNominaQna(body, env) {
+  const qna = nomTxt(body && body.qna);
+  if (!qna) return { ok: false, error: 'Falta la quincena' };
+  const filas = await sbAll(env,
+    'nomina_qna?select=cedula,concepto,valor&qna=eq.' + encodeURIComponent(qna));
+  return {
+    ok: true,
+    data: filas.map((f) => ({
+      cedula: String(f.cedula),
+      concepto: String(f.concepto || ''),
+      valor: Number(f.valor) || 0,
+    })),
+  };
+}
+
+// --------------------------------------------------------------
+// Guardado automático de la pantalla.
+// Llega un lote: {conceptos: {clave: {cedula, concepto, valor}}}
+//
+// Va por upsert sobre (qna, cedula, concepto). Eso es lo que hace
+// que un reintento tras un fallo de red reescriba en vez de duplicar.
+// --------------------------------------------------------------
+async function accionGuardarNominaQna(body, env) {
+  const qna = nomTxt(body && body.qna);
+  if (!qna) return { ok: false, error: 'Falta la quincena' };
+
+  const entrada = body.conceptos;
+  const lista = Array.isArray(entrada)
+    ? entrada
+    : (entrada && typeof entrada === 'object') ? Object.values(entrada) : [];
+  if (!lista.length) return { ok: false, error: 'Nada que guardar' };
+
+  const usuario = String(body.usuario || '');
+  const ahora = new Date().toISOString();
+
+  // Si el mismo lote trae dos veces la misma celda, se queda la última:
+  // un upsert con claves repetidas lo rechaza entero.
+  const porClave = new Map();
+  for (const c of lista) {
+    const ced = nomCed(c && c.cedula);
+    const con = nomTxt(c && c.concepto);
+    if (!ced || !con) continue;
+    porClave.set(ced + '|' + con, {
+      qna: qna,
+      cedula: ced,
+      concepto: con,
+      valor: nomNum(c.valor),
+      usuario: usuario,
+      actualizado_en: ahora,
+    });
+  }
+  const filas = [...porClave.values()];
+  if (!filas.length) return { ok: false, error: 'Ninguna celda válida en el lote' };
+
+  await sbUpsert(env, 'nomina_qna', filas, 'qna,cedula,concepto');
+  return { ok: true, guardados: filas.length };
+}
+
+// --------------------------------------------------------------
+// Los conceptos personalizados: [{k, n, cat}]
+// --------------------------------------------------------------
+async function accionGetConceptosNom(body, env) {
+  const filas = await sbAll(env, 'conceptos_nom?select=k,n,cat,orden&order=orden.asc,n.asc');
+  return {
+    ok: true,
+    data: filas.map((f) => ({
+      k: String(f.k || ''),
+      n: String(f.n || ''),
+      cat: String(f.cat || 'sal'),
+    })),
+  };
+}
+
+async function accionGuardarConceptoNom(body, env) {
+  const k = nomTxt(body && body.k);
+  const n = nomTxt(body && body.n);
+  let cat = String((body && body.cat) || 'sal').trim().toLowerCase();
+  if (['sal', 'ns', 'ded'].indexOf(cat) < 0) cat = 'sal';
+  if (!k) return { ok: false, error: 'Falta la clave del concepto' };
+  if (!n) return { ok: false, error: 'Falta el nombre del concepto' };
+
+  const ya = await sb(env, 'conceptos_nom?select=k&k=eq.' + encodeURIComponent(k) + '&limit=1');
+  if (ya.length) return { ok: false, error: 'Ya existe un concepto con esa clave' };
+
+  await sbWrite(env, 'POST', 'conceptos_nom', {
+    k: k, n: n, cat: cat,
+    creado_en: new Date().toISOString(),
+    creado_por: String(body.usuario || ''),
+  });
+  return { ok: true };
+}
+
+// --------------------------------------------------------------
+// Borrar un concepto.
+// La pantalla ya le advierte a la persona que se van tambien todos
+// los valores guardados en todas las quincenas, asi que hay que
+// borrar las dos cosas o quedan filas huerfanas que nadie ve pero
+// que siguen sumando si el concepto se vuelve a crear con la misma clave.
+// --------------------------------------------------------------
+async function accionEliminarConceptoNom(body, env) {
+  const k = nomTxt(body && body.k);
+  if (!k) return { ok: false, error: 'Falta la clave del concepto' };
+
+  const valores = await sbAll(env,
+    'nomina_qna?select=id&concepto=eq.' + encodeURIComponent(k));
+
+  await sbWrite(env, 'DELETE', 'nomina_qna?concepto=eq.' + encodeURIComponent(k));
+  await sbWrite(env, 'DELETE', 'conceptos_nom?k=eq.' + encodeURIComponent(k));
+
+  return { ok: true, valores_borrados: valores.length };
+}
+
+// =====================================================================
 // VERSION — para saber que api.js esta vivo en el servidor.
 // Desde la consola del navegador:
 //   fetch('/api',{method:'POST',body:JSON.stringify({accion:'version'})})
@@ -3635,36 +3812,37 @@ const ACCIONES_CONOCIDAS = [
   'clasificarDia', 'coberturaSemanas', 'cruzarSaldos', 'detalleAusentismo',
   'editarCobroHist', 'editarCoordinador', 'editarDetallado', 'editarEncuesta', 'editarReg',
   'editarTrabajador', 'editarUsuario', 'editarVacacion', 'eliminarAcumuladoQna',
-  'eliminarConceptoAcum', 'eliminarContrato', 'eliminarCoordinador', 'eliminarCruce',
-  'eliminarDetallado', 'eliminarEncuesta', 'eliminarFacResponsable', 'eliminarFactura',
-  'eliminarIncapacidad', 'eliminarInvConfig', 'eliminarOtrosi', 'eliminarPlantilla',
-  'eliminarReferencia', 'eliminarReg', 'eliminarRegistros', 'eliminarRhCatalogo',
-  'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion', 'eliminarVinculacion',
-  'encuestaAplicar', 'encuestaComparar', 'facArchivoEliminar', 'facArchivoRegistrar',
-  'facArchivoSubirUrl', 'facArchivos', 'getAcumulados', 'getCobrosHist',
-  'getConceptosAcum', 'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos',
-  'getContratos', 'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado',
-  'getEncuesta', 'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen',
-  'getFacResponsables', 'getFacturas', 'getFotoTrabajador', 'getIncapacidades',
-  'getIndiceDup', 'getIngresosRetiros', 'getInvConfig', 'getInventario', 'getNomConfig',
-  'getPermisosSubida', 'getPlantillas', 'getQuincenasAcum', 'getReferencias',
-  'getRegistros', 'getRhCatalogos', 'getRhConfig', 'getTrabajadores', 'getUsuarios',
-  'getUsuariosAdmin', 'getVacaciones', 'getVigHorasSemana', 'getVinculaciones', 'guardar',
-  'guardarCobrosHist', 'guardarConceptoAcum', 'guardarConfigEmpresa', 'guardarContrato',
+  'eliminarConceptoAcum', 'eliminarConceptoNom', 'eliminarContrato', 'eliminarCoordinador',
+  'eliminarCruce', 'eliminarDetallado', 'eliminarEncuesta', 'eliminarFacResponsable',
+  'eliminarFactura', 'eliminarIncapacidad', 'eliminarInvConfig', 'eliminarOtrosi',
+  'eliminarPlantilla', 'eliminarReferencia', 'eliminarReg', 'eliminarRegistros',
+  'eliminarRhCatalogo', 'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion',
+  'eliminarVinculacion', 'encuestaAplicar', 'encuestaComparar', 'facArchivoEliminar',
+  'facArchivoRegistrar', 'facArchivoSubirUrl', 'facArchivos', 'getAcumulados',
+  'getCobrosHist', 'getConceptosAcum', 'getConceptosNom', 'getConfigEmpresa',
+  'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos', 'getCoordinadoresAdmin',
+  'getCruces', 'getDatos', 'getDetallado', 'getEncuesta', 'getEncuestaHistorial',
+  'getEncuestas', 'getEncuestasResumen', 'getFacResponsables', 'getFacturas',
+  'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup', 'getIngresosRetiros',
+  'getInvConfig', 'getInventario', 'getNomConfig', 'getNominaQna', 'getPermisosSubida',
+  'getPlantillas', 'getQuincenasAcum', 'getReferencias', 'getRegistros', 'getRhCatalogos',
+  'getRhConfig', 'getTrabajadores', 'getUsuarios', 'getUsuariosAdmin', 'getVacaciones',
+  'getVigHorasSemana', 'getVinculaciones', 'guardar', 'guardarCobrosHist',
+  'guardarConceptoAcum', 'guardarConceptoNom', 'guardarConfigEmpresa', 'guardarContrato',
   'guardarCoordinador', 'guardarCruce', 'guardarDetallado', 'guardarEncuesta',
   'guardarFacResponsable', 'guardarFactura', 'guardarFotoTrabajador',
   'guardarHistoricoContrato', 'guardarIncapacidad', 'guardarInvConfig',
-  'guardarMotivoRetiro', 'guardarNomConfig', 'guardarOtrosi', 'guardarPermisoSubida',
-  'guardarPlantilla', 'guardarReferencia', 'guardarRetiro', 'guardarRhCatalogo',
-  'guardarRhConfig', 'guardarTarifa', 'guardarTrabajador', 'guardarUsuario',
-  'guardarVacacion', 'importarAcumulados', 'importarTrabajadores', 'importarVacaciones',
-  'informeAusentismo', 'informeIncapacidades', 'invActivarProducto', 'invAjustarStock',
-  'invEditarActa', 'invEliminarActa', 'invEliminarProducto', 'invEntregasResumen',
-  'invGetActas', 'invGetFirma', 'invGetMovimientos', 'invGuardarProducto',
-  'invInformeEntregas', 'invItemsActas', 'invRegistrarCambio', 'invRegistrarEntrada',
-  'invRegistrarSalida', 'login', 'nuevoEmpleado', 'registrarReingreso',
-  'revisarIncapacidad', 'revocarPermisoSubida', 'vaciarAcumulados', 'verificarDuplicado',
-  'verificarDuplicadosLote', 'version'
+  'guardarMotivoRetiro', 'guardarNomConfig', 'guardarNominaQna', 'guardarOtrosi',
+  'guardarPermisoSubida', 'guardarPlantilla', 'guardarReferencia', 'guardarRetiro',
+  'guardarRhCatalogo', 'guardarRhConfig', 'guardarTarifa', 'guardarTrabajador',
+  'guardarUsuario', 'guardarVacacion', 'importarAcumulados', 'importarTrabajadores',
+  'importarVacaciones', 'informeAusentismo', 'informeIncapacidades', 'invActivarProducto',
+  'invAjustarStock', 'invEditarActa', 'invEliminarActa', 'invEliminarProducto',
+  'invEntregasResumen', 'invGetActas', 'invGetFirma', 'invGetMovimientos',
+  'invGuardarProducto', 'invInformeEntregas', 'invItemsActas', 'invRegistrarCambio',
+  'invRegistrarEntrada', 'invRegistrarSalida', 'login', 'nuevoEmpleado',
+  'registrarReingreso', 'revisarIncapacidad', 'revocarPermisoSubida', 'vaciarAcumulados',
+  'verificarDuplicado', 'verificarDuplicadosLote', 'version'
 ];
 const API_VERSION = '2026-11-25';
 const API_MODULOS = [
