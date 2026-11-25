@@ -76,6 +76,7 @@ export async function onRequestPost({ request, env }) {
     if (!PORTADAS.has(accion)) return await reenviarLegacy(body, env);
 
     let r;
+    if      (accion === 'version')            r = accionVersion();
     if      (accion === 'login')              r = await accionLogin(body, env);
     else if (accion === 'getDatos')           r = await accionGetDatos(body, env);
     else if (accion === 'guardar')            r = await accionGuardar(body, env);
@@ -3614,5 +3615,62 @@ async function accionGetEncuestasResumen(body, env) {
       conflictoRH: confRH,
       conflictoNac: confNac,
     },
+  };
+}
+
+// =====================================================================
+// VERSION — para saber que api.js esta vivo en el servidor.
+// Desde la consola del navegador:
+//   fetch('/api',{method:'POST',body:JSON.stringify({accion:'version'})})
+//     .then(r=>r.json()).then(console.log)
+// =====================================================================
+const ACCIONES_CONOCIDAS = [
+  'actualizarEstadoFac', 'actualizarFactura', 'buscarCie10', 'cerrarVinculacion',
+  'clasificarDia', 'coberturaSemanas', 'cruzarSaldos', 'detalleAusentismo',
+  'editarCobroHist', 'editarCoordinador', 'editarDetallado', 'editarEncuesta', 'editarReg',
+  'editarTrabajador', 'editarUsuario', 'editarVacacion', 'eliminarAcumuladoQna',
+  'eliminarConceptoAcum', 'eliminarContrato', 'eliminarCoordinador', 'eliminarCruce',
+  'eliminarDetallado', 'eliminarEncuesta', 'eliminarFacResponsable', 'eliminarFactura',
+  'eliminarIncapacidad', 'eliminarInvConfig', 'eliminarOtrosi', 'eliminarPlantilla',
+  'eliminarReferencia', 'eliminarReg', 'eliminarRegistros', 'eliminarRhCatalogo',
+  'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion', 'eliminarVinculacion',
+  'encuestaAplicar', 'encuestaComparar', 'facArchivoEliminar', 'facArchivoRegistrar',
+  'facArchivoSubirUrl', 'facArchivos', 'getAcumulados', 'getCobrosHist',
+  'getConceptosAcum', 'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos',
+  'getContratos', 'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado',
+  'getEncuesta', 'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen',
+  'getFacResponsables', 'getFacturas', 'getFotoTrabajador', 'getIncapacidades',
+  'getIndiceDup', 'getIngresosRetiros', 'getInvConfig', 'getInventario', 'getNomConfig',
+  'getPermisosSubida', 'getPlantillas', 'getQuincenasAcum', 'getReferencias',
+  'getRegistros', 'getRhCatalogos', 'getRhConfig', 'getTrabajadores', 'getUsuarios',
+  'getUsuariosAdmin', 'getVacaciones', 'getVigHorasSemana', 'getVinculaciones', 'guardar',
+  'guardarCobrosHist', 'guardarConceptoAcum', 'guardarConfigEmpresa', 'guardarContrato',
+  'guardarCoordinador', 'guardarCruce', 'guardarDetallado', 'guardarEncuesta',
+  'guardarFacResponsable', 'guardarFactura', 'guardarFotoTrabajador',
+  'guardarHistoricoContrato', 'guardarIncapacidad', 'guardarInvConfig',
+  'guardarMotivoRetiro', 'guardarNomConfig', 'guardarOtrosi', 'guardarPermisoSubida',
+  'guardarPlantilla', 'guardarReferencia', 'guardarRetiro', 'guardarRhCatalogo',
+  'guardarRhConfig', 'guardarTarifa', 'guardarTrabajador', 'guardarUsuario',
+  'guardarVacacion', 'importarAcumulados', 'importarTrabajadores', 'importarVacaciones',
+  'informeAusentismo', 'informeIncapacidades', 'invActivarProducto', 'invAjustarStock',
+  'invEditarActa', 'invEliminarActa', 'invEliminarProducto', 'invEntregasResumen',
+  'invGetActas', 'invGetFirma', 'invGetMovimientos', 'invGuardarProducto',
+  'invInformeEntregas', 'invItemsActas', 'invRegistrarCambio', 'invRegistrarEntrada',
+  'invRegistrarSalida', 'login', 'nuevoEmpleado', 'registrarReingreso',
+  'revisarIncapacidad', 'revocarPermisoSubida', 'vaciarAcumulados', 'verificarDuplicado',
+  'verificarDuplicadosLote', 'version'
+];
+const API_VERSION = '2026-11-25';
+const API_MODULOS = [
+  'nomina', 'facturacion', 'rrhh', 'vacaciones', 'inventario-sst',
+  'calendario-por-anio', 'encuesta-sociodemografica',
+];
+function accionVersion() {
+  return {
+    ok: true,
+    version: API_VERSION,
+    modulos: API_MODULOS,
+    acciones: ACCIONES_CONOCIDAS,
+    servidor: new Date().toISOString(),
   };
 }
