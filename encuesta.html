@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2d7a4d">
+<title>Encuesta sociodemográfica</title>
+<style>
+  /* Pensada para el celular primero. Sin librerías: tiene que abrir
+     rápido con la señal de una finca. */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --vd:#2d7a4d; --vd2:#246340; --tx:#0f172a; --g2:#475569; --g3:#64748b;
+    --bd:#e2e8f0; --bg:#f1f5f9; --rj:#b91c1c; --am:#b45309;
+  }
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--tx); font-size:16px; line-height:1.45;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px 110px}
+
+  header{
+    background:var(--vd); color:#fff; padding:14px 16px calc(14px);
+    padding-top:calc(14px + env(safe-area-inset-top));
+    position:sticky; top:0; z-index:10;
+  }
+  header .t{font-size:16px;font-weight:800;letter-spacing:-.01em}
+  header .s{font-size:12.5px;opacity:.9;margin-top:2px}
+
+  .barra{height:4px;background:rgba(255,255,255,.28);border-radius:3px;margin-top:10px;overflow:hidden}
+  .barra i{display:block;height:100%;background:#fff;width:0;transition:width .3s}
+
+  .card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;margin-top:14px}
+  h2{font-size:17px;margin:0 0 4px;font-weight:800;letter-spacing:-.01em}
+  .ayuda{font-size:13px;color:var(--g3);margin:0 0 14px}
+
+  /* La pregunta tiene que quedar pegada a SUS casillas y despegada de las
+     de arriba, o en el celular uno no sabe a cuál pertenece. */
+  .campo + .campo{margin-top:22px}
+  label{display:block;font-size:13.5px;font-weight:600;color:var(--g2);margin:0 0 7px}
+  .req{color:#dc2626}
+  .nota{font-weight:400;color:var(--g3);font-size:12.5px}
+
+  input,select,textarea{
+    width:100%; font-size:16px;  /* 16px evita que el iPhone haga zoom */
+    font-family:inherit; color:var(--tx);
+    padding:12px 13px; border:1.5px solid var(--bd); border-radius:10px;
+    background:#fff; min-height:48px;
+  }
+  textarea{min-height:76px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vd);box-shadow:0 0 0 3px #2d7a4d22}
+  input[readonly]{background:#f8fafc;color:var(--g3)}
+  input[disabled],select[disabled]{background:#f1f5f9;color:#94a3b8}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 13px center;padding-right:38px}
+
+  /* Sí / No como dos botones grandes, no como lista desplegable */
+  .sino{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .sino button{
+    min-height:50px;font-size:15.5px;font-weight:700;border:1.5px solid var(--bd);
+    background:#fff;color:var(--g2);border-radius:10px;font-family:inherit;cursor:pointer
+  }
+  .sino button.on{background:var(--vd);border-color:var(--vd);color:#fff}
+  .sino button.on.no{background:#64748b;border-color:#64748b}
+
+  .pie{
+    position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--bd);
+    padding:11px 14px calc(11px + env(safe-area-inset-bottom));
+    display:flex;gap:10px;z-index:20
+  }
+  .pie .in{max-width:560px;margin:0 auto;display:flex;gap:10px;width:100%}
+  .btn{
+    flex:1;min-height:50px;font-size:16px;font-weight:700;border-radius:11px;
+    border:none;font-family:inherit;cursor:pointer
+  }
+  .bp{background:var(--vd);color:#fff}
+  .bp:active{background:var(--vd2)}
+  .bs{background:#fff;color:var(--g2);border:1.5px solid var(--bd);flex:0 0 108px}
+  .btn[disabled]{opacity:.55}
+
+  .aviso{border-radius:10px;padding:11px 13px;font-size:13.5px;margin-top:12px}
+  .a-rojo{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d}
+  .a-ama{background:#fffbeb;border:1px solid #fde68a;color:#78350f}
+  .a-ver{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+  .a-gris{background:#f8fafc;border:1px solid var(--bd);color:var(--g2)}
+
+  .guardando{
+    position:fixed;top:calc(68px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    background:#0f172ae6;color:#fff;font-size:13px;padding:7px 15px;border-radius:999px;
+    z-index:30;opacity:0;transition:opacity .25s;pointer-events:none
+  }
+  .guardando.ver{opacity:1}
+
+  .grande{font-size:22px;font-weight:800;text-align:center;letter-spacing:.04em}
+  .centro{text-align:center}
+  .ok-grande{font-size:52px;line-height:1;margin-bottom:10px}
+  .paso{font-size:12px;font-weight:700;letter-spacing:.09em;color:var(--vd);text-transform:uppercase}
+  @media (min-width:520px){ .dos{display:grid;grid-template-columns:1fr 1fr;gap:0 14px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="t" id="h-tit">Encuesta sociodemográfica</div>
+  <div class="s" id="h-sub">Agriservicios del Valle S.A.S.</div>
+  <div class="barra" id="h-barra" style="display:none"><i id="h-barra-i"></i></div>
+</header>
+
+<div class="guardando" id="guardando">Guardando…</div>
+<div class="wrap" id="app"></div>
+<div class="pie" id="pie" style="display:none"><div class="in" id="pie-in"></div></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = '/api';
+  var TOKEN = (new URLSearchParams(location.search).get('j') || '').trim().toUpperCase();
+  var CED = '';
+  var DATOS = {};
+  var PASO = 0;
+  var JORNADA = null;
+  var NOMBRE = '';
+  var ENVIANDO = false;
+
+  // ── las preguntas, agrupadas en 6 pasos para que no sea eterno ──
+  var PASOS = [
+    { t:'Sus datos', a:'Confirme lo que ya tenemos y corrija lo que haya cambiado.', c:[
+      {k:'nombres', l:'Nombre completo', t:'txt'},
+      {k:'fecha_nac', l:'Fecha de nacimiento', t:'fecha'},
+      {k:'lugar_exp', l:'Lugar de expedición de la cédula', t:'txt'},
+      {k:'fecha_exp', l:'Fecha de expedición', t:'fecha'},
+      {k:'genero', l:'Género', t:'sel', o:['MASCULINO','FEMENINO']},
+      {k:'estado_civil', l:'Estado civil', t:'sel', o:['UNIÓN LIBRE','SOLTERO/A','CASADO/A','DIVORCIADO/A','VIUDO/A']},
+      {k:'tipo_sangre', l:'Tipo de sangre (RH)', t:'sel', o:['O+','O-','A+','A-','B+','B-','AB+','AB-'],
+       n:'Si no está seguro, déjelo vacío y dígale a la persona de SST.'},
+      {k:'telefono', l:'Teléfono', t:'tel'},
+      {k:'email', l:'Correo electrónico', t:'mail'},
+      {k:'direccion', l:'Dirección de su casa', t:'txt'},
+      {k:'ciudad', l:'Municipio donde vive', t:'txt'}
+    ]},
+    { t:'Su trabajo y su dotación', a:'El cargo y la fecha de ingreso los pone la empresa.', c:[
+      {k:'cargo', l:'Cargo', t:'ro'},
+      {k:'fecha_ingreso', l:'Fecha de ingreso', t:'ro'},
+      {k:'tipo_contrato', l:'Tipo de contrato', t:'sel', o:['OBRA LABOR','TERMINO INDEFINIDO','TERMINO FIJO']},
+      {k:'antiguedad', l:'¿Cuántos años lleva en la empresa?', t:'txt'},
+      {k:'experiencia', l:'Experiencia en este tipo de trabajo', t:'sel',
+       o:['Menos de 1 año','1-3 años','4-6 años','7-10 años','Mas de 10']},
+      {k:'talla_camisa', l:'Talla de camisa', t:'sel', o:['XS','S','M','L','XL','2XL','3XL','4XL']},
+      {k:'talla_pant', l:'Talla de pantalón', t:'txt'},
+      {k:'talla_bota_punt', l:'Talla de botas con puntera', t:'txt'},
+      {k:'talla_guayo', l:'Talla de guayos', t:'txt'},
+      {k:'talla_impermeable', l:'Talla de impermeable', t:'sel', o:['S','M','L','XL','2XL','3XL']}
+    ]},
+    { t:'Su casa y su familia', a:'', c:[
+      {k:'tipo_vivienda', l:'La casa donde vive es', t:'sel', o:['ARRENDADA','PROPIA','COMPARTIDA','FAMILIAR','FINCA']},
+      {k:'estrato', l:'Estrato', t:'sel', o:['1','2','3','4','5','6']},
+      {k:'personas_cargo', l:'¿Cuántas personas dependen de usted?', t:'num'},
+      {k:'parentesco', l:'¿Quiénes son?', t:'txt', n:'Por ejemplo: esposa, dos hijos, mamá.'},
+      {k:'planta_agua', l:'¿Donde usted vive hay planta de tratamiento de agua?', t:'sino'},
+      {k:'suministro_agua', l:'¿La empresa le ha suministrado agua?', t:'sino'}
+    ]},
+    { t:'Estudios y tiempo libre', a:'', c:[
+      {k:'nivel_educativo', l:'¿Hasta qué año estudió?', t:'sel',
+       o:['PRIMARIA INCOMPLETA','PRIMARIA COMPLETA','SECUNDARIA INCOMPLETA','SECUNDARIA COMPLETA','TECNICO/A','TECNOLOGO/A','PROFESIONAL']},
+      {k:'titulo', l:'¿Tiene algún título?', t:'txt', n:'Si no tiene, déjelo vacío.'},
+      {k:'otros_cursos', l:'¿Ha hecho otros cursos?', t:'txt'},
+      {k:'tiempo_libre', l:'¿En qué ocupa su tiempo libre?', t:'sel',
+       o:['RECREACION Y DEPORTE','LABORES DOMESTICAS','ESTUDIO','OTRO TRABAJO','NINGUNO','OTRO']},
+      {k:'ingresos', l:'Sus ingresos al mes son', t:'sel',
+       o:['MINIMO LEGAL','ENTRE 1 Y 2 SMMLV','MAS DE 2 SMMLV']}
+    ]},
+    { t:'Su salud', a:'Esto lo guarda Seguridad y Salud en el Trabajo. Recursos Humanos no ve sus enfermedades ni sus medicamentos.', salud:1, c:[
+      {k:'activ_salud', l:'¿Ha participado en las actividades de salud de la empresa?', t:'sino'},
+      {k:'alergia', l:'¿Es alérgico a algún medicamento, alimento o picadura?', t:'sino'},
+      {k:'alergia_cual', l:'¿A cuál?', t:'txt', d:{k:'alergia', v:'SI'}},
+      {k:'enfermedad', l:'¿Le han diagnosticado alguna enfermedad?', t:'sino'},
+      {k:'enfermedad_cual', l:'¿Cuál?', t:'txt', d:{k:'enfermedad', v:'SI'}},
+      {k:'medicamento', l:'¿Toma algún medicamento todos los días?', t:'sino'},
+      {k:'medicamento_cual', l:'¿Cuál y para qué?', t:'txt', d:{k:'medicamento', v:'SI'}},
+      {k:'fuma', l:'¿Fuma?', t:'sino'},
+      {k:'fuma_prom', l:'¿Cuántos cigarrillos al día?', t:'num', d:{k:'fuma', v:'SI'}},
+      {k:'alcohol', l:'¿Toma bebidas alcohólicas?', t:'sino'},
+      {k:'alcohol_frec', l:'¿Cada cuánto?', t:'sel', o:['OCASIONAL','MENSUAL','QUINCENAL','SEMANAL','DIARIO'], d:{k:'alcohol', v:'SI'}},
+      {k:'deporte', l:'¿Hace deporte o alguna actividad física?', t:'sino'},
+      {k:'deporte_cual', l:'¿Cuál?', t:'txt', d:{k:'deporte', v:'SI'}},
+      {k:'deporte_frec', l:'¿Cuántas veces al mes?', t:'num', d:{k:'deporte', v:'SI'}}
+    ]},
+    { t:'Documentos y vacunas', a:'Lo último.', c:[
+      {k:'licencia', l:'¿Tiene licencia de conducción?', t:'sino'},
+      {k:'soat', l:'¿Su vehículo tiene SOAT al día?', t:'sino', d:{k:'licencia', v:'SI'}},
+      {k:'tecnomecanica', l:'¿Tecnomecánica al día?', t:'sino', d:{k:'licencia', v:'SI'}},
+      {k:'tarjeta_prop', l:'¿Tarjeta de propiedad?', t:'sino', d:{k:'licencia', v:'SI'}},
+      {k:'vacuna_covid', l:'¿Está vacunado contra el COVID-19?', t:'sino'},
+      {k:'vacuna_esquema', l:'¿Tiene el esquema completo?', t:'sino', d:{k:'vacuna_covid', v:'SI'}},
+      {k:'observacion', l:'¿Algo más que quiera contarle a SST?', t:'area'}
+    ]}
+  ];
+
+  // ── utilidades ──
+  function esc(s){
+    return String(s===null||s===undefined?'':s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function $(id){ return document.getElementById(id); }
+  function post(cuerpo){
+    cuerpo.token = TOKEN;
+    if (CED) cuerpo.cedula = CED;
+    return fetch(API, {method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(cuerpo)}).then(function(r){ return r.json(); });
+  }
+  var tGuardando;
+  function señal(txt){
+    var g = $('guardando');
+    g.textContent = txt; g.classList.add('ver');
+    clearTimeout(tGuardando);
+    tGuardando = setTimeout(function(){ g.classList.remove('ver'); }, 1600);
+  }
+  function pie(html){
+    var p = $('pie');
+    if (!html) { p.style.display = 'none'; return; }
+    $('pie-in').innerHTML = html; p.style.display = 'block';
+  }
+  function barra(pct){
+    var b = $('h-barra');
+    if (pct === null) { b.style.display = 'none'; return; }
+    b.style.display = 'block';
+    $('h-barra-i').style.width = Math.max(0, Math.min(100, pct)) + '%';
+  }
+
+  // ── pantalla 1: la cédula ──
+  function pantallaCedula(aviso){
+    barra(null);
+    $('h-sub').textContent = 'Agriservicios del Valle S.A.S.';
+    $('app').innerHTML =
+      '<div class="card">' +
+        '<h2>Escriba su cédula</h2>' +
+        '<p class="ayuda">Sin puntos ni comas.</p>' +
+        '<input type="tel" inputmode="numeric" id="ced" class="grande" autocomplete="off" ' +
+          'placeholder="0000000000" maxlength="11"/>' +
+        (aviso || '') +
+      '</div>';
+    pie('<button class="btn bp" id="b-seguir">Continuar</button>');
+    var i = $('ced');
+    i.addEventListener('input', function(){ i.value = i.value.replace(/\D/g, ''); });
+    i.addEventListener('keydown', function(e){ if (e.key === 'Enter') verificar(); });
+    $('b-seguir').onclick = verificar;
+    setTimeout(function(){ i.focus(); }, 250);
+  }
+
+  var MOTIVOS = {
+    enlace_invalido:  ['Este enlace no sirve', 'Pídale a la persona de SST que le comparta el enlace otra vez.'],
+    jornada_cerrada:  ['La jornada ya se cerró', 'Avísele a la persona de SST para que la vuelva a abrir.'],
+    jornada_vencida:  ['El enlace ya venció', 'Avísele a la persona de SST para que genere uno nuevo.'],
+    no_esta_en_la_lista: ['No encontramos esa cédula en esta jornada',
+                          'Revise que la haya escrito bien. Si está bien, dígale a la persona de SST que lo agregue a la lista.'],
+    cedula_vacia:     ['Falta la cédula', 'Escriba su número de cédula.']
+  };
+
+  function verificar(){
+    var v = ($('ced').value || '').replace(/\D/g, '');
+    if (v.length < 6) {
+      $('app').querySelector('.aviso') && $('app').querySelector('.aviso').remove();
+      $('app').querySelector('.card').insertAdjacentHTML('beforeend',
+        '<div class="aviso a-ama">Esa cédula está muy corta. Revísela.</div>');
+      return;
+    }
+    CED = v;
+    $('b-seguir').disabled = true;
+    $('b-seguir').textContent = 'Buscando…';
+
+    post({accion:'encPubAbrir'}).then(function(d){
+      if (!d || d.ok !== true) {
+        CED = '';
+        var m = MOTIVOS[(d && d.motivo) || 'enlace_invalido'] || MOTIVOS.enlace_invalido;
+        pantallaCedula('<div class="aviso a-rojo"><b>' + esc(m[0]) + '</b><br>' + esc(m[1]) + '</div>');
+        return;
+      }
+      JORNADA = d.jornada; NOMBRE = d.nombres || ''; DATOS = d.datos || {};
+      if (d.ya_enviada) { pantallaYaEnviada(); return; }
+      pantallaConfirmar();
+    }).catch(function(){
+      CED = '';
+      pantallaCedula('<div class="aviso a-rojo"><b>No hay conexión</b><br>' +
+        'Revise el internet de su celular y vuelva a intentar.</div>');
+    });
+  }
+
+  // ── pantalla 2: ¿es usted? ──
+  function pantallaConfirmar(){
+    $('h-sub').textContent = JORNADA ? JORNADA.nombre : '';
+    $('app').innerHTML =
+      '<div class="card centro">' +
+        '<p class="ayuda" style="margin-bottom:6px">¿Es usted?</p>' +
+        '<div style="font-size:21px;font-weight:800;line-height:1.3;margin-bottom:4px">' +
+          esc(NOMBRE || '(sin nombre registrado)') + '</div>' +
+        '<div style="color:var(--g3);font-size:14px">C.C. ' + esc(CED) + '</div>' +
+      '</div>' +
+      '<div class="aviso a-gris">Son unas preguntas sobre usted y su familia, para Seguridad y ' +
+        'Salud en el Trabajo. Se demora unos 5 minutos. Si deja algo sin contestar, igual se guarda ' +
+        'y la persona de SST lo completa con usted.</div>';
+    pie('<button class="btn bs" id="b-no">No soy yo</button>' +
+        '<button class="btn bp" id="b-si">Sí, empezar</button>');
+    $('b-no').onclick = function(){ CED = ''; DATOS = {}; pantallaCedula(''); };
+    $('b-si').onclick = function(){ PASO = 0; pintarPaso(); };
+  }
+
+  function pantallaYaEnviada(){
+    barra(null);
+    $('app').innerHTML =
+      '<div class="card centro">' +
+        '<div class="ok-grande">✓</div>' +
+        '<h2>Ya la había enviado</h2>' +
+        '<p class="ayuda">Su encuesta de esta jornada ya está registrada. No tiene que hacer nada más.</p>' +
+      '</div>';
+    pie('');
+  }
+
+  // ── el formulario, paso por paso ──
+  function visible(c){
+    if (!c.d) return true;
+    return String(DATOS[c.d.k] || '').toUpperCase() === String(c.d.v).toUpperCase();
+  }
+
+  function campoHTML(c){
+    var v = DATOS[c.k];
+    v = (v === null || v === undefined) ? '' : String(v);
+    var id = 'f_' + c.k;
+    var h = '<div class="campo" data-k="' + c.k + '"' + (visible(c) ? '' : ' style="display:none"') + '>' +
+      '<label for="' + id + '">' + esc(c.l) +
+      (c.n ? '<span class="nota"><br>' + esc(c.n) + '</span>' : '') + '</label>';
+
+    if (c.t === 'sino') {
+      h += '<div class="sino" id="' + id + '">' +
+        '<button type="button" class="' + (v === 'SI' ? 'on' : '') + '" data-v="SI">Sí</button>' +
+        '<button type="button" class="no ' + (v === 'NO' ? 'on' : '') + '" data-v="NO">No</button></div>';
+    } else if (c.t === 'sel') {
+      h += '<select id="' + id + '"><option value="">— escoja —</option>';
+      (c.o || []).forEach(function(o){
+        h += '<option value="' + esc(o) + '"' + (v === o ? ' selected' : '') + '>' + esc(o) + '</option>';
+      });
+      if (v && (c.o || []).indexOf(v) < 0) h += '<option value="' + esc(v) + '" selected>' + esc(v) + '</option>';
+      h += '</select>';
+    } else if (c.t === 'area') {
+      h += '<textarea id="' + id + '">' + esc(v) + '</textarea>';
+    } else if (c.t === 'ro') {
+      h += '<input type="text" id="' + id + '" value="' + esc(v) + '" readonly/>';
+    } else if (c.t === 'fecha') {
+      h += '<input type="date" id="' + id + '" value="' + esc(v.slice(0, 10)) + '"/>';
+    } else if (c.t === 'num') {
+      h += '<input type="tel" inputmode="numeric" id="' + id + '" value="' + esc(v) + '"/>';
+    } else if (c.t === 'tel') {
+      h += '<input type="tel" inputmode="tel" id="' + id + '" value="' + esc(v) + '"/>';
+    } else if (c.t === 'mail') {
+      h += '<input type="email" inputmode="email" id="' + id + '" value="' + esc(v) + '" autocapitalize="off"/>';
+    } else {
+      h += '<input type="text" id="' + id + '" value="' + esc(v) + '"/>';
+    }
+    return h + '</div>';
+  }
+
+  function pintarPaso(){
+    var p = PASOS[PASO];
+    barra(((PASO) / PASOS.length) * 100);
+    $('h-sub').textContent = 'Paso ' + (PASO + 1) + ' de ' + PASOS.length;
+    window.scrollTo(0, 0);
+
+    var h = '<div class="card">' +
+      '<div class="paso">Paso ' + (PASO + 1) + ' de ' + PASOS.length + '</div>' +
+      '<h2>' + esc(p.t) + '</h2>' +
+      (p.a ? '<p class="ayuda">' + esc(p.a) + '</p>' : '');
+    if (p.salud) {
+      h += '<div class="aviso a-ver" style="margin:0 0 14px">Puede dejar en blanco lo que no quiera ' +
+           'contestar. Nada de esto afecta su trabajo.</div>';
+    }
+    h += '<div class="' + (p.c.length > 7 ? 'dos' : '') + '">';
+    p.c.forEach(function(c){ h += campoHTML(c); });
+    h += '</div></div>';
+    $('app').innerHTML = h;
+
+    // escuchas
+    p.c.forEach(function(c){
+      var el = $('f_' + c.k);
+      if (!el) return;
+      if (c.t === 'sino') {
+        el.querySelectorAll('button').forEach(function(b){
+          b.onclick = function(){
+            var nuevo = (DATOS[c.k] === b.dataset.v) ? '' : b.dataset.v;
+            DATOS[c.k] = nuevo;
+            el.querySelectorAll('button').forEach(function(x){
+              x.classList.toggle('on', nuevo && x.dataset.v === nuevo);
+            });
+            refrescarDependientes();
+          };
+        });
+      } else {
+        el.addEventListener('change', function(){
+          DATOS[c.k] = el.value;
+          refrescarDependientes();
+        });
+      }
+    });
+
+    var ultimo = (PASO === PASOS.length - 1);
+    pie((PASO > 0 ? '<button class="btn bs" id="b-atras">Atrás</button>' : '') +
+        '<button class="btn bp" id="b-sig">' + (ultimo ? 'Enviar' : 'Siguiente') + '</button>');
+    if (PASO > 0) $('b-atras').onclick = function(){ recoger(); PASO--; pintarPaso(); };
+    $('b-sig').onclick = ultimo ? enviar : siguiente;
+  }
+
+  function refrescarDependientes(){
+    var p = PASOS[PASO];
+    p.c.forEach(function(c){
+      if (!c.d) return;
+      var caja = $('app').querySelector('.campo[data-k="' + c.k + '"]');
+      if (!caja) return;
+      var ver = visible(c);
+      caja.style.display = ver ? '' : 'none';
+      if (!ver && DATOS[c.k]) {
+        DATOS[c.k] = '';
+        var el = $('f_' + c.k);
+        if (el && el.tagName !== 'DIV') el.value = '';
+        if (el && el.tagName === 'DIV') el.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      }
+    });
+  }
+
+  function recoger(){
+    PASOS[PASO].c.forEach(function(c){
+      if (c.t === 'sino') return;         // ese se guarda al tocarlo
+      var el = $('f_' + c.k);
+      if (el) DATOS[c.k] = el.value;
+    });
+  }
+
+  // Se guarda al pasar de paso. Si se cae el internet, no se bloquea:
+  // sigue adelante y lo reintenta al final, al enviar.
+  function siguiente(){
+    recoger();
+    var b = $('b-sig');
+    b.disabled = true;
+    post({accion:'encPubGuardar', datos: DATOS, avance: PASO + 1})
+      .then(function(d){ señal(d && d.ok ? 'Guardado' : 'Se guardará luego'); })
+      .catch(function(){ señal('Sin conexión — se guardará luego'); })
+      .then(function(){
+        b.disabled = false;
+        PASO++;
+        if (PASO >= PASOS.length) PASO = PASOS.length - 1;
+        pintarPaso();
+      });
+  }
+
+  function enviar(){
+    if (ENVIANDO) return;
+    recoger();
+    ENVIANDO = true;
+    var b = $('b-sig');
+    b.disabled = true; b.textContent = 'Enviando…';
+    post({accion:'encPubEnviar', datos: DATOS}).then(function(d){
+      ENVIANDO = false;
+      if (!d || d.ok !== true) {
+        b.disabled = false; b.textContent = 'Enviar';
+        $('app').insertAdjacentHTML('beforeend',
+          '<div class="aviso a-rojo">No se pudo enviar. Intente otra vez; lo que escribió no se perdió.</div>');
+        return;
+      }
+      pantallaGracias();
+    }).catch(function(){
+      ENVIANDO = false;
+      b.disabled = false; b.textContent = 'Enviar';
+      $('app').insertAdjacentHTML('beforeend',
+        '<div class="aviso a-rojo"><b>Sin conexión</b><br>Lo que escribió quedó guardado. ' +
+        'Acérquese donde haya señal y vuelva a darle Enviar.</div>');
+    });
+  }
+
+  function pantallaGracias(){
+    barra(100);
+    $('h-sub').textContent = 'Listo';
+    $('app').innerHTML =
+      '<div class="card centro">' +
+        '<div class="ok-grande">✓</div>' +
+        '<h2>Gracias, ' + esc(String(NOMBRE || '').split(' ')[0] || '') + '</h2>' +
+        '<p class="ayuda">Su encuesta quedó enviada. Ya puede entregar el celular o cerrar esta página.</p>' +
+      '</div>';
+    pie('');
+  }
+
+  // ── arranque ──
+  if (!TOKEN) {
+    $('app').innerHTML = '<div class="card"><h2>Falta el enlace</h2>' +
+      '<p class="ayuda">Abra el enlace o escanee el código QR que le compartió la persona de ' +
+      'Seguridad y Salud en el Trabajo.</p></div>';
+  } else {
+    pantallaCedula('');
+  }
+})();
+</script>
+</body>
+</html>
