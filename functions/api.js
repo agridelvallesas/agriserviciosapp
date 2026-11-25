@@ -74,6 +74,7 @@ const PORTADAS = new Set([
   // Jornadas de reinducción (encPub* las llama el celular del trabajador):
   'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'jornadaCrear', 'jornadaListar',
   'jornadaDetalle', 'jornadaCerrar', 'jornadaAsistentes', 'encuestasPendientes', 'encuestaRevisar',
+  'jornadaEditar', 'jornadaQueTiene', 'jornadaEliminar',
   // Diagnóstico: qué api.js está vivo
   'version',
 ]);
@@ -212,6 +213,9 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'jornadaAsistentes')      r = await accionJornadaAsistentes(body, env);
     else if (accion === 'encuestasPendientes')    r = await accionEncuestasPendientes(body, env);
     else if (accion === 'encuestaRevisar')        r = await accionEncuestaRevisar(body, env);
+    else if (accion === 'jornadaEditar')          r = await accionJornadaEditar(body, env);
+    else if (accion === 'jornadaQueTiene')        r = await accionJornadaQueTiene(body, env);
+    else if (accion === 'jornadaEliminar')        r = await accionJornadaEliminar(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
@@ -4195,6 +4199,102 @@ async function accionEncuestaRevisar(body, env) {
   return { ok: true };
 }
 
+// ── EDITAR Y ELIMINAR JORNADAS ──────────────────────────────────────
+
+async function accionJornadaEditar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+
+  const row = {};
+  if ('nombre' in body) {
+    const n = encLimpiaTexto(body.nombre);
+    if (!n) return { ok: false, error: 'La jornada necesita un nombre' };
+    row.nombre = n;
+  }
+  if ('fecha' in body) {
+    const f = encLimpiaFecha(body.fecha);
+    if (!f) return { ok: false, error: 'La fecha no se entiende' };
+    row.fecha = f;
+    row.anio = parseInt(f.slice(0, 4), 10);
+  }
+  if ('tipo' in body) {
+    row.tipo = String(body.tipo || '').toUpperCase() === 'IND' ? 'IND' : 'REIN';
+  }
+  if ('sede' in body)        row.sede = encLimpiaTexto(body.sede);
+  if ('observacion' in body) row.observacion = encLimpiaTexto(body.observacion);
+
+  // alargar o acortar el vencimiento, contado desde ahora
+  const horas = encLimpiaEntero(body && body.horas);
+  if (horas) row.cierra_en = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+
+  if (!Object.keys(row).length) return { ok: false, error: 'Nada que cambiar' };
+  await sbWrite(env, 'PATCH', 'encuestas_jornadas?id=eq.' + id, row);
+  return { ok: true };
+}
+
+// Cuenta qué hay colgando de la jornada, para que la pantalla pueda
+// advertir con números antes de borrar nada.
+async function accionJornadaQueTiene(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+  const enc = await sbAll(env,
+    'encuestas_sst?select=id,estado_rev,nombres&jornada_id=eq.' + id);
+  const asis = await sbAll(env,
+    'encuestas_jornada_asistentes?select=estado&jornada_id=eq.' + id);
+  return {
+    ok: true,
+    asistentes: asis.length,
+    encuestas: enc.length,
+    pendientes: enc.filter((e) => e.estado_rev === 'pendiente').length,
+    revisadas:  enc.filter((e) => e.estado_rev === 'revisada').length,
+  };
+}
+
+// Eliminar.
+//
+// Una encuesta ya revisada es dato bueno del trabajador: puede que sus
+// datos ya hayan pasado a la ficha de RH. Esas NO se borran nunca, pase
+// lo que pase. Quedan sueltas de la jornada, pero quedan.
+//
+// Las que están pendientes solo se borran si quien llama lo pide
+// expresamente; si no, también se conservan.
+async function accionJornadaEliminar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+
+  const j = await sb(env, 'encuestas_jornadas?select=id,nombre&id=eq.' + id + '&limit=1');
+  if (!j.length) return { ok: false, error: 'Esa jornada ya no existe' };
+
+  const enc = await sbAll(env, 'encuestas_sst?select=id,estado_rev&jornada_id=eq.' + id);
+  const pendientes = enc.filter((e) => e.estado_rev === 'pendiente');
+  const revisadas  = enc.filter((e) => e.estado_rev === 'revisada');
+
+  let borradas = 0;
+  if (body && body.borrarPendientes === true && pendientes.length) {
+    await sbWrite(env, 'DELETE',
+      'encuestas_sst?jornada_id=eq.' + id + '&estado_rev=eq.pendiente');
+    borradas = pendientes.length;
+  }
+
+  // lo que sobrevive se desprende de la jornada para no quedar
+  // apuntando a algo que ya no existe
+  const quedan = enc.length - borradas;
+  if (quedan > 0) {
+    await sbWrite(env, 'PATCH', 'encuestas_sst?jornada_id=eq.' + id, { jornada_id: null });
+  }
+
+  // los asistentes se van solos por la llave foránea (on delete cascade)
+  await sbWrite(env, 'DELETE', 'encuestas_jornadas?id=eq.' + id);
+
+  return {
+    ok: true,
+    nombre: j[0].nombre || '',
+    borradas: borradas,
+    conservadas: quedan,
+    revisadas_intactas: revisadas.length,
+  };
+}
+
 // =====================================================================
 // SESIONES
 // ---------------------------------------------------------------------
@@ -4335,9 +4435,10 @@ const ACCIONES_CONOCIDAS = [
   'invEntregasResumen', 'invGetActas', 'invGetFirma', 'invGetMovimientos',
   'invGuardarProducto', 'invInformeEntregas', 'invItemsActas', 'invRegistrarCambio',
   'invRegistrarEntrada', 'invRegistrarSalida', 'jornadaAsistentes', 'jornadaCerrar',
-  'jornadaCrear', 'jornadaDetalle', 'jornadaListar', 'login', 'nuevoEmpleado',
-  'registrarReingreso', 'revisarIncapacidad', 'revocarPermisoSubida', 'vaciarAcumulados',
-  'verificarDuplicado', 'verificarDuplicadosLote', 'version'
+  'jornadaCrear', 'jornadaDetalle', 'jornadaEditar', 'jornadaEliminar', 'jornadaListar',
+  'jornadaQueTiene', 'login', 'nuevoEmpleado', 'registrarReingreso', 'revisarIncapacidad',
+  'revocarPermisoSubida', 'vaciarAcumulados', 'verificarDuplicado',
+  'verificarDuplicadosLote', 'version'
 ];
 const API_VERSION = '2026-11-25';
 const API_MODULOS = [
