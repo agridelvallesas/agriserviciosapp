@@ -3645,6 +3645,73 @@ tfoot td{background:var(--gf);font-weight:700}
 // CONFIGURACIÓN
 // ══════════════════════════════════════════
 const APPS_URL='/api';
+
+// ══════════════════════════════════════════════════════════════════════
+//  SESIÓN
+//  El login entrega un token firmado por el servidor. Hay 154 puntos en
+//  esta página que llaman a /api, así que en vez de tocar los 154 se
+//  envuelve fetch una sola vez: así no se puede quedar ninguno por fuera.
+// ══════════════════════════════════════════════════════════════════════
+var SES_LLAVE = 'agri_tk';
+
+function tkGuardar(tk){
+  try { tk ? localStorage.setItem(SES_LLAVE, tk) : localStorage.removeItem(SES_LLAVE); }
+  catch(e){ window.__tk = tk || null; }   // modo privado del navegador
+}
+function tkLeer(){
+  try { return localStorage.getItem(SES_LLAVE) || window.__tk || null; }
+  catch(e){ return window.__tk || null; }
+}
+function tkBorrar(){ tkGuardar(null); try{ window.__tk = null; }catch(e){} }
+
+var SES_CAIDA = false;
+// OJO: aquí NO se puede recargar la página. Al arrancar, la app vuelve a
+// llamar al servidor, vuelve a recibir "sesión inválida" y vuelve a
+// recargar: queda un bucle infinito de avisos del que no se sale.
+// logout() devuelve a la pantalla de ingreso, que no llama a nadie.
+function sesCaida(){
+  if(SES_CAIDA) return;              // un solo aviso aunque fallen diez llamadas
+  SES_CAIDA = true;
+  tkBorrar();
+  try { if(typeof logout === 'function') logout(); } catch(e){}
+  alert('Su sesión venció. Vuelva a ingresar.');
+  setTimeout(function(){ SES_CAIDA = false; }, 3000);
+}
+
+(function(){
+  var _fetch = window.fetch;
+  window.fetch = function(url, opt){
+    try {
+      var esApi = (typeof url === 'string') && url === APPS_URL
+               && opt && typeof opt.body === 'string';
+      if(esApi){
+        var b = JSON.parse(opt.body);
+        if(b && typeof b === 'object' && !b.tk){
+          var tk = tkLeer();
+          if(tk){
+            b.tk = tk;
+            var o = {}; for(var k in opt) o[k] = opt[k];
+            o.body = JSON.stringify(b);
+            opt = o;
+          }
+        }
+      }
+    } catch(e){ /* si el cuerpo no es JSON, se manda tal cual */ }
+
+    var p = _fetch.call(this, url, opt);
+    try {
+      p.then(function(res){
+        // se mira una copia, para no consumir la respuesta de quien llamó
+        res.clone().json().then(function(d){
+          if(d && d.ok === false && d.cod === 'SESION_INVALIDA') sesCaida();
+        }).catch(function(){});
+        return res;
+      }).catch(function(){});
+    } catch(e){}
+    return p;
+  };
+})();
+
 const UMBRAL=68091;
 // Eficiencia mínima: cuánto debe hacer el trabajador para alcanzar el umbral.
 // Se muestra con decimales porque hay labores cuya cantidad es menor que 1.
@@ -4130,6 +4197,8 @@ function login(){
       return;
     }
     document.getElementById('lerr').style.display='none';
+    tkGuardar(data.tk || null);
+    if(data.aviso_sesion) console.warn(data.aviso_sesion);
     S.u=data.usuario||u;
     S.rol=data.rol||S.ltab;
     S.depto=S.ltab||'c'; // 'c','a','n','f','r' (departamento elegido en wizard)
@@ -4688,6 +4757,7 @@ function cargarRegistrosSheets(sem, coord){
   });
 }
 function logout(){
+  tkBorrar();
   S.u=null;
   S.ltab=null;
   DATOS_LISTOS=false;
