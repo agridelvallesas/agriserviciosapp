@@ -334,6 +334,16 @@ tfoot td{background:var(--gf);font-weight:700}
   .card{padding:14px}
   .ct{font-size:13px}
 }
+
+/* El formulario de la encuesta: tres columnas en el computador, una sola
+   en el celular de la empresa, que es donde lo usa SST en la entrevista. */
+.enc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:900px){ .enc-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:620px){
+  .enc-grid{grid-template-columns:1fr}
+  .enc-grid .fld{grid-column:1 / -1 !important}
+  .enc-grid input,.enc-grid select,.enc-grid textarea{font-size:16px;min-height:44px}
+}
 </style>
 </head>
 <body>
@@ -344,7 +354,7 @@ tfoot td{background:var(--gf);font-weight:700}
      Toman solos el color del texto que los rodea: en un boton verde salen
      blancos, en la barra salen grises, sin que haya que tocarlos.
      .ico = 18px (barra lateral) · .icb = 16px (botones) -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol><symbol id="i-arrow-left-right" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4" /> <path d="M4 7h16" /> <path d="m16 21 4-4-4-4" /> <path d="M20 17H4" /></symbol><symbol id="i-arrow-right-left" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4" /> <path d="M20 7H4" /> <path d="m8 21-4-4 4-4" /> <path d="M4 17h16" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /> <rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /> <line x1="8" x2="16" y1="6" y2="6" /> <line x1="16" x2="16" y1="14" y2="18" /> <path d="M16 10h.01" /> <path d="M12 10h.01" /> <path d="M8 10h.01" /> <path d="M12 14h.01" /> <path d="M8 14h.01" /> <path d="M12 18h.01" /> <path d="M8 18h.01" /></symbol><symbol id="i-calendar-check" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m9 15 2 2 4-4" /></symbol><symbol id="i-calendar-range" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M16 2v3" /> <path d="M3 9h18" /> <path d="M8 2v3" /> <path d="M17 13h-6" /> <path d="M13 17H7" /> <path d="M7 13h.01" /> <path d="M17 17h.01" /></symbol><symbol id="i-chart-line" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></symbol><symbol id="i-chart-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol><symbol id="i-clipboard-list" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /> <path d="M15 6h1v4" /> <path d="m6.134 14.768.866-.5 2 3.464" /> <circle cx="16" cy="8" r="6" /></symbol><symbol id="i-copy-check" viewBox="0 0 24 24"><path d="m12 15 2 2 4-4" /> <rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z" /></symbol><symbol id="i-file-plus-2" viewBox="0 0 24 24"><path d="M11.35 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5.35" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M14 19h6" /> <path d="M17 16v6" /></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol><symbol id="i-hand-coins" viewBox="0 0 24 24"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /> <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" /> <path d="m2 16 6 6" /> <circle cx="16" cy="9" r="2.9" /> <circle cx="6" cy="5" r="3" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /> <rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" /> <path d="M2 6h4" /> <path d="M2 10h4" /> <path d="M2 14h4" /> <path d="M2 18h4" /> <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /> <path d="M12 22V12" /> <polyline points="3.29 7 12 12 20.71 7" /> <path d="m7.5 4.27 9 5.15" /></symbol><symbol id="i-package-minus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M21 13V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-package-plus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M19 14v6" /> <path d="M21 10.535V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-receipt-text" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></symbol><symbol id="i-scroll-text" viewBox="0 0 24 24"><path d="M15 12h-5" /> <path d="M15 8h-5" /> <path d="M19 17V5a2 2 0 0 0-2-2H4" /> <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M11 2v2" /> <path d="M5 2v2" /> <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /> <path d="M8 15a6 6 0 0 0 12 0v-3" /> <circle cx="20" cy="10" r="2" /></symbol><symbol id="i-sticky-note" viewBox="0 0 24 24"><path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" /> <path d="M15 3v5a1 1 0 0 0 1 1h5" /></symbol><symbol id="i-tree-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" /> <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" /> <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" /> <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4" /> <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /> <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /> <rect x="6" y="14" width="12" height="8" rx="1" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-file-spreadsheet" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M8 13h2" /> <path d="M14 13h2" /> <path d="M8 17h2" /> <path d="M14 17h2" /></symbol><symbol id="i-square-pen" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /> <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" /></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-eraser" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /> <path d="m5.082 11.09 8.828 8.828" /></symbol><symbol id="i-building-2" viewBox="0 0 24 24"><path d="M10 12h4" /> <path d="M10 8h4" /> <path d="M14 21v-3a2 2 0 0 0-4 0v3" /> <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /> <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" /> <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M16 17h6v-6" /> <path d="m22 17-8.5-8.5-5 5L2 7" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /> <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /> <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M7 21h10" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M12 18v-6" /> <path d="m9 15 3 3 3-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="19" x2="19" y1="8" y2="14" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-hard-hat" viewBox="0 0 24 24"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /> <path d="M14 6a6 6 0 0 1 6 6v3" /> <path d="M4 15v-3a6 6 0 0 1 6-6" /> <rect x="2" y="15" width="20" height="4" rx="1" /></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M12 16h.01" /> <path d="M16 16h.01" /> <path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" /> <path d="M8 16h.01" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /> <path d="M12 7v5l4 2" /></symbol><symbol id="i-search-check" viewBox="0 0 24 24"><path d="m8 11 2 2 4-4" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol><symbol id="i-arrow-left-right" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4" /> <path d="M4 7h16" /> <path d="m16 21 4-4-4-4" /> <path d="M20 17H4" /></symbol><symbol id="i-arrow-right-left" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4" /> <path d="M20 7H4" /> <path d="m8 21-4-4 4-4" /> <path d="M4 17h16" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /> <rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /> <line x1="8" x2="16" y1="6" y2="6" /> <line x1="16" x2="16" y1="14" y2="18" /> <path d="M16 10h.01" /> <path d="M12 10h.01" /> <path d="M8 10h.01" /> <path d="M12 14h.01" /> <path d="M8 14h.01" /> <path d="M12 18h.01" /> <path d="M8 18h.01" /></symbol><symbol id="i-calendar-check" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m9 15 2 2 4-4" /></symbol><symbol id="i-calendar-range" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M16 2v3" /> <path d="M3 9h18" /> <path d="M8 2v3" /> <path d="M17 13h-6" /> <path d="M13 17H7" /> <path d="M7 13h.01" /> <path d="M17 17h.01" /></symbol><symbol id="i-chart-line" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></symbol><symbol id="i-chart-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol><symbol id="i-clipboard-list" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /> <path d="M15 6h1v4" /> <path d="m6.134 14.768.866-.5 2 3.464" /> <circle cx="16" cy="8" r="6" /></symbol><symbol id="i-copy-check" viewBox="0 0 24 24"><path d="m12 15 2 2 4-4" /> <rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z" /></symbol><symbol id="i-file-plus-2" viewBox="0 0 24 24"><path d="M11.35 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5.35" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M14 19h6" /> <path d="M17 16v6" /></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol><symbol id="i-hand-coins" viewBox="0 0 24 24"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /> <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" /> <path d="m2 16 6 6" /> <circle cx="16" cy="9" r="2.9" /> <circle cx="6" cy="5" r="3" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /> <rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" /> <path d="M2 6h4" /> <path d="M2 10h4" /> <path d="M2 14h4" /> <path d="M2 18h4" /> <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /> <path d="M12 22V12" /> <polyline points="3.29 7 12 12 20.71 7" /> <path d="m7.5 4.27 9 5.15" /></symbol><symbol id="i-package-minus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M21 13V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-package-plus" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="M16 17h6" /> <path d="M19 14v6" /> <path d="M21 10.535V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.675-.955" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol><symbol id="i-receipt-text" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></symbol><symbol id="i-scroll-text" viewBox="0 0 24 24"><path d="M15 12h-5" /> <path d="M15 8h-5" /> <path d="M19 17V5a2 2 0 0 0-2-2H4" /> <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M11 2v2" /> <path d="M5 2v2" /> <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /> <path d="M8 15a6 6 0 0 0 12 0v-3" /> <circle cx="20" cy="10" r="2" /></symbol><symbol id="i-sticky-note" viewBox="0 0 24 24"><path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" /> <path d="M15 3v5a1 1 0 0 0 1 1h5" /></symbol><symbol id="i-tree-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" /> <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" /> <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" /> <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4" /> <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" /></symbol><symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /> <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /> <rect x="6" y="14" width="12" height="8" rx="1" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-file-spreadsheet" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M8 13h2" /> <path d="M14 13h2" /> <path d="M8 17h2" /> <path d="M14 17h2" /></symbol><symbol id="i-square-pen" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /> <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" /></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-eraser" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /> <path d="m5.082 11.09 8.828 8.828" /></symbol><symbol id="i-building-2" viewBox="0 0 24 24"><path d="M10 12h4" /> <path d="M10 8h4" /> <path d="M14 21v-3a2 2 0 0 0-4 0v3" /> <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" /> <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" /> <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M16 17h6v-6" /> <path d="m22 17-8.5-8.5-5 5L2 7" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /> <path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /> <path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /> <path d="M7 21h10" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M12 18v-6" /> <path d="m9 15 3 3 3-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="19" x2="19" y1="8" y2="14" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-hard-hat" viewBox="0 0 24 24"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /> <path d="M14 6a6 6 0 0 1 6 6v3" /> <path d="M4 15v-3a6 6 0 0 1 6-6" /> <rect x="2" y="15" width="20" height="4" rx="1" /></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M12 16h.01" /> <path d="M16 16h.01" /> <path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" /> <path d="M8 16h.01" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /> <path d="M12 7v5l4 2" /></symbol><symbol id="i-search-check" viewBox="0 0 24 24"><path d="m8 11 2 2 4-4" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol></svg>
 
 <!-- LOGIN — Wizard 2 pasos -->
 <div id="lscreen" class="l-wrap">
@@ -3272,6 +3282,20 @@ tfoot td{background:var(--gf);font-weight:700}
       <div id="enc-form-cont"></div>
     </div>
 
+    <!-- ══════════ SST — JORNADAS DE REINDUCCIÓN ══════════ -->
+    <div class="page" id="p-jor">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-users"/></svg> Jornadas de reinducción
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">Para que el grupo llene su propia encuesta desde el celular. Solo contesta quien esté en la lista.</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn bn" onclick="jorNueva()" style="height:36px"><svg class="icb"><use href="#i-file-plus-2"/></svg> Nueva jornada</button>
+          <button class="btn bg" onclick="jorCargar()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
+          <button class="btn bg" onclick="encPendientes()" style="height:36px"><svg class="icb"><use href="#i-search-check"/></svg> Revisar lo que llegó</button>
+        </div>
+      </div>
+      <div id="jor-cont"></div>
+    </div>
+
     <!-- ══════════ SST — INVENTARIO ══════════ -->
     <div class="page" id="p-inv">
       <div class="card">
@@ -4946,6 +4970,7 @@ function buildNav(){
     nav.innerHTML=
       '<div class="sb-sec">SST — Salud y seguridad</div>'+
       '<button class="ni" onclick="go(\'enc\')"><span class="ni-ico"><svg class="ico"><use href="#i-file-text"/></svg></span>Encuesta sociodemográfica</button>'+
+      '<button class="ni" onclick="go(\'jor\')"><span class="ni-ico"><svg class="ico"><use href="#i-users"/></svg></span>Jornadas de reinducción</button>'+
       '<div class="sb-sec">SST — Inventario</div>'+
       '<button class="ni" onclick="go(\'inv\')"><span class="ni-ico"><svg class="ico"><use href="#i-package"/></svg></span>Inventario</button>'+
       '<button class="ni" onclick="go(\'inv-ent\')"><span class="ni-ico"><svg class="ico"><use href="#i-package-plus"/></svg></span>Registrar entrada</button>'+
@@ -4985,7 +5010,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica','jor':'SST — Jornadas de reinducción'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -5025,6 +5050,7 @@ function go(pg){
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
   if(pg==='enc') encAbrir();
+  if(pg==='jor') jorAbrir();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -25978,7 +26004,7 @@ function encFormPintar(e){
       h += '<div style="font-size:11.5px;color:var(--g3);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px">'
         + 'Estas respuestas no las ve Recursos Humanos. Quedan guardadas para SST.</div>';
     }
-    h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
+    h += '<div class="enc-grid">';
     sec.campos.forEach(function(c){
       h += encCampoHTML(c, e);
     });
@@ -26376,6 +26402,414 @@ function encModal(titulo, html, ancho){
 function encCerrarModal(){
   var m = document.getElementById('enc-modal');
   if(m) m.remove();
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  JORNADAS DE REINDUCCIÓN
+//  SST abre una jornada con la lista de quienes asisten, muestra el QR
+//  en pantalla y ve en vivo cómo van entrando. Al cerrarla, el enlace
+//  deja de servir.
+// ══════════════════════════════════════════════════════════════════════
+
+var JOR_ROWS = [];
+var JOR_DET = null;
+var JOR_SEL = [];        // cédulas que se van agregando a la jornada nueva
+var JOR_TIMER = null;    // refresco del avance en vivo
+
+function jorAbrir(){
+  jorCargar();
+}
+
+function jorCargar(){
+  var c = document.getElementById('jor-cont');
+  if(c) c.innerHTML = '<div style="padding:28px;text-align:center;color:var(--g3)">Cargando jornadas…</div>';
+  encPost({accion:'jornadaListar'}).then(function(d){
+    if(!d || !d.ok){ if(c) c.innerHTML = '<div class="card" style="color:var(--r)">No se pudieron cargar: '+((d&&d.error)||'?')+'</div>'; return; }
+    JOR_ROWS = d.data || [];
+    jorRender();
+  }).catch(function(e){ if(c) c.innerHTML = '<div class="card" style="color:var(--r)">Error de red: '+e.message+'</div>'; });
+}
+
+function jorRender(){
+  var c = document.getElementById('jor-cont');
+  if(!c) return;
+  if(!JOR_ROWS.length){
+    c.innerHTML = '<div class="card" style="text-align:center;padding:30px;color:var(--g3)">'
+      + 'Todavía no hay jornadas.<br><span style="font-size:12.5px">Cree una cuando vaya a reunir un grupo para reinducción.</span></div>';
+    return;
+  }
+  var h = '';
+  JOR_ROWS.forEach(function(j){
+    var pct = j.total ? Math.round((j.enviadas / j.total) * 100) : 0;
+    var col = j.abierta ? '#16a34a' : '#94a3b8';
+    h += '<div class="card" style="margin-bottom:11px;border-left:3px solid '+col+'">'
+      + '<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">'
+      +   '<div style="flex:1;min-width:200px">'
+      +     '<div style="font-weight:800;font-size:14px">'+encEsc(j.nombre)+'</div>'
+      +     '<div style="font-size:11.5px;color:var(--g3);margin-top:2px">'
+      +       encEsc(j.fecha)+' · '+encEsc(j.tipo)+' '+encEsc(j.anio)
+      +       (j.sede ? ' · '+encEsc(j.sede) : '')
+      +       (j.creada_por ? ' · '+encEsc(j.creada_por) : '')+'</div>'
+      +   '</div>'
+      +   '<div style="text-align:right">'
+      +     '<div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:'+col+'">'
+      +       (j.abierta ? 'ABIERTA' : 'CERRADA')+'</div>'
+      +     '<div style="font-size:19px;font-weight:800">'+j.enviadas+' / '+j.total+'</div>'
+      +     '<div style="font-size:10.5px;color:var(--g3)">enviadas</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="height:6px;background:#e2e8f0;border-radius:4px;margin-top:9px;overflow:hidden">'
+      +   '<div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
+      +   '<button class="btn bn" style="height:31px;font-size:12px" onclick="jorDetalle(\''+j.id+'\')">'
+      +     '<svg class="icb"><use href="#i-users"/></svg> Abrir</button>'
+      +   (j.abierta
+          ? '<button class="btn bg" style="height:31px;font-size:12px" onclick="jorQR(\''+j.id+'\')">'
+            + '<svg class="icb"><use href="#i-share-2"/></svg> Ver el QR</button>'
+          : '')
+      + '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+// ── crear ────────────────────────────────────────────────────────────
+function jorNueva(){
+  JOR_SEL = [];
+  var hoy = new Date().toISOString().slice(0,10);
+  var h = '<div class="fld"><label>Nombre de la jornada</label>'
+    + '<input type="text" id="jor-n-nombre" placeholder="Reinducción grupo 1 — Zarzal"/></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+    +   '<div class="fld" style="margin:0"><label>Fecha</label><input type="date" id="jor-n-fecha" value="'+hoy+'"/></div>'
+    +   '<div class="fld" style="margin:0"><label>Clase</label><select id="jor-n-tipo">'
+    +     '<option value="REIN">Reinducción</option><option value="IND">Inducción</option></select></div>'
+    +   '<div class="fld" style="margin:0"><label>El enlace vence en</label><select id="jor-n-horas">'
+    +     '<option value="4">4 horas</option><option value="8">8 horas</option>'
+    +     '<option value="12" selected>12 horas</option><option value="24">24 horas</option>'
+    +     '</select></div>'
+    + '</div>'
+    + '<div class="fld"><label>Agregar trabajadores <span style="font-weight:400;color:var(--g3)">· escriba el nombre o la cédula</span></label>'
+    + '<input type="text" id="jor-n-buscar" placeholder="buscar…" autocomplete="off"/></div>'
+    + '<div id="jor-n-lista" style="margin-top:4px"></div>'
+    + '<div style="display:flex;gap:9px;justify-content:flex-end;margin-top:14px">'
+    +   '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+    +   '<button class="btn bn" onclick="jorCrear()"><svg class="icb"><use href="#i-save"/></svg> Crear y generar el enlace</button>'
+    + '</div>';
+  encModal('Nueva jornada de reinducción', h, 680);
+  jorPintarSel();
+  if(typeof acAdjuntarBuscador === 'function'){
+    acTrabAsegurar(function(){
+      acAdjuntarBuscador('jor-n-buscar', acTrabFuente, function(ced, nom){
+        jorAgregarSel(ced, nom);
+        var i = document.getElementById('jor-n-buscar');
+        if(i){ i.value=''; i.focus(); }
+      });
+    });
+  }
+}
+
+function jorAgregarSel(ced, nom){
+  ced = String(ced||'').replace(/\D/g,'');
+  if(!ced) return;
+  if(JOR_SEL.some(function(x){ return x.ced === ced; })) return;
+  JOR_SEL.push({ced:ced, nom:nom||''});
+  jorPintarSel();
+}
+function jorQuitarSel(ced){
+  JOR_SEL = JOR_SEL.filter(function(x){ return x.ced !== ced; });
+  jorPintarSel();
+}
+function jorPintarSel(){
+  var b = document.getElementById('jor-n-lista');
+  if(!b) return;
+  if(!JOR_SEL.length){
+    b.innerHTML = '<div style="font-size:12px;color:var(--g3);padding:10px;background:#f8fafc;border-radius:8px;text-align:center">'
+      + 'Nadie en la lista todavía. Solo quienes estén aquí van a poder contestar.</div>';
+    return;
+  }
+  var h = '<div style="font-size:11.5px;color:var(--g3);margin-bottom:5px">'+JOR_SEL.length+' en la lista</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:190px;overflow:auto">';
+  JOR_SEL.forEach(function(x){
+    h += '<span style="display:inline-flex;align-items:center;gap:6px;background:#ecfdf3;border:1px solid #d1fae5;'
+      + 'border-radius:7px;padding:4px 7px;font-size:11.5px">'
+      + '<b>'+encEsc(x.nom || x.ced)+'</b>'
+      + '<span style="color:var(--g3)">'+encEsc(x.ced)+'</span>'
+      + '<span onclick="jorQuitarSel(\''+x.ced+'\')" style="cursor:pointer;color:#b91c1c;font-weight:700;padding:0 2px">×</span>'
+      + '</span>';
+  });
+  b.innerHTML = h + '</div>';
+}
+
+function jorCrear(){
+  var nombre = (document.getElementById('jor-n-nombre')||{}).value || '';
+  if(!nombre.trim()){ alert('Póngale un nombre a la jornada.'); return; }
+  if(!JOR_SEL.length){ alert('Agregue al menos un trabajador a la lista.'); return; }
+  encPost({
+    accion:'jornadaCrear',
+    nombre: nombre.trim(),
+    fecha: (document.getElementById('jor-n-fecha')||{}).value || '',
+    tipo:  (document.getElementById('jor-n-tipo')||{}).value || 'REIN',
+    horas: (document.getElementById('jor-n-horas')||{}).value || 12,
+    cedulas: JOR_SEL.map(function(x){ return x.ced; })
+  }).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo crear: '+((d&&d.error)||'?')); return; }
+    encCerrarModal();
+    JOR_ROWS = [];
+    jorCargar();
+    if(d.sin_ficha && d.sin_ficha.length){
+      alert(d.sin_ficha.length + ' de las cédulas no están en Trabajadores.\n\n'
+        + 'Pueden contestar igual, pero no van a ver su nombre para confirmar:\n'
+        + d.sin_ficha.join(', '));
+    }
+    jorQR(d.id, {
+      id: d.id, token: d.token, nombre: nombre.trim(),
+      total: d.asistentes, abierta: true
+    });
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+// ── el QR y el enlace ────────────────────────────────────────────────
+function jorUrl(token){
+  return location.origin + '/encuesta.html?j=' + encodeURIComponent(token);
+}
+
+function jorCargarQR(cb){
+  if(window.qrcode){ cb(true); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  s.onload = function(){ cb(!!window.qrcode); };
+  s.onerror = function(){ cb(false); };
+  document.head.appendChild(s);
+}
+
+// Recibe el id, o directamente la jornada. Al crearla hay que pasarla
+// entera: la lista se está recargando y todavía no la tiene.
+function jorQR(id, jDirecta){
+  var j = jDirecta || JOR_ROWS.filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!j && JOR_DET && String(JOR_DET.jornada.id) === String(id)) j = JOR_DET.jornada;
+  if(!j){ alert('No se encontró la jornada.'); return; }
+  var url = jorUrl(j.token);
+
+  var h = '<div style="text-align:center">'
+    + '<div id="jor-qr-img" style="min-height:230px;display:flex;align-items:center;justify-content:center;color:var(--g3)">'
+    +   'Generando el código…</div>'
+    + '<div style="font-size:12px;color:var(--g3);margin-top:6px">Que lo escaneen con la cámara del celular</div>'
+    + '<div style="margin-top:14px;background:#f8fafc;border:1px solid var(--bd);border-radius:10px;padding:12px">'
+    +   '<div style="font-size:10.5px;letter-spacing:.08em;color:var(--g3);font-weight:700">O ESCRIBAN ESTE CÓDIGO</div>'
+    +   '<div style="font-size:27px;font-weight:800;letter-spacing:.14em;margin:4px 0 2px">'+encEsc(j.token)+'</div>'
+    +   '<div style="font-size:11.5px;color:var(--g3);word-break:break-all">'+encEsc(url)+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:9px;justify-content:center;margin-top:13px;flex-wrap:wrap" class="no-print">'
+    +   '<button class="btn bg" onclick="jorCopiar(\''+encEsc(j.token)+'\')"><svg class="icb"><use href="#i-copy"/></svg> Copiar el enlace</button>'
+    +   '<button class="btn bg" onclick="window.print()"><svg class="icb"><use href="#i-printer"/></svg> Imprimir</button>'
+    +   '<button class="btn bn" onclick="jorDetalle(\''+j.id+'\')"><svg class="icb"><use href="#i-users"/></svg> Ver quién va entrando</button>'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:var(--g3);margin-top:11px;text-align:left;background:#fffbeb;'
+    +   'border:1px solid #fde68a;border-radius:9px;padding:10px 12px">'
+    +   'Solo las <b>'+(j.total !== undefined ? j.total : '')+'</b> personas de la lista pueden contestar, '
+    +   'una vez cada una. Cuando cierre la jornada, el enlace deja de servir.'
+    + '</div></div>';
+
+  encModal('Enlace de la jornada · ' + encEsc(j.nombre), h, 480);
+
+  jorCargarQR(function(ok){
+    var caja = document.getElementById('jor-qr-img');
+    if(!caja) return;
+    if(!ok){
+      caja.innerHTML = '<div style="color:var(--g3);font-size:12.5px">No se pudo generar el código QR '
+        + '(sin internet para cargarlo).<br>Use el código o el enlace de abajo.</div>';
+      return;
+    }
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      caja.innerHTML = qr.createSvgTag({cellSize:6, margin:2, scalable:true})
+        .replace('<svg', '<svg style="width:230px;height:230px"');
+    } catch(e){
+      caja.innerHTML = '<div style="color:var(--g3);font-size:12.5px">No se pudo dibujar el código. Use el enlace.</div>';
+    }
+  });
+}
+
+function jorCopiar(token){
+  var url = jorUrl(token);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ alert('Enlace copiado:\n\n'+url); },
+                                            function(){ prompt('Copie el enlace:', url); });
+  } else {
+    prompt('Copie el enlace:', url);
+  }
+}
+
+// ── detalle y avance en vivo ─────────────────────────────────────────
+function jorDetalle(id){
+  encPost({accion:'jornadaDetalle', id:id}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo abrir: '+((d&&d.error)||'?')); return; }
+    JOR_DET = d;
+    jorPintarDetalle();
+    jorLatir();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function jorPintarDetalle(){
+  var d = JOR_DET;
+  if(!d) return;
+  var j = d.jornada;
+  var a = d.asistentes || [];
+  var env = a.filter(function(x){ return x.estado === 'enviada'; }).length;
+  var cur = a.filter(function(x){ return x.estado === 'en_curso'; }).length;
+  var sin = a.length - env - cur;
+
+  var h = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    + encTarjeta('Enviadas', env, 'i-circle-check', '#16a34a')
+    + encTarjeta('Contestando', cur, 'i-clock', '#b45309')
+    + encTarjeta('Sin abrir', sin, 'i-user', '#94a3b8')
+    + '</div>';
+
+  if(j.abierta){
+    h += '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:10px 12px;margin-bottom:12px;'
+      + 'display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      + '<div style="flex:1;min-width:170px;font-size:12.5px;color:#065f46">'
+      +   'Jornada <b>abierta</b> · código <b style="letter-spacing:.1em">'+encEsc(j.token)+'</b></div>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorQR(\''+j.id+'\')">Ver el QR</button>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',false)">Cerrar la jornada</button>'
+      + '</div>';
+  } else {
+    h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-bottom:12px;'
+      + 'display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      + '<div style="flex:1;min-width:170px;font-size:12.5px;color:var(--g2)">Jornada <b>cerrada</b>. El enlace ya no sirve.</div>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',true)">Volver a abrirla</button>'
+      + '</div>';
+  }
+
+  h += '<table><thead><tr><th>Trabajador</th><th>Cédula</th><th>Cómo va</th><th></th></tr></thead><tbody>';
+  a.forEach(function(x){
+    var pinta = x.estado === 'enviada'
+      ? {t:'Enviada', c:'#16a34a', b:'#f0fdf4'}
+      : x.estado === 'en_curso'
+        ? {t:'Contestando… paso '+(x.avance||1), c:'#b45309', b:'#fffbeb'}
+        : {t:'Sin abrir', c:'#94a3b8', b:''};
+    h += '<tr'+(pinta.b ? ' style="background:'+pinta.b+'"' : '')+'>'
+      + '<td style="font-weight:600">'+encEsc(x.nombres || '(sin ficha en Trabajadores)')+'</td>'
+      + '<td style="font-variant-numeric:tabular-nums">'+encEsc(x.cedula)+'</td>'
+      + '<td style="color:'+pinta.c+';font-weight:600;font-size:12px">'+pinta.t+'</td>'
+      + '<td style="text-align:right">'
+      +   (x.encuesta_id
+          ? '<button class="btn bg" style="height:26px;font-size:11px" onclick="encEditar('+x.encuesta_id+')">Ver</button>'
+          : (j.abierta
+             ? '<button class="btn bg" style="height:26px;font-size:11px" onclick="jorQuitar(\''+j.id+'\',\''+x.cedula+'\')">Quitar</button>'
+             : ''))
+      + '</td></tr>';
+  });
+  h += '</tbody></table>';
+
+  if(j.abierta){
+    h += '<div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div class="fld" style="flex:1;min-width:200px;margin:0"><label style="font-size:10.5px">Agregar a alguien que llegó tarde</label>'
+      + '<input type="text" id="jor-d-buscar" placeholder="nombre o cédula" autocomplete="off"/></div></div>';
+  }
+  h += '<div style="font-size:11px;color:var(--g3);margin-top:9px">Se actualiza solo cada 10 segundos.</div>';
+
+  encModal('Jornada · ' + encEsc(j.nombre), h, 740);
+
+  if(j.abierta && typeof acAdjuntarBuscador === 'function'){
+    acTrabAsegurar(function(){
+      acAdjuntarBuscador('jor-d-buscar', acTrabFuente, function(ced){
+        encPost({accion:'jornadaAsistentes', id:j.id, cedulas:[ced]}).then(function(r){
+          if(!r || !r.ok){ alert((r&&r.error)||'No se pudo agregar'); return; }
+          jorDetalle(j.id);
+        });
+      });
+    });
+  }
+}
+
+// Refresca el detalle mientras el modal esté abierto, para que SST vea
+// entrar a la gente sin tener que recargar.
+function jorLatir(){
+  clearTimeout(JOR_TIMER);
+  JOR_TIMER = setTimeout(function(){
+    if(!document.getElementById('enc-modal') || !JOR_DET){ return; }
+    encPost({accion:'jornadaDetalle', id:JOR_DET.jornada.id}).then(function(d){
+      if(!d || !d.ok) { jorLatir(); return; }
+      if(!document.getElementById('enc-modal')) return;   // lo cerraron mientras tanto
+      JOR_DET = d;
+      jorPintarDetalle();
+      jorLatir();
+    }).catch(function(){ jorLatir(); });
+  }, 10000);
+}
+
+function jorCerrar(id, abrir){
+  if(!abrir && !confirm('Al cerrar la jornada, el enlace deja de servir y quien no haya enviado\n'
+      + 'no va a poder hacerlo.\n\n¿Cerrarla?')) return;
+  encPost({accion:'jornadaCerrar', id:id, abrir:!!abrir}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo: '+((d&&d.error)||'?')); return; }
+    JOR_ROWS = [];
+    jorCargar();
+    jorDetalle(id);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function jorQuitar(id, cedula){
+  if(!confirm('¿Quitar a esta persona de la lista?')) return;
+  encPost({accion:'jornadaAsistentes', id:id, quitar:cedula}).then(function(d){
+    if(!d || !d.ok){ alert((d&&d.error)||'No se pudo quitar'); return; }
+    jorDetalle(id);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+// ══ REVISAR LO QUE LLEGA DEL CELULAR ═════════════════════════════════
+function encPendientes(){
+  encPost({accion:'encuestasPendientes'}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo cargar: '+((d&&d.error)||'?')); return; }
+    var f = d.data || [];
+    var h;
+    if(!f.length){
+      h = '<div style="text-align:center;padding:26px;color:var(--g3)">'
+        + '<svg class="ict" style="color:#16a34a"><use href="#i-circle-check"/></svg>'
+        + '<div style="margin-top:7px;font-weight:600">No hay nada pendiente de revisar.</div></div>';
+    } else {
+      h = '<div style="font-size:12.5px;color:var(--g2);margin-bottom:10px">'
+        + 'Estas las llenó el trabajador desde su celular. No cuentan como encuesta buena '
+        + 'hasta que usted las revise.</div>'
+        + '<table><thead><tr><th>Trabajador</th><th>Cédula</th><th>Clase</th><th>Última vez</th><th></th></tr></thead><tbody>';
+      f.forEach(function(x){
+        h += '<tr><td style="font-weight:600">'+encEsc(x.nombres || '(sin nombre)')+'</td>'
+          + '<td style="font-variant-numeric:tabular-nums">'+encEsc(x.cedula)+'</td>'
+          + '<td>'+encEsc(x.etiqueta)+'</td>'
+          + '<td style="font-size:11.5px;color:var(--g3)">'+encEsc(String(x.actualizado_en||'').slice(0,16).replace('T',' '))+'</td>'
+          + '<td style="white-space:nowrap;text-align:right">'
+          +   '<button class="btn bg" style="height:26px;font-size:11px" onclick="encEditar('+x.id+')">Abrir</button> '
+          +   '<button class="btn bn" style="height:26px;font-size:11px" onclick="encAprobar('+x.id+')">Aprobar</button> '
+          +   '<button class="btn bg" style="height:26px;font-size:11px;color:#b91c1c" onclick="encDescartar('+x.id+')">Descartar</button>'
+          + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    encModal('Encuestas pendientes de revisar', h, 780);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encAprobar(id){
+  encPost({accion:'encuestaRevisar', id:id}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo: '+((d&&d.error)||'?')); return; }
+    ENC_ROWS = []; ENC_RES = null;
+    encPendientes();
+    encAbrir();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encDescartar(id){
+  if(!confirm('Esto borra la encuesta. Se usa cuando alguien la llenó por equivocación\n'
+      + 'o puso cualquier cosa.\n\n¿Descartarla?')) return;
+  encPost({accion:'encuestaRevisar', id:id, descartar:true}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo: '+((d&&d.error)||'?')); return; }
+    ENC_ROWS = []; ENC_RES = null;
+    encPendientes();
+    encAbrir();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
 }
 
 </script>
