@@ -3243,6 +3243,35 @@ tfoot td{background:var(--gf);font-weight:700}
       </div>
     </div>
 
+    <!-- ══════════ SST — ENCUESTA SOCIODEMOGRÁFICA ══════════ -->
+    <div class="page" id="p-enc">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-file-text"/></svg> Encuesta sociodemográfica
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">La entrevista de inducción y la reinducción anual. Cada encuesta queda aparte: el historial se conserva.</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:140px;margin:0"><label style="font-size:10px">Año</label>
+            <select id="enc-anio" onchange="encCargar()"></select></div>
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Clase</label>
+            <select id="enc-tipo" onchange="encCargar()">
+              <option value="">Inducción y reinducción</option>
+              <option value="IND">Solo inducción</option>
+              <option value="REIN">Solo reinducción</option></select></div>
+          <div class="fld" style="min-width:220px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre, cédula, monitor o ciudad</label>
+            <input type="text" id="enc-busca" oninput="encRender()" placeholder="escriba para filtrar…"/></div>
+          <button class="btn bn" onclick="encNueva()" style="height:36px"><svg class="icb"><use href="#i-file-plus-2"/></svg> Nueva encuesta</button>
+          <button class="btn bg" onclick="encCargar();encCargarResumen()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
+          <button class="btn bg" onclick="encExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
+        </div>
+      </div>
+      <div id="enc-resumen" style="margin-bottom:12px"></div>
+      <div id="enc-cont"></div>
+    </div>
+
+    <!-- ══════════ SST — ENCUESTA: FORMULARIO ══════════ -->
+    <div class="page" id="p-enc-form">
+      <div id="enc-form-cont"></div>
+    </div>
+
     <!-- ══════════ SST — INVENTARIO ══════════ -->
     <div class="page" id="p-inv">
       <div class="card">
@@ -4908,12 +4937,15 @@ function buildNav(){
       '<button class="ni" onclick="go(\'inc\')"><span class="ni-ico"><svg class="ico"><use href="#i-stethoscope"/></svg></span>Incapacidades</button>'+
       '<button class="ni" onclick="go(\'iyr\')"><span class="ni-ico"><svg class="ico"><use href="#i-arrow-right-left"/></svg></span>Ingresos y retiros</button>'+
       '<button class="ni" onclick="go(\'aus\')"><span class="ni-ico"><svg class="ico"><use href="#i-user-minus"/></svg></span>Ausentismo</button>'+
+      '<button class="ni" onclick="go(\'enc\')"><span class="ni-ico"><svg class="ico"><use href="#i-file-text"/></svg></span>Encuestas de SST</button>'+
       '<button class="ni" onclick="go(\'cartas\')"><span class="ni-ico"><svg class="ico"><use href="#i-mail"/></svg></span>Cartas</button>'+
       '<button class="ni" onclick="go(\'rh-cfg\')"><span class="ni-ico"><svg class="ico"><use href="#i-settings"/></svg></span>Configuración</button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Préstamos\')"><span class="ni-ico"><svg class="ico"><use href="#i-hand-coins"/></svg></span>Préstamos <span class="rh-tag">Pronto</span></button>'+
       '<button class="ni rh-pronto" onclick="rhProximamente(\'Reportes ejecutivos\')"><span class="ni-ico"><svg class="ico"><use href="#i-chart-line"/></svg></span>Reportes ejecutivos <span class="rh-tag">Pronto</span></button>';
   } else if(S.depto==='s'){
     nav.innerHTML=
+      '<div class="sb-sec">SST — Salud y seguridad</div>'+
+      '<button class="ni" onclick="go(\'enc\')"><span class="ni-ico"><svg class="ico"><use href="#i-file-text"/></svg></span>Encuesta sociodemográfica</button>'+
       '<div class="sb-sec">SST — Inventario</div>'+
       '<button class="ni" onclick="go(\'inv\')"><span class="ni-ico"><svg class="ico"><use href="#i-package"/></svg></span>Inventario</button>'+
       '<button class="ni" onclick="go(\'inv-ent\')"><span class="ni-ico"><svg class="ico"><use href="#i-package-plus"/></svg></span>Registrar entrada</button>'+
@@ -4953,7 +4985,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -4992,6 +5024,7 @@ function go(pg){
   if(pg==='res-sem') rsInit();
   if(pg==='inv-kardex') invKardexInit();
   if(pg==='inv-cfg') invCfgInit();
+  if(pg==='enc') encAbrir();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -25470,6 +25503,866 @@ function accEnviar(body,onOk){
     else alert('Error: '+((d&&d.error)||'no se pudo'));
   }).catch(function(e){alert('Error de red: '+e.message);});
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  ENCUESTA SOCIODEMOGRÁFICA (SST)
+//  La entrevista de inducción y la reinducción anual. Cada encuesta
+//  queda como un registro aparte: el historial se conserva.
+//  Lo que se pregunta aquí y también vive en Trabajadores se puede
+//  pasar a RH desde la pantalla de cruce, campo por campo.
+// ══════════════════════════════════════════════════════════════════════
+
+// Listas tomadas de las 573 encuestas que ya tenían en Excel, para que
+// lo que se digite de ahora en adelante coincida con el histórico.
+var ENC_OPC = {
+  tipo:            ['IND','REIN'],
+  cargo:           ['OFICIOS VARIOS','COORDINADOR','SUPERVISOR','COORDINADOR SIEMBRA'],
+  estado:          ['ACTIVO','RETIRADO','INC. PERMANENTE'],
+  talla_pant:      ['28','30','32','34','36','38','40','42','44','8','10','12','14'],
+  talla_camisa:    ['XS','S','M','L','XL','2XL','3XL','4XL'],
+  talla_bota_punt: ['35','36','37','38','39','40','41','42','43','44','45'],
+  talla_bota_lisa: ['35','36','37','38','39','40','41','42','43','44','45'],
+  talla_guayo:     ['35','36','37','38','39','40','41','42','43','44','45'],
+  talla_impermeable:['S','M','L','XL','2XL','3XL'],
+  tipo_sangre:     ['O+','O-','A+','A-','B+','B-','AB+','AB-'],
+  estado_civil:    ['UNIÓN LIBRE','SOLTERO/A','CASADO/A','DIVORCIADO/A','VIUDO/A'],
+  genero:          ['MASCULINO','FEMENINO'],
+  estrato:         ['1','2','3','4','5','6'],
+  tipo_vivienda:   ['ARRENDADA','PROPIA','COMPARTIDA','FAMILIAR','FINCA'],
+  nivel_educativo: ['PRIMARIA INCOMPLETA','PRIMARIA COMPLETA','SECUNDARIA INCOMPLETA',
+                    'SECUNDARIA COMPLETA','TECNICO/A','TECNOLOGO/A','PROFESIONAL'],
+  tiempo_libre:    ['RECREACION Y DEPORTE','LABORES DOMESTICAS','ESTUDIO','OTRO TRABAJO','NINGUNO','OTRO'],
+  ingresos:        ['MINIMO LEGAL','ENTRE 1 Y 2 SMMLV','MAS DE 2 SMMLV'],
+  experiencia:     ['Menos de 1 año','1-3 años','4-6 años','7-10 años','Mas de 10'],
+  tipo_contrato:   ['OBRA LABOR','TERMINO INDEFINIDO','TERMINO FIJO'],
+  activ_salud:     ['EXAMENES MEDICOS LABORALES','NO'],
+  alcohol_frec:    ['OCASIONAL','MENSUAL','QUINCENAL','SEMANAL','DIARIO'],
+  vacuna_tipo:     ['PFIZER','MODERNA','SINOVAC','JANSEN','ASTRAZENECA'],
+  realizado_por:   ['MARCELA','ANDRES LIBREROS','ALEJANDRA PEREA'],
+  si_no:           ['SI','NO'],
+  ciudad:          ['ZARZAL','ROLDANILLO','TORO','OBANDO','ANDALUCIA','BUGALAGRANDE','LA PAILA',
+                    'CAICEDONIA','EL OVERO','ANSERMANUEVO','LA UNION','LA VICTORIA','TULUA','ROBLEDO',
+                    'LA TEBAIDA','CARTAGO','SEVILLA','BOLIVAR','VERSALLES','EL DOVIO','ARGELIA']
+};
+
+// Definición del formulario. Cada sección es un bloque plegable.
+//   t: txt | num | fecha | sel | sel+ | area | calc | sino
+//   dep: {k:campo, v:'SI'}  -> solo se habilita si ese campo vale eso
+//   salud:1 -> sección reservada, solo SST y el ADMIN
+var ENC_FORM = [
+  { sec:'La encuesta', ico:'i-file-text', campos:[
+    {k:'tipo', l:'Clase de encuesta', t:'sel', op:'tipo', req:1,
+     etq:{IND:'Inducción — entra a la empresa', REIN:'Reinducción — actualización anual'}},
+    {k:'anio', l:'Año', t:'num', req:1},
+    {k:'fecha_encuesta', l:'Fecha de la encuesta', t:'fecha', req:1},
+    {k:'realizado_por', l:'Realizado por', t:'sel+', op:'realizado_por'}
+  ]},
+  { sec:'Identificación', ico:'i-user-check', campos:[
+    {k:'cedula', l:'Cédula', t:'num', req:1},
+    {k:'nombres', l:'Nombre completo', t:'txt', req:1, ancho:2},
+    {k:'lugar_exp', l:'Lugar de expedición', t:'txt'},
+    {k:'fecha_exp', l:'Fecha de expedición', t:'fecha'},
+    {k:'fecha_nac', l:'Fecha de nacimiento', t:'fecha'},
+    {k:'edad', l:'Edad', t:'calc', nota:'se calcula de la fecha de nacimiento'},
+    {k:'rango_edad', l:'Rango de edad', t:'calc', nota:'se calcula'},
+    {k:'genero', l:'Género', t:'sel', op:'genero'},
+    {k:'estado_civil', l:'Estado civil', t:'sel', op:'estado_civil'},
+    {k:'tipo_sangre', l:'Tipo de sangre (RH)', t:'sel', op:'tipo_sangre'}
+  ]},
+  { sec:'Contacto', ico:'i-map-pin', campos:[
+    {k:'telefono', l:'Teléfono', t:'txt'},
+    {k:'email', l:'Correo electrónico', t:'txt', ancho:2},
+    {k:'direccion', l:'Dirección completa', t:'txt', ancho:2},
+    {k:'ciudad', l:'Ciudad', t:'sel+', op:'ciudad'}
+  ]},
+  { sec:'Vinculación', ico:'i-briefcase', campos:[
+    {k:'cargo', l:'Cargo', t:'sel+', op:'cargo'},
+    {k:'fecha_ingreso', l:'Fecha de ingreso', t:'fecha'},
+    {k:'monitor', l:'Monitor', t:'txt'},
+    {k:'estado', l:'Estado', t:'sel', op:'estado'},
+    {k:'tipo_contrato', l:'Tipo de contratación', t:'sel', op:'tipo_contrato'},
+    {k:'antiguedad', l:'Antigüedad en la empresa (años)', t:'txt'},
+    {k:'experiencia', l:'Experiencia en el cargo', t:'sel', op:'experiencia'}
+  ]},
+  { sec:'Dotación', ico:'i-package', campos:[
+    {k:'talla_camisa', l:'Camisa', t:'sel+', op:'talla_camisa'},
+    {k:'talla_pant', l:'Pantalón', t:'sel+', op:'talla_pant'},
+    {k:'talla_bota_punt', l:'Botas PVC con puntera', t:'sel+', op:'talla_bota_punt'},
+    {k:'talla_bota_lisa', l:'Botas PVC sin puntera', t:'sel+', op:'talla_bota_lisa'},
+    {k:'talla_guayo', l:'Guayos', t:'sel+', op:'talla_guayo'},
+    {k:'talla_impermeable', l:'Impermeable', t:'sel+', op:'talla_impermeable'}
+  ]},
+  { sec:'Vivienda y familia', ico:'i-building-2', campos:[
+    {k:'estrato', l:'Estrato socioeconómico', t:'sel', op:'estrato'},
+    {k:'tipo_vivienda', l:'Tipo de vivienda', t:'sel', op:'tipo_vivienda'},
+    {k:'personas_cargo', l:'N° de personas a cargo', t:'num'},
+    {k:'parentesco', l:'Parentesco', t:'txt', ancho:2, nota:'esposa, hijos, madre…'},
+    {k:'planta_agua', l:'¿Donde reside hay planta de tratamiento de aguas?', t:'sino', ancho:2},
+    {k:'suministro_agua', l:'¿La empresa le ha suministrado agua?', t:'sino', ancho:2}
+  ]},
+  { sec:'Escolaridad e ingresos', ico:'i-scroll-text', campos:[
+    {k:'nivel_educativo', l:'Nivel de escolaridad', t:'sel', op:'nivel_educativo'},
+    {k:'titulo', l:'Títulos', t:'txt', ancho:2},
+    {k:'otros_cursos', l:'¿Otros cursos?', t:'txt', ancho:2},
+    {k:'ingresos', l:'Promedio de ingresos mensuales', t:'sel+', op:'ingresos'},
+    {k:'tiempo_libre', l:'Uso del tiempo libre', t:'sel', op:'tiempo_libre'}
+  ]},
+  { sec:'Salud — alergias y tipo de sangre', ico:'i-stethoscope', campos:[
+    {k:'activ_salud', l:'¿Ha participado en actividades de salud de la empresa?', t:'sel+', op:'activ_salud', ancho:2},
+    {k:'alergia', l:'¿Es alérgico a algún medicamento, alimento o picadura?', t:'sino', ancho:2},
+    {k:'alergia_cual', l:'¿A cuál?', t:'txt', ancho:2, dep:{k:'alergia', v:'SI'}},
+    {k:'deporte', l:'¿Practica alguna actividad física o deporte?', t:'sino', ancho:2},
+    {k:'deporte_cual', l:'¿Cuál?', t:'txt', dep:{k:'deporte', v:'SI'}},
+    {k:'deporte_frec', l:'Veces al mes', t:'num', dep:{k:'deporte', v:'SI'}}
+  ]},
+  { sec:'Salud reservada', ico:'i-activity', salud:1, campos:[
+    {k:'enfermedad', l:'¿Le han diagnosticado alguna enfermedad?', t:'sino', ancho:2},
+    {k:'enfermedad_cual', l:'¿Cuál enfermedad?', t:'txt', ancho:2, dep:{k:'enfermedad', v:'SI'}},
+    {k:'medicamento', l:'¿Toma algún medicamento permanente?', t:'sino', ancho:2},
+    {k:'medicamento_cual', l:'¿Cuál y por qué?', t:'txt', ancho:2, dep:{k:'medicamento', v:'SI'}},
+    {k:'fuma', l:'¿Fuma?', t:'sino'},
+    {k:'fuma_prom', l:'Promedio diario', t:'num', dep:{k:'fuma', v:'SI'}},
+    {k:'fuma_rango', l:'Rango', t:'calc', nota:'se calcula del promedio'},
+    {k:'alcohol', l:'¿Consume bebidas alcohólicas?', t:'sino'},
+    {k:'alcohol_frec', l:'Frecuencia', t:'sel', op:'alcohol_frec', dep:{k:'alcohol', v:'SI'}}
+  ]},
+  { sec:'Documentos del vehículo', ico:'i-file-text', campos:[
+    {k:'licencia', l:'Licencia de conducción', t:'sino'},
+    {k:'soat', l:'SOAT', t:'sino'},
+    {k:'tecnomecanica', l:'Tecnomecánica', t:'sino'},
+    {k:'tarjeta_prop', l:'Tarjeta de propiedad', t:'sino'}
+  ]},
+  { sec:'Vacunación COVID-19', ico:'i-activity', campos:[
+    {k:'vacuna_covid', l:'¿Está vacunado?', t:'sino'},
+    {k:'vacuna_tipo', l:'Tipo de vacuna', t:'sel+', op:'vacuna_tipo', dep:{k:'vacuna_covid', v:'SI'}},
+    {k:'vacuna_esquema', l:'¿Esquema completo?', t:'sino', dep:{k:'vacuna_covid', v:'SI'}}
+  ]},
+  { sec:'Observaciones', ico:'i-sticky-note', campos:[
+    {k:'observacion', l:'Observaciones', t:'area', ancho:3}
+  ]}
+];
+
+var ENC_ROWS = [];      // listado cargado del servidor
+var ENC_RES  = null;    // resumen y conflictos
+var ENC_EDIT = null;    // encuesta abierta en el formulario (null = nueva)
+var ENC_CMP  = null;    // última comparación traída
+
+function encVeSaludUI(){ return (S && (S.depto==='s' || S.rol==='s')) || esSuperAdmin(); }
+function encRolApi(){ return (S && (S.depto==='s' || S.rol==='s')) ? 's' : (S ? S.rol : ''); }
+
+function encPost(cuerpo){
+  cuerpo.usuario = (S && S.u) || '';
+  cuerpo.rol = encRolApi();
+  return fetch(APPS_URL, {method:'POST', headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify(cuerpo)}).then(function(r){ return r.json(); });
+}
+
+// ── cálculos que antes se digitaban a mano ───────────────────────────
+function encEdadDe(fnac){
+  if(!fnac) return '';
+  var p = String(fnac).slice(0,10).split('-');
+  if(p.length!==3) return '';
+  var n = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  if(isNaN(n.getTime())) return '';
+  var h = new Date();
+  var a = h.getFullYear() - n.getFullYear();
+  var m = h.getMonth() - n.getMonth();
+  if(m < 0 || (m === 0 && h.getDate() < n.getDate())) a--;
+  return (a >= 0 && a < 120) ? String(a) : '';
+}
+function encRangoEdad(edad){
+  var e = parseInt(edad);
+  if(!e) return '';
+  if(e < 18) return 'Menor de 18';
+  if(e <= 25) return '18-25';
+  if(e <= 35) return '26-35';
+  if(e <= 45) return '36-45';
+  if(e <= 55) return '46-55';
+  if(e <= 65) return '56-65';
+  return '66 o más';
+}
+function encRangoFuma(prom){
+  var p = parseInt(prom);
+  if(!p) return 'No fuma';
+  if(p <= 10) return '1-10';
+  if(p <= 20) return '11-20';
+  return 'Más de 20';
+}
+
+// ══ LISTADO ══════════════════════════════════════════════════════════
+function encAbrir(){
+  encPoblarAnios();
+  if(!ENC_ROWS.length) encCargar(); else encRender();
+  if(!ENC_RES) encCargarResumen();
+}
+
+function encPoblarAnios(){
+  var sel = document.getElementById('enc-anio');
+  if(!sel || sel.options.length) return;
+  var hoy = new Date().getFullYear();
+  var h = '<option value="">Todos los años</option>';
+  for(var a = hoy + 1; a >= 2024; a--) h += '<option value="'+a+'">'+a+'</option>';
+  sel.innerHTML = h;
+  sel.value = String(hoy);
+}
+
+function encCargar(){
+  var cont = document.getElementById('enc-cont');
+  if(cont) cont.innerHTML = '<div style="padding:30px;text-align:center;color:var(--g3)">Cargando encuestas…</div>';
+  var anio = (document.getElementById('enc-anio')||{}).value || '';
+  var tipo = (document.getElementById('enc-tipo')||{}).value || '';
+  encPost({accion:'getEncuestas', anio:anio, tipo:tipo}).then(function(d){
+    if(!d || !d.ok){ if(cont) cont.innerHTML = '<div class="card" style="color:var(--r)">No se pudieron cargar las encuestas: '+((d&&d.error)||'?')+'</div>'; return; }
+    ENC_ROWS = d.data || [];
+    encRender();
+  }).catch(function(e){
+    if(cont) cont.innerHTML = '<div class="card" style="color:var(--r)">Error de red: '+e.message+'</div>';
+  });
+}
+
+function encCargarResumen(){
+  encPost({accion:'getEncuestasResumen'}).then(function(d){
+    if(d && d.ok){ ENC_RES = d.data; encPintarResumen(); }
+  }).catch(function(){});
+}
+
+function encPintarResumen(){
+  var box = document.getElementById('enc-resumen');
+  if(!box || !ENC_RES) return;
+  var r = ENC_RES;
+  var aniosOrd = Object.keys(r.porAnio).sort().reverse();
+  var h = '<div style="display:flex;gap:10px;flex-wrap:wrap">';
+  h += encTarjeta('Encuestas', r.encuestas, 'i-file-text', '#ea580c');
+  h += encTarjeta('Personas', r.personas, 'i-users', '#0891b2');
+  h += encTarjeta('Sin pasar a RH', r.sinVolcar, 'i-arrow-right-left', r.sinVolcar ? '#b45309' : '#16a34a');
+  aniosOrd.slice(0,3).forEach(function(a){
+    var p = r.porAnio[a];
+    h += '<div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--bd);border-radius:10px;padding:10px 12px">'
+      + '<div style="font-size:10px;letter-spacing:.08em;color:var(--g3);font-weight:700">'+a+'</div>'
+      + '<div style="font-size:19px;font-weight:800;margin-top:2px">'+p.total+'</div>'
+      + '<div style="font-size:10.5px;color:var(--g3)">'+p.IND+' inducción · '+p.REIN+' reinducción</div></div>';
+  });
+  h += '</div>';
+
+  if(r.conflictoRH && r.conflictoRH.length){
+    h += '<div style="margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:11px 13px">'
+      + '<div style="font-weight:700;font-size:12.5px;color:#b91c1c;display:flex;align-items:center;gap:7px">'
+      + '<svg class="ict"><use href="#i-triangle-alert"/></svg>'
+      + 'Tipo de sangre contradictorio en '+r.conflictoRH.length+' persona'+(r.conflictoRH.length===1?'':'s')+'</div>'
+      + '<div style="font-size:11.5px;color:#7f1d1d;margin-top:4px">Es el dato que se lee en una emergencia en campo. Conviene verificarlo contra la cédula o un examen.</div>'
+      + '<button class="btn bg" style="margin-top:8px;height:30px;font-size:11.5px" onclick="encVerConflictos(\'rh\')">Ver el listado</button></div>';
+  }
+  if(r.conflictoNac && r.conflictoNac.length){
+    h += '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 13px">'
+      + '<div style="font-weight:700;font-size:12.5px;color:#92400e">Fecha de nacimiento distinta entre encuestas en '+r.conflictoNac.length+' personas</div>'
+      + '<button class="btn bg" style="margin-top:7px;height:28px;font-size:11.5px" onclick="encVerConflictos(\'nac\')">Ver el listado</button></div>';
+  }
+  box.innerHTML = h;
+}
+
+function encTarjeta(tit, val, ico, col){
+  return '<div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--bd);border-left:3px solid '+col+';border-radius:10px;padding:10px 12px">'
+    + '<div style="font-size:10px;letter-spacing:.08em;color:var(--g3);font-weight:700;display:flex;align-items:center;gap:5px">'
+    + '<svg class="icb" style="color:'+col+'"><use href="#'+ico+'"/></svg>'+tit.toUpperCase()+'</div>'
+    + '<div style="font-size:21px;font-weight:800;margin-top:2px;color:'+col+'">'+val+'</div></div>';
+}
+
+function encVerConflictos(cual){
+  if(!ENC_RES) return;
+  var lista = cual === 'rh' ? ENC_RES.conflictoRH : ENC_RES.conflictoNac;
+  var tit = cual === 'rh' ? 'Tipo de sangre contradictorio' : 'Fecha de nacimiento contradictoria';
+  var h = '<table><thead><tr><th>Cédula</th><th>Nombre</th><th>Valores en sus encuestas</th><th></th></tr></thead><tbody>';
+  lista.forEach(function(p){
+    h += '<tr><td style="font-variant-numeric:tabular-nums">'+p.cedula+'</td><td>'+encEsc(p.nombres)+'</td>'
+      + '<td style="font-weight:700;color:#b91c1c">'+p.valores.join('  /  ')+'</td>'
+      + '<td><button class="btn bg" style="height:26px;font-size:11px" onclick="encHistorial(\''+p.cedula+'\')">Ver encuestas</button></td></tr>';
+  });
+  h += '</tbody></table>';
+  encModal(tit, h, 820);
+}
+
+function encRender(){
+  var cont = document.getElementById('enc-cont');
+  if(!cont) return;
+  var q = ((document.getElementById('enc-busca')||{}).value || '').trim().toUpperCase();
+  var filas = ENC_ROWS.filter(function(f){
+    if(!q) return true;
+    return String(f.nombres||'').toUpperCase().indexOf(q) >= 0
+        || String(f.cedula||'').indexOf(q) >= 0
+        || String(f.monitor||'').toUpperCase().indexOf(q) >= 0
+        || String(f.ciudad||'').toUpperCase().indexOf(q) >= 0;
+  });
+
+  if(!filas.length){
+    cont.innerHTML = '<div class="card" style="text-align:center;padding:34px;color:var(--g3)">'
+      + (ENC_ROWS.length ? 'Ninguna encuesta coincide con «'+encEsc(q)+'».' : 'No hay encuestas para el filtro escogido.')
+      + '</div>';
+    return;
+  }
+
+  var h = '<div class="card" style="padding:0;overflow:auto">'
+    + '<table><thead><tr>'
+    + '<th>Clase</th><th>Fecha</th><th>Cédula</th><th>Nombre</th><th>Cargo</th>'
+    + '<th>Ciudad</th><th>Monitor</th><th>Estado</th><th>Realizó</th><th>RH</th><th></th>'
+    + '</tr></thead><tbody>';
+
+  filas.forEach(function(f){
+    var esInd = String(f.tipo).toUpperCase() === 'IND';
+    var volc = f.volcada_trab === 'SI';
+    h += '<tr>'
+      + '<td><span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:700;'
+      +   (esInd ? 'background:#dcfce7;color:#15803d' : 'background:#e0e7ff;color:#4338ca')+'">'
+      +   (esInd ? 'IND' : 'REIN')+' '+encEsc(f.anio)+'</span></td>'
+      + '<td style="white-space:nowrap">'+encEsc(f.fecha_encuesta)+'</td>'
+      + '<td style="font-variant-numeric:tabular-nums">'+encEsc(f.cedula)+'</td>'
+      + '<td style="font-weight:600">'+encEsc(f.nombres)+'</td>'
+      + '<td>'+encEsc(f.cargo)+'</td>'
+      + '<td>'+encEsc(f.ciudad)+'</td>'
+      + '<td style="font-size:11.5px">'+encEsc(f.monitor)+'</td>'
+      + '<td>'+(String(f.estado).toUpperCase()==='RETIRADO'
+          ? '<span style="color:#b91c1c;font-size:11px;font-weight:600">RETIRADO</span>'
+          : '<span style="color:#15803d;font-size:11px">'+encEsc(f.estado)+'</span>')+'</td>'
+      + '<td style="font-size:11px;color:var(--g3)">'+encEsc(f.realizado_por)+'</td>'
+      + '<td style="text-align:center">'+(volc
+          ? '<span title="ya se pasó a Trabajadores" style="color:#16a34a"><svg class="icb"><use href="#i-circle-check"/></svg></span>'
+          : '<span title="sin pasar a Trabajadores" style="color:#cbd5e1">—</span>')+'</td>'
+      + '<td style="white-space:nowrap">'
+      +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Cruzar con Trabajadores" onclick="encComparar('+f.id+')"><svg class="icb"><use href="#i-arrow-right-left"/></svg></button> '
+      +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Historial de la persona" onclick="encHistorial(\''+f.cedula+'\')"><svg class="icb"><use href="#i-history"/></svg></button> '
+      +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Abrir" onclick="encEditar('+f.id+')"><svg class="icb"><use href="#i-pencil"/></svg></button>'
+      + '</td></tr>';
+  });
+
+  h += '</tbody></table></div>'
+    + '<div style="font-size:11.5px;color:var(--g3);margin-top:7px">'+filas.length+' de '+ENC_ROWS.length+' encuestas</div>';
+  cont.innerHTML = h;
+}
+
+function encEsc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══ FORMULARIO ═══════════════════════════════════════════════════════
+function encNueva(){
+  ENC_EDIT = null;
+  var hoy = new Date();
+  encFormPintar({
+    tipo:'IND',
+    anio:String(hoy.getFullYear()),
+    fecha_encuesta:hoy.toISOString().slice(0,10),
+    realizado_por:(S && S.u) || '',
+    estado:'ACTIVO'
+  });
+  go('enc-form');
+}
+
+function encEditar(id){
+  encPost({accion:'getEncuesta', id:id}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo abrir la encuesta: '+((d&&d.error)||'?')); return; }
+    ENC_EDIT = d.encuesta;
+    encFormPintar(d.encuesta);
+    go('enc-form');
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+// Trae la ficha de RH para arrancar la encuesta con lo que ya se sabe,
+// de modo que en la entrevista solo se confirme y se pregunte lo nuevo.
+function encDesdeTrabajador(){
+  var ced = String(((document.getElementById('enc-f-cedula')||{}).value) || '').replace(/\D/g,'');
+  if(!ced){ alert('Escriba primero la cédula.'); return; }
+
+  // la ficha de RH puede no estar cargada todavía en esta sesión
+  if(typeof RH_DATA === 'undefined' || !RH_DATA || !RH_DATA.length){
+    encAviso('Buscando en Trabajadores…', '#64748b');
+    fetch(APPS_URL, {method:'POST', headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({accion:'getTrabajadores'})})
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res && res.ok && res.data) RH_DATA = res.data;
+        encDesdeTrabajadorCon(ced);
+      })
+      .catch(function(){ encDesdeTrabajadorCon(ced); });
+    return;
+  }
+  encDesdeTrabajadorCon(ced);
+}
+
+function encDesdeTrabajadorCon(ced){
+  var t = (typeof RH_DATA !== 'undefined' && RH_DATA) ? RH_DATA.filter(function(x){
+    return String(x.CEDULA||'').replace(/\D/g,'') === ced; })[0] : null;
+
+  if(!t){
+    // también pudo haber contestado antes: buscar su última encuesta
+    encPost({accion:'getEncuestaHistorial', cedula:ced}).then(function(d){
+      if(d && d.ok && d.data && d.data.length){
+        var prev = d.data[0];
+        if(!confirm('No está en Trabajadores, pero tiene una encuesta '+prev.etiqueta
+            +'.\n\n¿Traer esos datos como punto de partida?')) return;
+        var base = {};
+        for(var k in prev) base[k] = prev[k];
+        base.tipo = 'REIN';
+        base.anio = String(new Date().getFullYear());
+        base.fecha_encuesta = new Date().toISOString().slice(0,10);
+        base.etiqueta = ''; base.id = '';
+        base.realizado_por = (S && S.u) || '';
+        encFormPintar(base);
+        encAviso('Se trajeron los datos de la encuesta '+prev.etiqueta+'. Revise y actualice lo que haya cambiado.','#0891b2');
+      } else {
+        alert('Esa cédula no está en Trabajadores ni tiene encuestas anteriores.\nSe llena desde cero.');
+      }
+    });
+    return;
+  }
+
+  var act = encRecoger();
+  var mapa = {nombres:'NOMBRES', email:'EMAIL', lugar_exp:'LUGAR_EXP', fecha_exp:'FECHA_EXP',
+    cargo:'CARGO', fecha_ingreso:'FECHA_INGRESO', telefono:'TELEFONO', direccion:'DIRECCION',
+    ciudad:'CIUDAD', estado:'ESTADO', fecha_nac:'FECHA_NAC', tipo_sangre:'TIPO_SANGRE',
+    estado_civil:'ESTADO_CIVIL', genero:'GENERO', nivel_educativo:'NIVEL_EDUCATIVO',
+    titulo:'TITULO', talla_camisa:'TALLA_CAMISA', talla_pant:'TALLA_PANTALON',
+    talla_bota_punt:'TALLA_BOTA', talla_guayo:'TALLA_GUAYO', talla_impermeable:'TALLA_IMPERMEABLE'};
+  var n = 0;
+  for(var k in mapa){
+    var v = t[mapa[k]];
+    if(v !== undefined && v !== null && String(v).trim() !== '' && !String(act[k]||'').trim()){
+      act[k] = String(v).trim(); n++;
+    }
+  }
+  encFormPintar(act);
+  encAviso(n ? 'Se trajeron '+n+' datos de la ficha de Trabajadores. Confírmelos en la entrevista.'
+             : 'La ficha de Trabajadores no tenía nada nuevo que traer.', n ? '#0891b2' : '#64748b');
+}
+
+function encFormPintar(e){
+  e = e || {};
+  var cont = document.getElementById('enc-form-cont');
+  if(!cont) return;
+  var editando = !!(e.id && String(e.id).trim());
+  var veSalud = encVeSaludUI();
+
+  var h = '<div class="card" style="margin-bottom:12px">'
+    + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+    + '<div class="ct" style="margin:0;flex:1;justify-content:flex-start"><svg class="ict"><use href="#i-file-plus-2"/></svg> '
+    +   (editando ? 'Encuesta '+encEsc(e.etiqueta||'')+' · '+encEsc(e.nombres||'') : 'Nueva encuesta sociodemográfica')
+    + '</div>'
+    + '<button class="btn bg" onclick="go(\'enc\')" style="height:34px"><svg class="icb"><use href="#i-arrow-left"/></svg> Volver</button>'
+    + (editando ? '' : '<button class="btn bg" onclick="encDesdeTrabajador()" style="height:34px"><svg class="icb"><use href="#i-search-check"/></svg> Traer datos de RH</button>')
+    + '<button class="btn bn" onclick="encGuardar()" style="height:34px"><svg class="icb"><use href="#i-save"/></svg> Guardar</button>'
+    + '</div>'
+    + '<div id="enc-aviso" style="margin-top:8px"></div>'
+    + '</div>';
+
+  ENC_FORM.forEach(function(sec, si){
+    if(sec.salud && !veSalud) return;
+    h += '<div class="card" style="margin-bottom:11px">'
+      + '<div class="ct" style="margin-bottom:9px;justify-content:flex-start"><svg class="ict"><use href="#'+sec.ico+'"/></svg> '+encEsc(sec.sec)
+      + (sec.salud ? '<span style="margin-left:8px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:5px">SOLO SST</span>' : '')
+      + '</div>';
+    if(sec.salud){
+      h += '<div style="font-size:11.5px;color:var(--g3);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px">'
+        + 'Estas respuestas no las ve Recursos Humanos. Quedan guardadas para SST.</div>';
+    }
+    h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
+    sec.campos.forEach(function(c){
+      h += encCampoHTML(c, e);
+    });
+    h += '</div></div>';
+  });
+
+  cont.innerHTML = h;
+  encFormDeps();
+  encRecalc();
+
+  // buscador por nombre sobre el campo de cédula: el mismo que ya usan
+  // RH, vacaciones e incapacidades
+  if(!editando && typeof acAdjuntarBuscador === 'function'){
+    acTrabAsegurar(function(){
+      acAdjuntarBuscador('enc-f-cedula', acTrabFuente, function(ced, nom){
+        var i = document.getElementById('enc-f-cedula');
+        if(i) i.value = ced;
+        var n = document.getElementById('enc-f-nombres');
+        if(n && !String(n.value||'').trim()) n.value = nom;
+        encDesdeTrabajador();
+      });
+    });
+  }
+}
+
+function encCampoHTML(c, e){
+  var v = e[c.k];
+  v = (v === null || v === undefined) ? '' : String(v);
+  var id = 'enc-f-' + c.k;
+  var span = c.ancho === 3 ? 'grid-column:1/-1' : (c.ancho === 2 ? 'grid-column:span 2' : '');
+  var h = '<div class="fld" style="margin:0;'+span+'" data-campo="'+c.k+'">'
+    + '<label style="font-size:10.5px">'+encEsc(c.l)
+    + (c.req ? '<span style="color:#dc2626"> *</span>' : '')
+    + (c.nota ? '<span style="color:var(--g3);font-weight:400"> · '+encEsc(c.nota)+'</span>' : '')
+    + '</label>';
+
+  var ev = ' onchange="encCambio(\''+c.k+'\')"';
+
+  if(c.t === 'calc'){
+    h += '<input type="text" id="'+id+'" value="'+encEsc(v)+'" readonly '
+      + 'style="background:#f1f5f9;color:#475569;font-weight:600"/>';
+  } else if(c.t === 'area'){
+    h += '<textarea id="'+id+'" rows="2"'+ev+'>'+encEsc(v)+'</textarea>';
+  } else if(c.t === 'sino'){
+    h += '<select id="'+id+'"'+ev+'>'
+      + '<option value="">—</option>'
+      + '<option value="SI"'+(v==='SI'?' selected':'')+'>SI</option>'
+      + '<option value="NO"'+(v==='NO'?' selected':'')+'>NO</option></select>';
+  } else if(c.t === 'sel'){
+    var op = ENC_OPC[c.op] || [];
+    h += '<select id="'+id+'"'+ev+'><option value="">—</option>';
+    op.forEach(function(o){
+      var etq = (c.etq && c.etq[o]) ? c.etq[o] : o;
+      h += '<option value="'+encEsc(o)+'"'+(v===o?' selected':'')+'>'+encEsc(etq)+'</option>';
+    });
+    if(v && op.indexOf(v) < 0) h += '<option value="'+encEsc(v)+'" selected>'+encEsc(v)+' (del histórico)</option>';
+    h += '</select>';
+  } else if(c.t === 'sel+'){
+    var lid = 'encl-' + c.k;
+    h += '<input type="text" id="'+id+'" list="'+lid+'" value="'+encEsc(v)+'"'+ev+' autocomplete="off"/>'
+      + '<datalist id="'+lid+'">'
+      + (ENC_OPC[c.op]||[]).map(function(o){ return '<option value="'+encEsc(o)+'"></option>'; }).join('')
+      + '</datalist>';
+  } else if(c.t === 'fecha'){
+    h += '<input type="date" id="'+id+'" value="'+encEsc(v.slice(0,10))+'"'+ev+'/>';
+  } else if(c.t === 'num'){
+    h += '<input type="text" inputmode="numeric" id="'+id+'" value="'+encEsc(v)+'"'+ev+'/>';
+  } else {
+    h += '<input type="text" id="'+id+'" value="'+encEsc(v)+'"'+ev+'/>';
+  }
+  return h + '</div>';
+}
+
+// Habilita o apaga los campos que dependen de otro ("¿cuál?" tras un SI).
+function encFormDeps(){
+  ENC_FORM.forEach(function(sec){
+    sec.campos.forEach(function(c){
+      if(!c.dep) return;
+      var padre = document.getElementById('enc-f-' + c.dep.k);
+      var caja = document.querySelector('.fld[data-campo="'+c.k+'"]');
+      var el = document.getElementById('enc-f-' + c.k);
+      if(!padre || !caja || !el) return;
+      var activo = String(padre.value||'').toUpperCase() === String(c.dep.v).toUpperCase();
+      caja.style.opacity = activo ? '1' : '.42';
+      el.disabled = !activo;
+      if(!activo && String(el.value||'').trim()) el.value = '';
+    });
+  });
+}
+
+function encRecalc(){
+  var fnac = (document.getElementById('enc-f-fecha_nac')||{}).value || '';
+  var ed = encEdadDe(fnac);
+  var elEd = document.getElementById('enc-f-edad');
+  var elRa = document.getElementById('enc-f-rango_edad');
+  if(elEd) elEd.value = ed;
+  if(elRa) elRa.value = encRangoEdad(ed);
+  var elFr = document.getElementById('enc-f-fuma_rango');
+  if(elFr){
+    var fuma = (document.getElementById('enc-f-fuma')||{}).value || '';
+    var prom = (document.getElementById('enc-f-fuma_prom')||{}).value || '';
+    elFr.value = (String(fuma).toUpperCase() === 'SI') ? encRangoFuma(prom) : 'No fuma';
+  }
+}
+
+function encCambio(campo){
+  encFormDeps();
+  encRecalc();
+}
+
+function encAviso(txt, col){
+  var box = document.getElementById('enc-aviso');
+  if(!box) return;
+  if(!txt){ box.innerHTML = ''; return; }
+  col = col || '#0891b2';
+  box.innerHTML = '<div style="background:'+col+'12;border:1px solid '+col+'44;color:'+col
+    + ';border-radius:8px;padding:8px 11px;font-size:12px;font-weight:600">'+encEsc(txt)+'</div>';
+}
+
+function encRecoger(){
+  var o = {};
+  ENC_FORM.forEach(function(sec){
+    sec.campos.forEach(function(c){
+      var el = document.getElementById('enc-f-' + c.k);
+      if(!el) return;                       // sección de salud oculta: no se manda
+      o[c.k] = String(el.value || '').trim();
+    });
+  });
+  if(ENC_EDIT && ENC_EDIT.id) o.id = ENC_EDIT.id;
+  return o;
+}
+
+function encGuardar(){
+  var e = encRecoger();
+  var faltan = [];
+  ENC_FORM.forEach(function(sec){
+    sec.campos.forEach(function(c){
+      if(c.req && !String(e[c.k]||'').trim()) faltan.push(c.l);
+    });
+  });
+  if(faltan.length){ alert('Faltan datos obligatorios:\n\n· ' + faltan.join('\n· ')); return; }
+
+  var ced = String(e.cedula||'').replace(/\D/g,'');
+  if(ced.length < 6 || ced.length > 11){ alert('La cédula no parece válida: '+e.cedula); return; }
+  e.cedula = ced;
+  e.etiqueta = e.tipo + '-' + e.anio;
+
+  var editando = !!(ENC_EDIT && ENC_EDIT.id);
+  var cuerpo = editando
+    ? {accion:'editarEncuesta', id:ENC_EDIT.id, encuesta:e}
+    : {accion:'guardarEncuesta', encuesta:e};
+
+  encPost(cuerpo).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo guardar: '+((d&&d.error)||'?')); return; }
+    ENC_ROWS = []; ENC_RES = null;
+    if(d.aviso) alert(d.aviso);
+    if(editando){
+      alert('Encuesta actualizada.');
+      go('enc'); encAbrir();
+    } else {
+      // recién guardada: ofrecer el cruce de una vez, que es el punto de todo esto
+      encPost({accion:'getEncuestas', cedula:ced}).then(function(r){
+        var nueva = (r && r.ok && r.data && r.data.length) ? r.data[0] : null;
+        go('enc'); encAbrir();
+        if(nueva && confirm('Encuesta guardada.\n\n¿Revisar ahora qué datos pasar a la ficha de Trabajadores?')){
+          encComparar(nueva.id);
+        }
+      });
+    }
+  }).catch(function(ex){ alert('Error de red: '+ex.message); });
+}
+
+// ══ CRUCE CON TRABAJADORES ═══════════════════════════════════════════
+function encComparar(id){
+  encPost({accion:'encuestaComparar', id:id}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo comparar: '+((d&&d.error)||'?')); return; }
+    ENC_CMP = d.comparacion;
+    encPintarCruce();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encPintarCruce(){
+  var c = ENC_CMP;
+  if(!c) return;
+  var r = c.resumen || {};
+  var nuevo = !c.existe_trab;
+
+  var h = '';
+  if(nuevo){
+    h += '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:11px 13px;margin-bottom:11px">'
+      + '<div style="font-weight:700;color:#15803d;font-size:13px">Esta persona todavía no está en Trabajadores</div>'
+      + '<div style="font-size:12px;color:#166534;margin-top:3px">Al aplicar se crea su ficha con lo que marque. '
+      + 'RH ya no tendrá que volver a preguntar estos datos.</div></div>';
+  } else {
+    h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 13px;margin-bottom:11px;font-size:12px">'
+      + '<b>'+(r.llenar||0)+'</b> campos están vacíos en RH y se pueden llenar · '
+      + '<b style="color:#b45309">'+(r.cambia||0)+'</b> tienen dato distinto y hay que decidir · '
+      + '<b style="color:#15803d">'+(r.igual||0)+'</b> ya coinciden';
+    if(r.solo_rh) h += ' · <b>'+r.solo_rh+'</b> solo los tiene RH y no se tocan';
+    h += '</div>';
+  }
+
+  if(c.volcada === 'SI' || c.volcada === true){
+    h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:9px 12px;margin-bottom:11px;font-size:12px;color:#92400e">'
+      + 'Esta encuesta ya se había pasado a Trabajadores antes. Si vuelve a aplicar, se sobrescribe lo que marque.</div>';
+  }
+
+  h += '<table><thead><tr>'
+    + '<th style="width:34px"><input type="checkbox" id="enc-cmp-all" onchange="encCruceTodos(this.checked)" title="marcar los seguros"/></th>'
+    + '<th>Dato</th><th>Dice la encuesta</th><th>Dice la ficha de RH</th><th>Qué pasa</th></tr></thead><tbody>';
+
+  var hayQueHacer = 0;
+  (c.campos||[]).forEach(function(f){
+    var vd = f.veredicto;
+    if(vd === 'igual') return;                   // nada que mostrar
+    if(vd === 'solo_rh') return;                 // no se toca
+    hayQueHacer++;
+    var pinta = vd === 'llenar'
+      ? {txt:'Está vacío en RH, se llena', col:'#15803d', bg:'#f0fdf4', marca:true}
+      : {txt:'Son distintos, usted decide', col:'#b45309', bg:'#fffbeb', marca:false};
+    h += '<tr style="background:'+pinta.bg+'">'
+      + '<td style="text-align:center"><input type="checkbox" class="enc-cmp-ck" value="'+encEsc(f.campo)+'"'
+      +   (pinta.marca ? ' checked' : '')+' data-veredicto="'+vd+'"/></td>'
+      + '<td style="font-weight:600">'+encEsc(f.etiqueta)+'</td>'
+      + '<td style="font-weight:600">'+encEsc(f.encuesta || '—')+'</td>'
+      + '<td style="color:'+(f.trabajador ? '#475569' : '#cbd5e1')+'">'+encEsc(f.trabajador || '(vacío)')+'</td>'
+      + '<td style="font-size:11.5px;color:'+pinta.col+';font-weight:600">'+pinta.txt+'</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table>';
+
+  if(!hayQueHacer){
+    h = '<div style="text-align:center;padding:26px;color:var(--g3)">'
+      + '<svg class="ict" style="color:#16a34a"><use href="#i-circle-check"/></svg>'
+      + '<div style="margin-top:7px;font-weight:600">La ficha de RH ya está al día con esta encuesta.</div>'
+      + '<div style="font-size:12px;margin-top:3px">No hay nada que pasar.</div></div>';
+  } else {
+    h += '<div style="display:flex;gap:9px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">'
+      + '<button class="btn bg" onclick="encCerrarModal()">Cerrar sin aplicar</button>'
+      + '<button class="btn bn" onclick="encAplicar()"><svg class="icb"><use href="#i-save"/></svg> Aplicar lo marcado a Trabajadores</button>'
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--g3);margin-top:7px">Vienen marcados solo los que están vacíos en RH. '
+      + 'Los que tienen dato distinto quedan sin marcar a propósito: si RH corrigió algo, no se pisa sin que alguien lo decida.</div>';
+  }
+
+  encModal('Cruzar con Trabajadores · ' + encEsc(c.nombres||'') + ' · ' + encEsc(c.cedula||''), h, 860);
+}
+
+function encCruceTodos(marcar){
+  document.querySelectorAll('.enc-cmp-ck').forEach(function(ck){
+    // "marcar todos" solo toca los seguros; los conflictos se marcan a mano
+    if(ck.dataset.veredicto === 'llenar') ck.checked = marcar;
+  });
+}
+
+function encAplicar(){
+  if(!ENC_CMP) return;
+  var campos = [];
+  document.querySelectorAll('.enc-cmp-ck').forEach(function(ck){ if(ck.checked) campos.push(ck.value); });
+  if(!campos.length){ alert('No marcó ningún campo.'); return; }
+
+  var conflictos = [];
+  document.querySelectorAll('.enc-cmp-ck').forEach(function(ck){
+    if(ck.checked && ck.dataset.veredicto === 'cambia') conflictos.push(ck.value);
+  });
+  var msj = 'Se van a escribir ' + campos.length + ' campos en la ficha de '
+    + (ENC_CMP.nombres||'') + '.';
+  if(conflictos.length){
+    msj += '\n\nDe esos, ' + conflictos.length + ' van a REEMPLAZAR un dato que RH ya tenía.';
+  }
+  if(!ENC_CMP.existe_trab) msj += '\n\nLa ficha no existe: se va a crear.';
+  if(!confirm(msj + '\n\n¿Continuar?')) return;
+
+  encPost({accion:'encuestaAplicar', id:ENC_CMP.id, campos:campos}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo aplicar: '+((d&&d.error)||'?')); return; }
+    encCerrarModal();
+    var t = d.creado
+      ? 'Se creó la ficha de Trabajadores con ' + d.aplicados + ' datos.'
+      : 'Se actualizaron ' + d.aplicados + ' datos en la ficha de Trabajadores.';
+    if(d.vacios && d.vacios.length) t += '\n\n' + d.vacios.length + ' campos marcados venían vacíos en la encuesta y se omitieron.';
+    alert(t);
+    ENC_ROWS = []; ENC_RES = null;
+    if(typeof RH_DATA !== 'undefined') RH_DATA = [];  // que RH recargue y vea el cambio
+    encAbrir();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+// ══ HISTORIAL DE UNA PERSONA ═════════════════════════════════════════
+function encHistorial(cedula){
+  encPost({accion:'getEncuestaHistorial', cedula:cedula}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo traer el historial: '+((d&&d.error)||'?')); return; }
+    var lista = d.data || [];
+    if(!lista.length){ alert('Esa persona no tiene encuestas.'); return; }
+
+    // una columna por encuesta, una fila por campo; solo lo que cambió
+    var cols = lista.slice(0, 6);
+    var filas = [];
+    ENC_FORM.forEach(function(sec){
+      if(sec.salud && !encVeSaludUI()) return;
+      sec.campos.forEach(function(c){
+        if(c.k === 'tipo' || c.k === 'anio' || c.k === 'fecha_encuesta') return;
+        var vals = cols.map(function(e){ return String(e[c.k]||'').trim(); });
+        if(!vals.some(function(v){ return v; })) return;
+        var distintos = vals.filter(function(v,i){ return vals.indexOf(v) === i; }).length > 1;
+        filas.push({l:c.l, vals:vals, dif:distintos, sec:sec.sec});
+      });
+    });
+
+    var soloDif = filas.filter(function(f){ return f.dif; });
+    var h = '<div style="font-size:12px;color:var(--g3);margin-bottom:9px">'
+      + encEsc(cols[0].nombres||'') + ' · ' + cols.length + ' encuesta'+(cols.length===1?'':'s')
+      + ' · <b>'+soloDif.length+'</b> dato'+(soloDif.length===1?'':'s')+' cambió entre ellas'
+      + '</div>'
+      + '<label style="font-size:12px;display:flex;align-items:center;gap:6px;margin-bottom:9px;cursor:pointer">'
+      + '<input type="checkbox" id="enc-h-dif" checked onchange="encHistFiltrar()"/> Mostrar solo lo que cambió</label>'
+      + '<table id="enc-h-tb"><thead><tr><th>Dato</th>'
+      + cols.map(function(e){
+          var esInd = String(e.tipo).toUpperCase()==='IND';
+          return '<th style="white-space:nowrap">'
+            + '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;'
+            + (esInd?'background:#dcfce7;color:#15803d':'background:#e0e7ff;color:#4338ca')+'">'
+            + encEsc(e.etiqueta||'')+'</span><br><span style="font-size:10px;font-weight:400;color:var(--g3)">'
+            + encEsc(String(e.fecha_encuesta||'').slice(0,10))+'</span></th>';
+        }).join('')
+      + '</tr></thead><tbody>';
+
+    filas.forEach(function(f){
+      h += '<tr class="enc-h-fila" data-dif="'+(f.dif?'1':'0')+'"'+(f.dif?'':' style="display:none"')+'>'
+        + '<td style="font-weight:600;font-size:11.5px">'+encEsc(f.l)+'</td>'
+        + f.vals.map(function(v, i){
+            var cambio = f.dif && i < f.vals.length-1 && v !== f.vals[i+1];
+            return '<td style="font-size:11.5px'+(f.dif?';background:#fffbeb':'')
+              + (cambio?';font-weight:700':'')+'">'+encEsc(v||'—')+'</td>';
+          }).join('')
+        + '</tr>';
+    });
+    h += '</tbody></table>'
+      + '<div style="font-size:11px;color:var(--g3);margin-top:8px">La más reciente va primero. '
+      + 'Se muestran hasta 6 encuestas.</div>';
+
+    encModal('Historial de encuestas', h, 900);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encHistFiltrar(){
+  var solo = (document.getElementById('enc-h-dif')||{}).checked;
+  document.querySelectorAll('.enc-h-fila').forEach(function(tr){
+    tr.style.display = (!solo || tr.dataset.dif === '1') ? '' : 'none';
+  });
+}
+
+// ══ EXCEL ════════════════════════════════════════════════════════════
+function encExcel(){
+  if(!ENC_ROWS.length){ alert('No hay encuestas cargadas.'); return; }
+  consCargarSheetJS(function(ok){
+    if(!ok){ alert('No se pudo cargar el componente de Excel.'); return; }
+    var enc = ['Clase','Año','Fecha','Cédula','Nombre','Cargo','Ciudad','Monitor','Estado',
+               'Realizó','Pasada a RH'];
+    var rows = [['ENCUESTA SOCIODEMOGRÁFICA — AGRISERVICIOS DEL VALLE S.A.S.'], [], enc];
+    ENC_ROWS.forEach(function(f){
+      rows.push([f.tipo, parseInt(f.anio)||'', xlFecha(f.fecha_encuesta), f.cedula, f.nombres,
+        f.cargo, f.ciudad, f.monitor, f.estado, f.realizado_por, f.volcada_trab==='SI'?'SI':'']);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(rows, {cellDates:true});
+    ws['!cols'] = [{wch:8},{wch:7},{wch:12},{wch:13},{wch:34},{wch:20},{wch:15},
+                   {wch:22},{wch:11},{wch:18},{wch:12}];
+    if(ws['A1']) ws['A1'].s = {font:{bold:true, sz:13, color:{rgb:'EA580C'}}};
+    'ABCDEFGHIJK'.split('').forEach(function(L){
+      if(ws[L+'3']) ws[L+'3'].s = {font:{bold:true, color:{rgb:'FFFFFF'}},
+        fill:{fgColor:{rgb:'EA580C'}}, alignment:{horizontal:'center', wrapText:true}};
+    });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Encuestas');
+    XLSX.writeFile(wb, 'Encuestas_sociodemograficas_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  });
+}
+
+// ══ MODAL ════════════════════════════════════════════════════════════
+function encModal(titulo, html, ancho){
+  encCerrarModal();
+  var d = document.createElement('div');
+  d.id = 'enc-modal';
+  d.style.cssText = 'position:fixed;inset:0;background:#0f172acc;z-index:9000;display:flex;'
+    + 'align-items:flex-start;justify-content:center;padding:26px 14px;overflow:auto';
+  d.innerHTML = '<div style="background:#fff;border-radius:13px;max-width:'+(ancho||760)+'px;width:100%;'
+    + 'box-shadow:0 18px 50px #0f172a40">'
+    + '<div style="padding:14px 17px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px">'
+    + '<div style="flex:1;font-weight:800;font-size:14px">'+titulo+'</div>'
+    + '<button class="btn bg" style="height:30px;padding:0 9px" onclick="encCerrarModal()">'
+    + '<svg class="icb"><use href="#i-x"/></svg></button></div>'
+    + '<div style="padding:15px 17px">'+html+'</div></div>';
+  d.addEventListener('click', function(ev){ if(ev.target === d) encCerrarModal(); });
+  document.body.appendChild(d);
+}
+function encCerrarModal(){
+  var m = document.getElementById('enc-modal');
+  if(m) m.remove();
+}
+
 </script>
 
 </body>
