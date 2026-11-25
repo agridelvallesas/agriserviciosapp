@@ -71,6 +71,9 @@ const PORTADAS = new Set([
   // Consolidado de nómina (lo último que salía hacia Apps Script):
   'getNominaQna', 'guardarNominaQna',
   'getConceptosNom', 'guardarConceptoNom', 'eliminarConceptoNom',
+  // Jornadas de reinducción (encPub* las llama el celular del trabajador):
+  'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'jornadaCrear', 'jornadaListar',
+  'jornadaDetalle', 'jornadaCerrar', 'jornadaAsistentes', 'encuestasPendientes', 'encuestaRevisar',
   // Diagnóstico: qué api.js está vivo
   'version',
 ]);
@@ -184,6 +187,16 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'getConceptosNom')      r = await accionGetConceptosNom(body, env);
     else if (accion === 'guardarConceptoNom')   r = await accionGuardarConceptoNom(body, env);
     else if (accion === 'eliminarConceptoNom')  r = await accionEliminarConceptoNom(body, env);
+    else if (accion === 'encPubAbrir')            r = await accionEncPubAbrir(body, env);
+    else if (accion === 'encPubGuardar')          r = await accionEncPubGuardar(body, env);
+    else if (accion === 'encPubEnviar')           r = await accionEncPubEnviar(body, env);
+    else if (accion === 'jornadaCrear')           r = await accionJornadaCrear(body, env);
+    else if (accion === 'jornadaListar')          r = await accionJornadaListar(body, env);
+    else if (accion === 'jornadaDetalle')         r = await accionJornadaDetalle(body, env);
+    else if (accion === 'jornadaCerrar')          r = await accionJornadaCerrar(body, env);
+    else if (accion === 'jornadaAsistentes')      r = await accionJornadaAsistentes(body, env);
+    else if (accion === 'encuestasPendientes')    r = await accionEncuestasPendientes(body, env);
+    else if (accion === 'encuestaRevisar')        r = await accionEncuestaRevisar(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
@@ -3802,6 +3815,354 @@ async function accionEliminarConceptoNom(body, env) {
 }
 
 // =====================================================================
+// JORNADAS DE REINDUCCIÓN
+// ---------------------------------------------------------------------
+// Los trabajadores llenan su propia encuesta desde el celular cuando
+// los llaman en grupos. SST abre la jornada con la lista de quienes
+// asisten; solo esas cédulas pueden responder, y solo mientras esté
+// abierta.
+//
+// Las acciones encPub* son las que llama la página del celular.
+// No piden usuario: la puerta es el token de la jornada, y lo valida
+// la base de datos. Nunca devuelven nada de nadie que no sea el
+// trabajador que está contestando.
+// =====================================================================
+
+// Sin I, O, 0, 1: se dictan en voz alta en una sala con ruido.
+const JOR_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function jorToken(n) {
+  n = n || 8;
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  let s = '';
+  for (let i = 0; i < n; i++) s += JOR_ALFABETO[b[i] % JOR_ALFABETO.length];
+  return s;
+}
+
+// Lo único que la página del celular puede escribir. Todo lo demás
+// —estado de revisión, jornada, cédula, origen— lo pone el servidor.
+const ENC_CAMPOS_PUBLICOS = ENC_COLS_EDIT.filter(
+  (c) => ['cedula', 'tipo', 'anio', 'etiqueta', 'realizado_por'].indexOf(c) < 0
+);
+
+// ── LO QUE LLAMA EL CELULAR DEL TRABAJADOR ──────────────────────────
+
+async function accionEncPubAbrir(body, env) {
+  const token = String((body && body.token) || '').trim().toUpperCase();
+  const ced = String((body && body.cedula) || '').replace(/\D/g, '');
+  if (!token) return { ok: false, motivo: 'enlace_invalido' };
+  if (!ced)   return { ok: false, motivo: 'cedula_vacia' };
+
+  const r = await sbRpc(env, 'jornada_abrir_encuesta', {
+    p_token: token, p_cedula: parseInt(ced, 10),
+  });
+  if (!r || r.ok !== true) {
+    return { ok: false, motivo: (r && r.motivo) || 'enlace_invalido' };
+  }
+
+  // Se arma la respuesta campo por campo: lo guardado manda, y lo que
+  // esté vacío se precarga de la ficha para que solo corrija lo que cambió.
+  const g = r.guardado || {};
+  const f = r.ficha || {};
+  const deFicha = {
+    nombres: 'nombres', email: 'email', telefono: 'telefono', direccion: 'direccion',
+    ciudad: 'ciudad', fecha_nac: 'fecha_nac', tipo_sangre: 'tipo_sangre',
+    lugar_exp: 'lugar_exp', fecha_exp: 'fecha_exp', cargo: 'cargo',
+    fecha_ingreso: 'fecha_ingreso', estado_civil: 'estado_civil', genero: 'genero',
+    nivel_educativo: 'nivel_educativo', titulo: 'titulo',
+    talla_camisa: 'talla_camisa', talla_pant: 'talla_pant',
+    talla_bota_punt: 'talla_bota', talla_guayo: 'talla_guayo',
+    talla_impermeable: 'talla_impermeable',
+  };
+
+  const datos = {};
+  for (const c of ENC_CAMPOS_PUBLICOS) {
+    let v = g[c];
+    if ((v === null || v === undefined || String(v).trim() === '') && deFicha[c]) {
+      v = f[deFicha[c]];
+    }
+    datos[c] = (v === null || v === undefined) ? ''
+             : (ENC_FECHAS.indexOf(c) >= 0 ? String(v).slice(0, 10) : String(v));
+  }
+
+  return {
+    ok: true,
+    jornada: r.jornada,
+    nombres: r.nombres || '',
+    ya_enviada: r.ya_enviada === true,
+    datos: datos,
+  };
+}
+
+// Guardado automático por sección: si al trabajador se le va el
+// internet o no alcanza a terminar, lo que llevaba ya está guardado
+// y le llega a SST marcado como incompleto.
+async function accionEncPubGuardar(body, env) {
+  const token = String((body && body.token) || '').trim().toUpperCase();
+  const ced = String((body && body.cedula) || '').replace(/\D/g, '');
+  if (!token || !ced) return { ok: false, motivo: 'enlace_invalido' };
+
+  // Se vuelve a validar completo en cada guardado: la página del
+  // celular no manda el id de la encuesta y el servidor no se lo cree.
+  const r = await sbRpc(env, 'jornada_abrir_encuesta', {
+    p_token: token, p_cedula: parseInt(ced, 10),
+  });
+  if (!r || r.ok !== true) return { ok: false, motivo: (r && r.motivo) || 'enlace_invalido' };
+  if (r.ya_enviada) return { ok: false, motivo: 'ya_enviada' };
+
+  const entrada = (body && body.datos) || {};
+  const row = {};
+  for (const c of ENC_CAMPOS_PUBLICOS) {
+    if (!(c in entrada)) continue;
+    if (ENC_FECHAS.indexOf(c) >= 0)       row[c] = encLimpiaFecha(entrada[c]);
+    else if (ENC_ENTEROS.indexOf(c) >= 0) row[c] = encLimpiaEntero(entrada[c]);
+    else                                  row[c] = encLimpiaTexto(entrada[c]);
+  }
+  if (!Object.keys(row).length) return { ok: true, guardados: 0 };
+
+  row.actualizado_en = new Date().toISOString();
+  row.actualizado_por = 'celular ' + ced;
+  await sbWrite(env, 'PATCH', 'encuestas_sst?id=eq.' + r.encuesta_id, row);
+
+  const av = encLimpiaEntero(body && body.avance);
+  await sbWrite(env, 'PATCH',
+    'encuestas_jornada_asistentes?jornada_id=eq.' + r.jornada.id + '&cedula=eq.' + ced,
+    { estado: 'en_curso', avance: av || 0 });
+
+  return { ok: true, guardados: Object.keys(row).length };
+}
+
+async function accionEncPubEnviar(body, env) {
+  const token = String((body && body.token) || '').trim().toUpperCase();
+  const ced = String((body && body.cedula) || '').replace(/\D/g, '');
+  if (!token || !ced) return { ok: false, motivo: 'enlace_invalido' };
+
+  const r = await sbRpc(env, 'jornada_abrir_encuesta', {
+    p_token: token, p_cedula: parseInt(ced, 10),
+  });
+  if (!r || r.ok !== true) return { ok: false, motivo: (r && r.motivo) || 'enlace_invalido' };
+
+  if (body && body.datos) {
+    const g = await accionEncPubGuardar(body, env);
+    if (g && g.ok === false && g.motivo !== 'ya_enviada') return g;
+  }
+
+  await sbWrite(env, 'PATCH', 'encuestas_sst?id=eq.' + r.encuesta_id, {
+    fecha_encuesta: new Date().toISOString().slice(0, 10),
+    realizado_por: 'EL TRABAJADOR (celular)',
+    actualizado_en: new Date().toISOString(),
+  });
+  await sbWrite(env, 'PATCH',
+    'encuestas_jornada_asistentes?jornada_id=eq.' + r.jornada.id + '&cedula=eq.' + ced,
+    { estado: 'enviada', enviada_en: new Date().toISOString(), avance: 99 });
+
+  return { ok: true };
+}
+
+// ── LO QUE USA SST ──────────────────────────────────────────────────
+
+async function accionJornadaCrear(body, env) {
+  const nombre = encLimpiaTexto(body && body.nombre);
+  if (!nombre) return { ok: false, error: 'Póngale un nombre a la jornada' };
+
+  const cedulas = (Array.isArray(body.cedulas) ? body.cedulas : [])
+    .map((c) => String(c || '').replace(/\D/g, ''))
+    .filter((c) => c.length >= 6 && c.length <= 11);
+  const unicas = [...new Set(cedulas)];
+  if (!unicas.length) return { ok: false, error: 'Agregue al menos un trabajador a la lista' };
+
+  const hoy = new Date();
+  const fecha = encLimpiaFecha(body && body.fecha) || hoy.toISOString().slice(0, 10);
+  const anio = encLimpiaEntero(body && body.anio) || parseInt(fecha.slice(0, 4), 10);
+  const tipo = String((body && body.tipo) || 'REIN').toUpperCase() === 'IND' ? 'IND' : 'REIN';
+
+  // por defecto la jornada se cierra sola a las 12 horas, para que un
+  // enlace olvidado no quede vivo
+  const horas = encLimpiaEntero(body && body.horas) || 12;
+  const cierra = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+
+  let token = '', libre = false;
+  for (let i = 0; i < 5 && !libre; i++) {
+    token = jorToken(8);
+    const ya = await sb(env, 'encuestas_jornadas?select=id&token=eq.' + token + '&limit=1');
+    libre = !ya.length;
+  }
+  if (!libre) return { ok: false, error: 'No se pudo generar el código, intente otra vez' };
+
+  await sbWrite(env, 'POST', 'encuestas_jornadas', {
+    nombre: nombre, fecha: fecha, anio: anio, tipo: tipo, token: token,
+    abierta: true, cierra_en: cierra,
+    sede: encLimpiaTexto(body && body.sede),
+    observacion: encLimpiaTexto(body && body.observacion),
+    creada_por: String(body.usuario || ''),
+  });
+
+  const j = await sb(env, 'encuestas_jornadas?select=id&token=eq.' + token + '&limit=1');
+  if (!j.length) return { ok: false, error: 'No se pudo crear la jornada' };
+  const jid = j[0].id;
+
+  // los nombres salen de trabajadores, para que el trabajador vea
+  // "¿Es usted JUAN PÉREZ?" y no se equivoque de cédula
+  const trabs = await sbAll(env,
+    'trabajadores?select=cedula,nombres&cedula=in.(' + unicas.join(',') + ')');
+  const nombrePorCed = {};
+  trabs.forEach((t) => { nombrePorCed[String(t.cedula)] = t.nombres || ''; });
+
+  await sbWrite(env, 'POST', 'encuestas_jornada_asistentes', unicas.map((c) => ({
+    jornada_id: jid, cedula: parseInt(c, 10),
+    nombres: nombrePorCed[c] || '', estado: 'sin_abrir',
+  })));
+
+  return {
+    ok: true, id: jid, token: token, asistentes: unicas.length,
+    sin_ficha: unicas.filter((c) => !nombrePorCed[c]),
+    cierra_en: cierra,
+  };
+}
+
+async function accionJornadaListar(body, env) {
+  const filas = await sbAll(env,
+    'encuestas_jornadas?select=id,nombre,fecha,anio,tipo,token,abierta,cierra_en,sede,creada_por,creada_en,cerrada_en&order=fecha.desc,id.desc');
+  const ids = filas.map((f) => f.id);
+  let porJor = {};
+  if (ids.length) {
+    const asis = await sbAll(env,
+      'encuestas_jornada_asistentes?select=jornada_id,estado&jornada_id=in.(' + ids.join(',') + ')');
+    asis.forEach((a) => {
+      const k = String(a.jornada_id);
+      if (!porJor[k]) porJor[k] = { total: 0, enviadas: 0, en_curso: 0 };
+      porJor[k].total++;
+      if (a.estado === 'enviada') porJor[k].enviadas++;
+      else if (a.estado === 'en_curso') porJor[k].en_curso++;
+    });
+  }
+  return {
+    ok: true,
+    data: filas.map((f) => {
+      const c = porJor[String(f.id)] || { total: 0, enviadas: 0, en_curso: 0 };
+      return {
+        id: String(f.id), nombre: f.nombre || '', fecha: String(f.fecha || '').slice(0, 10),
+        anio: String(f.anio || ''), tipo: f.tipo || 'REIN', token: f.token || '',
+        abierta: f.abierta === true || f.abierta === 'true',
+        cierra_en: f.cierra_en || '', sede: f.sede || '',
+        creada_por: f.creada_por || '', cerrada_en: f.cerrada_en || '',
+        total: c.total, enviadas: c.enviadas, en_curso: c.en_curso,
+      };
+    }),
+  };
+}
+
+async function accionJornadaDetalle(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+  const j = await sb(env, 'encuestas_jornadas?select=*&id=eq.' + id + '&limit=1');
+  if (!j.length) return { ok: false, error: 'Jornada no encontrada' };
+  const a = await sbAll(env,
+    'encuestas_jornada_asistentes?select=*&jornada_id=eq.' + id + '&order=nombres.asc');
+  return {
+    ok: true,
+    jornada: {
+      id: String(j[0].id), nombre: j[0].nombre || '',
+      fecha: String(j[0].fecha || '').slice(0, 10), tipo: j[0].tipo || 'REIN',
+      token: j[0].token || '',
+      abierta: j[0].abierta === true || j[0].abierta === 'true',
+      cierra_en: j[0].cierra_en || '', sede: j[0].sede || '',
+      creada_por: j[0].creada_por || '',
+    },
+    asistentes: a.map((x) => ({
+      cedula: String(x.cedula), nombres: x.nombres || '', estado: x.estado || 'sin_abrir',
+      encuesta_id: x.encuesta_id ? String(x.encuesta_id) : '',
+      avance: x.avance || 0, enviada_en: x.enviada_en || '',
+    })),
+  };
+}
+
+async function accionJornadaCerrar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+  const abrir = body && body.abrir === true;
+  const campos = abrir
+    ? { abierta: true, cerrada_en: null, cerrada_por: null,
+        cierra_en: new Date(Date.now() + 12 * 3600 * 1000).toISOString() }
+    : { abierta: false, cerrada_en: new Date().toISOString(),
+        cerrada_por: String(body.usuario || '') };
+  await sbWrite(env, 'PATCH', 'encuestas_jornadas?id=eq.' + id, campos);
+  return { ok: true, abierta: abrir };
+}
+
+async function accionJornadaAsistentes(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la jornada' };
+
+  const quitar = String((body && body.quitar) || '').replace(/\D/g, '');
+  if (quitar) {
+    const a = await sb(env, 'encuestas_jornada_asistentes?select=estado&jornada_id=eq.' + id +
+      '&cedula=eq.' + quitar + '&limit=1');
+    if (a.length && a[0].estado === 'enviada') {
+      return { ok: false, error: 'Esa persona ya envió su encuesta; no se puede quitar de la lista' };
+    }
+    await sbWrite(env, 'DELETE',
+      'encuestas_jornada_asistentes?jornada_id=eq.' + id + '&cedula=eq.' + quitar);
+    return { ok: true, quitado: quitar };
+  }
+
+  const cedulas = (Array.isArray(body.cedulas) ? body.cedulas : [])
+    .map((c) => String(c || '').replace(/\D/g, ''))
+    .filter((c) => c.length >= 6 && c.length <= 11);
+  const unicas = [...new Set(cedulas)];
+  if (!unicas.length) return { ok: false, error: 'No se indicó ninguna cédula' };
+
+  const ya = await sbAll(env,
+    'encuestas_jornada_asistentes?select=cedula&jornada_id=eq.' + id);
+  const yaSet = new Set(ya.map((x) => String(x.cedula)));
+  const nuevas = unicas.filter((c) => !yaSet.has(c));
+  if (!nuevas.length) return { ok: true, agregados: 0, nota: 'Ya estaban todos en la lista' };
+
+  const trabs = await sbAll(env,
+    'trabajadores?select=cedula,nombres&cedula=in.(' + nuevas.join(',') + ')');
+  const nom = {};
+  trabs.forEach((t) => { nom[String(t.cedula)] = t.nombres || ''; });
+
+  await sbWrite(env, 'POST', 'encuestas_jornada_asistentes', nuevas.map((c) => ({
+    jornada_id: id, cedula: parseInt(c, 10), nombres: nom[c] || '', estado: 'sin_abrir',
+  })));
+  return { ok: true, agregados: nuevas.length, sin_ficha: nuevas.filter((c) => !nom[c]) };
+}
+
+// ── REVISIÓN DE LO QUE LLEGA DEL CELULAR ────────────────────────────
+
+async function accionEncuestasPendientes(body, env) {
+  const sel = ['id', 'cedula', 'nombres', 'tipo', 'anio', 'etiqueta', 'fecha_encuesta',
+    'jornada_id', 'origen', 'actualizado_en'].join(',');
+  const filas = await sbAll(env,
+    'encuestas_sst?select=' + sel + '&estado_rev=eq.pendiente&order=actualizado_en.desc');
+  return {
+    ok: true,
+    data: filas.map((f) => {
+      const o = {};
+      for (const k in f) o[k] = (f[k] === null || f[k] === undefined) ? '' : String(f[k]);
+      return o;
+    }),
+  };
+}
+
+async function accionEncuestaRevisar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  if (body && body.descartar === true) {
+    await sbWrite(env, 'DELETE', 'encuestas_sst?id=eq.' + id);
+    return { ok: true, descartada: true };
+  }
+  await sbWrite(env, 'PATCH', 'encuestas_sst?id=eq.' + id, {
+    estado_rev: 'revisada',
+    revisada_por: String(body.usuario || ''),
+    revisada_en: new Date().toISOString(),
+  });
+  return { ok: true };
+}
+
+// =====================================================================
 // VERSION — para saber que api.js esta vivo en el servidor.
 // Desde la consola del navegador:
 //   fetch('/api',{method:'POST',body:JSON.stringify({accion:'version'})})
@@ -3817,7 +4178,8 @@ const ACCIONES_CONOCIDAS = [
   'eliminarFactura', 'eliminarIncapacidad', 'eliminarInvConfig', 'eliminarOtrosi',
   'eliminarPlantilla', 'eliminarReferencia', 'eliminarReg', 'eliminarRegistros',
   'eliminarRhCatalogo', 'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion',
-  'eliminarVinculacion', 'encuestaAplicar', 'encuestaComparar', 'facArchivoEliminar',
+  'eliminarVinculacion', 'encPubAbrir', 'encPubEnviar', 'encPubGuardar', 'encuestaAplicar',
+  'encuestaComparar', 'encuestaRevisar', 'encuestasPendientes', 'facArchivoEliminar',
   'facArchivoRegistrar', 'facArchivoSubirUrl', 'facArchivos', 'getAcumulados',
   'getCobrosHist', 'getConceptosAcum', 'getConceptosNom', 'getConfigEmpresa',
   'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos', 'getCoordinadoresAdmin',
@@ -3840,7 +4202,8 @@ const ACCIONES_CONOCIDAS = [
   'invAjustarStock', 'invEditarActa', 'invEliminarActa', 'invEliminarProducto',
   'invEntregasResumen', 'invGetActas', 'invGetFirma', 'invGetMovimientos',
   'invGuardarProducto', 'invInformeEntregas', 'invItemsActas', 'invRegistrarCambio',
-  'invRegistrarEntrada', 'invRegistrarSalida', 'login', 'nuevoEmpleado',
+  'invRegistrarEntrada', 'invRegistrarSalida', 'jornadaAsistentes', 'jornadaCerrar',
+  'jornadaCrear', 'jornadaDetalle', 'jornadaListar', 'login', 'nuevoEmpleado',
   'registrarReingreso', 'revisarIncapacidad', 'revocarPermisoSubida', 'vaciarAcumulados',
   'verificarDuplicado', 'verificarDuplicadosLote', 'version'
 ];
