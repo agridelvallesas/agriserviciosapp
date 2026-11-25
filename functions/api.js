@@ -160,6 +160,15 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarNomConfig')     r = await accionGuardarNomConfig(body, env);
     else if (accion === 'getVigHorasSemana')    r = await accionGetVigHorasSemana(body, env);
     else if (accion === 'getConsolidadoCoord')  r = await accionGetConsolidadoCoord(body, env);
+    else if (accion === 'getEncuestas')         r = await accionGetEncuestas(body, env);
+    else if (accion === 'getEncuesta')          r = await accionGetEncuesta(body, env);
+    else if (accion === 'getEncuestaHistorial') r = await accionGetEncuestaHistorial(body, env);
+    else if (accion === 'guardarEncuesta')      r = await accionGuardarEncuesta(body, env);
+    else if (accion === 'editarEncuesta')       r = await accionEditarEncuesta(body, env);
+    else if (accion === 'eliminarEncuesta')     r = await accionEliminarEncuesta(body, env);
+    else if (accion === 'encuestaComparar')     r = await accionEncuestaComparar(body, env);
+    else if (accion === 'encuestaAplicar')      r = await accionEncuestaAplicar(body, env);
+    else if (accion === 'getEncuestasResumen')  r = await accionGetEncuestasResumen(body, env);
     else if (accion === 'getIndiceDup')         r = await accionGetIndiceDup(body, env);
     else if (accion === 'verificarDuplicadosLote') r = await accionVerificarDuplicadosLote(body, env);
     else if (accion === 'guardarTarifa')        r = await accionGuardarTarifa(body, env);
@@ -817,7 +826,7 @@ const TRAB_MAP = [
   ['BANCO','banco'],['CUENTA','num_cuenta'],
   ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
   ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
-  ['BARRIO','barrio'],['TIPO_SANGRE','tipo_sangre'],['NUM_HIJOS','num_hijos'],['TEL_EMERG','tel_emerg'],['GRADO_ESCOLAR','grado_escolar'],
+  ['BARRIO','barrio'],['TIPO_SANGRE','tipo_sangre'],['GENERO','genero'],['NUM_HIJOS','num_hijos'],['TEL_EMERG','tel_emerg'],['GRADO_ESCOLAR','grado_escolar'],
   ['PAIS_NAC','pais_nac'],['DEPTO_NAC','depto_nac'],['CIUDAD_NAC','ciudad_nac'],['DEPTO_EXP','depto_exp'],
   ['NIVEL_EDUCATIVO','nivel_educativo'],['TITULO','titulo'],['INSTITUCION','institucion'],
   ['ESTUDIA_ACTUAL','estudia_actual'],['EST_QUE','est_que'],['EST_DONDE','est_donde'],['EST_SEMESTRE','est_semestre'],
@@ -3203,4 +3212,407 @@ async function accionGetConsolidadoTodos(body, env) {
     out[k].semanas[s].fac += fac;
   });
   return { ok: true, data: out };
+}
+
+// =====================================================================
+// ENCUESTA SOCIODEMOGRÁFICA (SST)
+// ---------------------------------------------------------------------
+// Una fila por encuesta: se conserva el historial. El bloque de salud
+// reservado (enfermedades, medicamentos, tabaco, alcohol) solo lo ve SST
+// y el ADMIN; RH ve todo lo demás, incluidas alergias y tipo de sangre.
+// =====================================================================
+
+// Campos de salud reservados. Quien no sea SST ni ADMIN no los recibe.
+const ENC_SALUD_RESERVADA = [
+  'enfermedad', 'enfermedad_cual',
+  'medicamento', 'medicamento_cual',
+  'fuma', 'fuma_prom', 'fuma_rango',
+  'alcohol', 'alcohol_frec',
+];
+
+// Todas las columnas de la encuesta, en el orden del formulario.
+const ENC_COLS = [
+  'id', 'cedula', 'tipo', 'anio', 'etiqueta', 'fecha_encuesta', 'realizado_por',
+  'nombres', 'email', 'lugar_exp', 'fecha_exp', 'cargo', 'fecha_ingreso',
+  'telefono', 'direccion', 'ciudad', 'estado', 'fecha_nac', 'tipo_sangre',
+  'estado_civil', 'genero', 'nivel_educativo', 'titulo',
+  'talla_camisa', 'talla_pant', 'talla_bota_punt', 'talla_guayo', 'talla_impermeable',
+  'monitor', 'talla_bota_lisa', 'edad', 'rango_edad',
+  'planta_agua', 'suministro_agua', 'estrato', 'tipo_vivienda',
+  'personas_cargo', 'parentesco', 'otros_cursos', 'tiempo_libre',
+  'ingresos', 'antiguedad', 'experiencia', 'tipo_contrato', 'activ_salud',
+  'alergia', 'alergia_cual',
+  'enfermedad', 'enfermedad_cual', 'medicamento', 'medicamento_cual',
+  'fuma', 'fuma_prom', 'fuma_rango', 'alcohol', 'alcohol_frec',
+  'deporte', 'deporte_cual', 'deporte_frec',
+  'licencia', 'soat', 'tecnomecanica', 'tarjeta_prop',
+  'vacuna_covid', 'vacuna_tipo', 'vacuna_esquema',
+  'origen', 'volcada_trab', 'volcada_en', 'volcada_por',
+  'observacion', 'creado_en', 'actualizado_en', 'actualizado_por',
+];
+
+// Columnas que se escriben desde el formulario (ni id ni campos de control).
+const ENC_COLS_EDIT = ENC_COLS.filter((c) =>
+  ['id', 'origen', 'volcada_trab', 'volcada_en', 'volcada_por',
+   'creado_en', 'actualizado_en', 'actualizado_por'].indexOf(c) < 0);
+
+const ENC_FECHAS  = ['fecha_encuesta', 'fecha_exp', 'fecha_ingreso', 'fecha_nac'];
+const ENC_ENTEROS = ['edad', 'personas_cargo'];
+
+// Los 21 campos que se cruzan con trabajadores: encuesta -> columna de trabajadores.
+// 'talla_bota_lisa' (botas sin puntera) y 'personas_cargo' NO están aquí a propósito:
+// no tienen equivalente real en la ficha de RH.
+const ENC_A_TRAB = {
+  nombres: 'nombres', email: 'email', lugar_exp: 'lugar_exp', fecha_exp: 'fecha_exp',
+  cargo: 'cargo', fecha_ingreso: 'fecha_ingreso', telefono: 'telefono',
+  direccion: 'direccion', ciudad: 'ciudad', estado: 'estado', fecha_nac: 'fecha_nac',
+  tipo_sangre: 'tipo_sangre', estado_civil: 'estado_civil', genero: 'genero',
+  nivel_educativo: 'nivel_educativo', titulo: 'titulo',
+  talla_camisa: 'talla_camisa', talla_pant: 'talla_pant',
+  talla_bota_punt: 'talla_bota', talla_guayo: 'talla_guayo',
+  talla_impermeable: 'talla_impermeable',
+};
+
+function encVeSalud(body) {
+  const rol = String((body && body.rol) || '').trim().toLowerCase();
+  const usr = String((body && body.usuario) || '').trim().toUpperCase();
+  return rol === 's' || rol === 'sst' || usr === 'ADMIN';
+}
+
+function encLimpiaTexto(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
+function encLimpiaFecha(v) {
+  const s = encLimpiaTexto(v);
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[0];
+  m = s.replace(/[/\-]{2,}/g, '/').match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  if (m) {
+    const d = parseInt(m[1], 10), mo = parseInt(m[2], 10), y = parseInt(m[3], 10);
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+  }
+  return null;
+}
+
+function encLimpiaEntero(v) {
+  const s = encLimpiaTexto(v);
+  if (!s) return null;
+  const m = s.match(/-?\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+// Convierte lo que manda el formulario en una fila lista para la tabla.
+function encAFilaDB(e) {
+  const row = {};
+  for (const c of ENC_COLS_EDIT) {
+    if (!(c in e)) continue;
+    if (ENC_FECHAS.indexOf(c) >= 0)       row[c] = encLimpiaFecha(e[c]);
+    else if (ENC_ENTEROS.indexOf(c) >= 0) row[c] = encLimpiaEntero(e[c]);
+    else if (c === 'cedula')              row[c] = encLimpiaEntero(String(e[c] || '').replace(/\D/g, ''));
+    else if (c === 'anio')                row[c] = encLimpiaEntero(e[c]);
+    else                                  row[c] = encLimpiaTexto(e[c]);
+  }
+  return row;
+}
+
+// Quita del objeto los campos de salud reservados.
+function encTapaSalud(o) {
+  const out = {};
+  for (const k in o) {
+    if (ENC_SALUD_RESERVADA.indexOf(k) >= 0) continue;
+    out[k] = o[k];
+  }
+  out._salud_oculta = true;
+  return out;
+}
+
+function encNormaliza(f) {
+  const o = {};
+  for (const c of ENC_COLS) {
+    let v = f[c];
+    if (v === null || v === undefined) v = '';
+    else if (c === 'volcada_trab') v = (v === true || v === 'true') ? 'SI' : '';
+    else if (ENC_FECHAS.indexOf(c) >= 0) v = String(v).slice(0, 10);
+    else v = String(v);
+    o[c] = v;
+  }
+  return o;
+}
+
+// --------------------------------------------------------------
+// LISTADO — columnas de resumen, para la tabla y el buscador.
+// Nunca trae salud: para eso se abre la encuesta.
+// --------------------------------------------------------------
+async function accionGetEncuestas(body, env) {
+  const sel = ['id', 'cedula', 'nombres', 'tipo', 'anio', 'etiqueta', 'fecha_encuesta',
+    'cargo', 'ciudad', 'estado', 'monitor', 'realizado_por', 'origen',
+    'volcada_trab', 'actualizado_en'].join(',');
+
+  let q = 'encuestas_sst?select=' + sel;
+  const anio = encLimpiaEntero(body && body.anio);
+  if (anio) q += '&anio=eq.' + anio;
+  const tipo = String((body && body.tipo) || '').trim().toUpperCase();
+  if (tipo === 'IND' || tipo === 'REIN') q += '&tipo=eq.' + tipo;
+  const ced = String((body && body.cedula) || '').replace(/\D/g, '');
+  if (ced) q += '&cedula=eq.' + ced;
+  q += '&order=anio.desc,fecha_encuesta.desc,id.desc';
+
+  const rows = await sbAll(env, q);
+  return {
+    ok: true,
+    data: rows.map((f) => {
+      const o = {};
+      for (const k in f) {
+        let v = f[k];
+        if (v === null || v === undefined) v = '';
+        else if (k === 'volcada_trab') v = (v === true || v === 'true') ? 'SI' : '';
+        else if (k === 'fecha_encuesta') v = String(v).slice(0, 10);
+        else v = String(v);
+        o[k] = v;
+      }
+      return o;
+    }),
+  };
+}
+
+// --------------------------------------------------------------
+// UNA ENCUESTA COMPLETA
+// --------------------------------------------------------------
+async function accionGetEncuesta(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  const tabla = encVeSalud(body) ? 'encuestas_sst' : 'encuestas_sst_rh';
+  const rows = await sb(env, tabla + '?select=*&id=eq.' + id + '&limit=1');
+  if (!rows.length) return { ok: false, error: 'Encuesta no encontrada' };
+  let e = encNormaliza(rows[0]);
+  if (!encVeSalud(body)) e = encTapaSalud(e);
+  return { ok: true, encuesta: e };
+}
+
+// --------------------------------------------------------------
+// HISTORIAL DE UNA PERSONA — todas sus encuestas, de la más nueva
+// a la más vieja, para ver qué cambió año a año.
+// --------------------------------------------------------------
+async function accionGetEncuestaHistorial(body, env) {
+  const ced = String((body && body.cedula) || '').replace(/\D/g, '');
+  if (!ced) return { ok: false, error: 'Falta la cédula' };
+  const tabla = encVeSalud(body) ? 'encuestas_sst' : 'encuestas_sst_rh';
+  const rows = await sbAll(env, tabla +
+    '?select=*&cedula=eq.' + ced + '&order=anio.desc,fecha_encuesta.desc,id.desc');
+  const lista = rows.map((f) => {
+    let e = encNormaliza(f);
+    if (!encVeSalud(body)) e = encTapaSalud(e);
+    return e;
+  });
+  return { ok: true, cedula: ced, data: lista };
+}
+
+// --------------------------------------------------------------
+// GUARDAR UNA NUEVA ENCUESTA
+// Avisa (no bloquea) si ya hay una del mismo tipo y año: en el
+// histórico hay un caso real de dos reinducciones en un mismo año.
+// --------------------------------------------------------------
+async function accionGuardarEncuesta(body, env) {
+  const e = body.encuesta || {};
+  const row = encAFilaDB(e);
+  if (!row.cedula) return { ok: false, error: 'Falta la cédula' };
+  if (!row.anio)   return { ok: false, error: 'Falta el año de la encuesta' };
+  if (!row.tipo)   row.tipo = 'IND';
+  row.tipo = String(row.tipo).toUpperCase() === 'REIN' ? 'REIN' : 'IND';
+  if (!row.etiqueta) row.etiqueta = row.tipo + '-' + row.anio;
+
+  const ya = await sb(env, 'encuestas_sst?select=id,fecha_encuesta&cedula=eq.' + row.cedula +
+    '&tipo=eq.' + row.tipo + '&anio=eq.' + row.anio + '&limit=5');
+
+  row.origen = 'app';
+  row.actualizado_en = new Date().toISOString();
+  row.actualizado_por = String(body.usuario || '');
+  await sbWrite(env, 'POST', 'encuestas_sst', row);
+
+  return {
+    ok: true,
+    aviso: ya.length
+      ? 'Esta persona ya tenía ' + ya.length + ' encuesta(s) ' + row.tipo + '-' + row.anio +
+        '. Se guardó de todas formas; quedan las dos en el historial.'
+      : '',
+  };
+}
+
+// --------------------------------------------------------------
+// EDITAR UNA ENCUESTA YA GUARDADA
+// Quien no ve salud tampoco la puede escribir.
+// --------------------------------------------------------------
+async function accionEditarEncuesta(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  const e = body.encuesta || {};
+  const row = encAFilaDB(e);
+  delete row.cedula;   // la cédula no se cambia: se borra y se crea de nuevo
+
+  if (!encVeSalud(body)) {
+    for (const c of ENC_SALUD_RESERVADA) delete row[c];
+  }
+  if (!Object.keys(row).length) return { ok: false, error: 'Nada que cambiar' };
+
+  row.actualizado_en = new Date().toISOString();
+  row.actualizado_por = String(body.usuario || '');
+  await sbWrite(env, 'PATCH', 'encuestas_sst?id=eq.' + id, row);
+  return { ok: true };
+}
+
+async function accionEliminarEncuesta(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  await sbWrite(env, 'DELETE', 'encuestas_sst?id=eq.' + id);
+  return { ok: true };
+}
+
+// --------------------------------------------------------------
+// COMPARAR CON TRABAJADORES
+// Devuelve, campo a campo, qué dice la encuesta, qué dice la ficha
+// de RH y el veredicto: igual / llenar / cambia / solo_rh.
+// --------------------------------------------------------------
+async function accionEncuestaComparar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  const r = await sbRpc(env, 'encuesta_vs_trabajador', { p_id: id });
+  if (!r || r.ok === false) {
+    return { ok: false, error: (r && r.error) || 'No se pudo comparar' };
+  }
+  return { ok: true, comparacion: r };
+}
+
+// --------------------------------------------------------------
+// APLICAR A TRABAJADORES
+// Solo escribe los campos que vienen en body.campos, y solo los que
+// están en el mapa de cruce. Si la persona no existe, la crea.
+// Nada se escribe sin que alguien haya marcado el campo.
+// --------------------------------------------------------------
+async function accionEncuestaAplicar(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+
+  const pedidos = Array.isArray(body.campos) ? body.campos : [];
+  if (!pedidos.length) return { ok: false, error: 'No se marcó ningún campo para aplicar' };
+
+  const enc = await sb(env, 'encuestas_sst?select=*&id=eq.' + id + '&limit=1');
+  if (!enc.length) return { ok: false, error: 'Encuesta no encontrada' };
+  const e = enc[0];
+  const ced = String(e.cedula || '').replace(/\D/g, '');
+  if (!ced) return { ok: false, error: 'La encuesta no tiene cédula' };
+
+  // Solo campos del mapa de cruce, y solo si la encuesta trae valor.
+  const row = {};
+  const aplicados = [];
+  const vacios = [];
+  for (const campo of pedidos) {
+    const colTrab = ENC_A_TRAB[campo];
+    if (!colTrab) continue;
+    let v = e[campo];
+    if (v === null || v === undefined) { vacios.push(campo); continue; }
+    v = String(v).trim();
+    if (v === '' || ['N/A', 'NA', 'NO APLICA', 'NINGUNO', 'NINGUNA'].indexOf(v.toUpperCase()) >= 0) {
+      vacios.push(campo);
+      continue;
+    }
+    row[colTrab] = v;
+    aplicados.push(campo);
+  }
+  if (!aplicados.length) {
+    return { ok: false, error: 'Los campos marcados vienen vacíos en la encuesta' };
+  }
+
+  const sello = String(body.usuario || '') + ' · encuesta ' +
+    (e.etiqueta || (e.tipo + '-' + e.anio)) + ' · ' +
+    new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+  const ex = await sb(env, 'trabajadores?select=cedula&cedula=eq.' + ced + '&limit=1');
+  let creado = false;
+  if (ex.length) {
+    row.actualizado_por = sello;
+    await sbWrite(env, 'PATCH', 'trabajadores?cedula=eq.' + ced, row);
+  } else {
+    row.cedula = ced;
+    row.fecha_registro = new Date().toISOString();
+    row.actualizado_por = sello;
+    await sbWrite(env, 'POST', 'trabajadores', row);
+    creado = true;
+  }
+
+  await sbWrite(env, 'PATCH', 'encuestas_sst?id=eq.' + id, {
+    volcada_trab: true,
+    volcada_en: new Date().toISOString(),
+    volcada_por: String(body.usuario || ''),
+  });
+
+  return {
+    ok: true,
+    creado: creado,
+    cedula: ced,
+    aplicados: aplicados.length,
+    campos: aplicados,
+    vacios: vacios,
+  };
+}
+
+// --------------------------------------------------------------
+// RESUMEN PARA EL TABLERO DE SST
+// Un solo recorrido: encuestas por año y tipo, cuántas sin volcar,
+// y los datos que se contradicen entre encuestas de la misma persona.
+// --------------------------------------------------------------
+async function accionGetEncuestasResumen(body, env) {
+  const rows = await sbAll(env,
+    'encuestas_sst?select=id,cedula,nombres,tipo,anio,fecha_encuesta,tipo_sangre,fecha_nac,volcada_trab');
+
+  const porAnio = {};
+  const porPersona = {};
+  let sinVolcar = 0;
+
+  rows.forEach((r) => {
+    const a = String(r.anio || '');
+    if (!porAnio[a]) porAnio[a] = { IND: 0, REIN: 0, total: 0 };
+    const t = String(r.tipo || 'IND').toUpperCase() === 'REIN' ? 'REIN' : 'IND';
+    porAnio[a][t]++;
+    porAnio[a].total++;
+    if (!(r.volcada_trab === true || r.volcada_trab === 'true')) sinVolcar++;
+
+    const c = String(r.cedula || '');
+    if (!porPersona[c]) porPersona[c] = { nombres: r.nombres || '', n: 0, rh: {}, fnac: {} };
+    porPersona[c].n++;
+    if (r.nombres) porPersona[c].nombres = r.nombres;
+    const rh = String(r.tipo_sangre || '').trim().toUpperCase();
+    if (rh && rh !== 'N/A') porPersona[c].rh[rh] = 1;
+    const fn = String(r.fecha_nac || '').slice(0, 10);
+    if (fn) porPersona[c].fnac[fn] = 1;
+  });
+
+  const confRH = [], confNac = [];
+  for (const c in porPersona) {
+    const p = porPersona[c];
+    const rhs = Object.keys(p.rh);
+    const fns = Object.keys(p.fnac);
+    if (rhs.length > 1)  confRH.push({ cedula: c, nombres: p.nombres, valores: rhs.sort() });
+    if (fns.length > 1) confNac.push({ cedula: c, nombres: p.nombres, valores: fns.sort() });
+  }
+  const porNombre = (a, b) => String(a.nombres).localeCompare(String(b.nombres));
+  confRH.sort(porNombre);
+  confNac.sort(porNombre);
+
+  return {
+    ok: true,
+    data: {
+      encuestas: rows.length,
+      personas: Object.keys(porPersona).length,
+      sinVolcar: sinVolcar,
+      porAnio: porAnio,
+      conflictoRH: confRH,
+      conflictoNac: confNac,
+    },
+  };
 }
