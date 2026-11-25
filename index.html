@@ -26538,6 +26538,8 @@ function jorRender(){
           ? '<button class="btn bg" style="height:31px;font-size:12px" onclick="jorQR(\''+j.id+'\')">'
             + '<svg class="icb"><use href="#i-share-2"/></svg> Ver el QR</button>'
           : '')
+      +   '<button class="btn bg" style="height:31px;font-size:12px" onclick="jorEditar(\''+j.id+'\')">'
+      +     '<svg class="icb"><use href="#i-pencil"/></svg> Editar</button>'
       + '</div></div>';
   });
   c.innerHTML = h;
@@ -26744,12 +26746,14 @@ function jorPintarDetalle(){
       +   'Jornada <b>abierta</b> · código <b style="letter-spacing:.1em">'+encEsc(j.token)+'</b></div>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorQR(\''+j.id+'\')">Ver el QR</button>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',false)">Cerrar la jornada</button>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorEditar(\''+j.id+'\')">Editar</button>'
       + '</div>';
   } else {
     h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-bottom:12px;'
       + 'display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
       + '<div style="flex:1;min-width:170px;font-size:12.5px;color:var(--g2)">Jornada <b>cerrada</b>. El enlace ya no sirve.</div>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',true)">Volver a abrirla</button>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorEditar(\''+j.id+'\')">Editar</button>'
       + '</div>';
   }
 
@@ -26879,6 +26883,137 @@ function encDescartar(id){
     ENC_ROWS = []; ENC_RES = null;
     encPendientes();
     encAbrir();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+
+// ── EDITAR Y ELIMINAR JORNADAS ───────────────────────────────────────
+
+function jorEditar(id){
+  var j = JOR_ROWS.filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!j && JOR_DET && String(JOR_DET.jornada.id) === String(id)) j = JOR_DET.jornada;
+  if(!j){ alert('No se encontró la jornada.'); return; }
+
+  var h = '<div class="fld"><label>Nombre de la jornada</label>'
+    + '<input type="text" id="jor-e-nombre" value="'+encEsc(j.nombre||'')+'"/></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    +   '<div class="fld" style="margin:0"><label>Fecha</label>'
+    +     '<input type="date" id="jor-e-fecha" value="'+encEsc(String(j.fecha||'').slice(0,10))+'"/></div>'
+    +   '<div class="fld" style="margin:0"><label>Clase</label><select id="jor-e-tipo">'
+    +     '<option value="REIN"'+(j.tipo!=='IND'?' selected':'')+'>Reinducción</option>'
+    +     '<option value="IND"'+(j.tipo==='IND'?' selected':'')+'>Inducción</option></select></div>'
+    + '</div>'
+    + '<div class="fld"><label>Sede <span style="font-weight:400;color:var(--g3)">· opcional</span></label>'
+    + '<input type="text" id="jor-e-sede" value="'+encEsc(j.sede||'')+'"/></div>';
+
+  if(j.abierta){
+    h += '<div class="fld"><label>Alargar el vencimiento del enlace'
+      + '<span style="font-weight:400;color:var(--g3)"> · contado desde ahora</span></label>'
+      + '<select id="jor-e-horas">'
+      +   '<option value="">No cambiarlo</option>'
+      +   '<option value="2">2 horas más</option>'
+      +   '<option value="4">4 horas más</option>'
+      +   '<option value="8">8 horas más</option>'
+      +   '<option value="24">24 horas más</option></select></div>';
+  }
+
+  h += '<div style="display:flex;gap:9px;justify-content:space-between;margin-top:14px;flex-wrap:wrap">'
+    +   '<button class="btn bg" style="color:#b91c1c" onclick="jorEliminar(\''+j.id+'\')">'
+    +     '<svg class="icb"><use href="#i-trash-2"/></svg> Eliminar la jornada</button>'
+    +   '<span style="display:flex;gap:9px">'
+    +     '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+    +     '<button class="btn bn" onclick="jorGuardarEdicion(\''+j.id+'\')">'
+    +       '<svg class="icb"><use href="#i-save"/></svg> Guardar</button>'
+    +   '</span>'
+    + '</div>';
+
+  encModal('Editar jornada', h, 560);
+}
+
+function jorGuardarEdicion(id){
+  var nombre = (document.getElementById('jor-e-nombre')||{}).value || '';
+  if(!nombre.trim()){ alert('La jornada necesita un nombre.'); return; }
+  var cuerpo = {
+    accion:'jornadaEditar', id:id,
+    nombre: nombre.trim(),
+    fecha: (document.getElementById('jor-e-fecha')||{}).value || '',
+    tipo:  (document.getElementById('jor-e-tipo')||{}).value || 'REIN',
+    sede:  (document.getElementById('jor-e-sede')||{}).value || ''
+  };
+  var hs = (document.getElementById('jor-e-horas')||{}).value || '';
+  if(hs) cuerpo.horas = hs;
+
+  encPost(cuerpo).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo guardar: '+((d&&d.error)||'?')); return; }
+    encCerrarModal();
+    JOR_ROWS = [];
+    jorCargar();
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+// Antes de borrar se le pregunta al servidor qué hay colgando, para
+// advertir con números y no a ciegas.
+function jorEliminar(id){
+  encPost({accion:'jornadaQueTiene', id:id}).then(function(q){
+    if(!q || !q.ok){ alert('No se pudo revisar la jornada: '+((q&&q.error)||'?')); return; }
+
+    var h = '<div style="font-size:13px;color:var(--g2)">Esta jornada tiene:</div>'
+      + '<div style="margin:9px 0;display:flex;gap:10px;flex-wrap:wrap">'
+      +   encTarjeta('En la lista', q.asistentes, 'i-users', '#64748b')
+      +   encTarjeta('Sin revisar', q.pendientes, 'i-clock', q.pendientes ? '#b45309' : '#94a3b8')
+      +   encTarjeta('Ya revisadas', q.revisadas, 'i-circle-check', q.revisadas ? '#16a34a' : '#94a3b8')
+      + '</div>';
+
+    if(q.revisadas){
+      h += '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#065f46;margin-bottom:9px">'
+        + 'Las <b>'+q.revisadas+'</b> encuestas ya revisadas <b>no se borran</b>. Son dato bueno del '
+        + 'trabajador y puede que ya hayan pasado a la ficha de RH. Quedan guardadas, solo que '
+        + 'sueltas de esta jornada.</div>';
+    }
+
+    if(q.pendientes){
+      h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#78350f;margin-bottom:9px">'
+        + 'Hay <b>'+q.pendientes+'</b> encuesta'+(q.pendientes===1?'':'s')+' sin revisar. '
+        + '¿Qué hago con '+(q.pendientes===1?'ella':'ellas')+'?</div>'
+        + '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;cursor:pointer;margin-bottom:6px">'
+        +   '<input type="radio" name="jor-del" value="no" checked style="margin-top:3px"/>'
+        +   '<span><b>Conservarlas.</b> Quedan en «Revisar lo que llegó» para mirarlas después.</span></label>'
+        + '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;cursor:pointer">'
+        +   '<input type="radio" name="jor-del" value="si" style="margin-top:3px"/>'
+        +   '<span><b>Borrarlas también.</b> Para cuando la jornada se creó por equivocación '
+        +   'y lo que se contestó no sirve.</span></label>';
+    } else if(!q.revisadas){
+      h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--g2);margin-bottom:9px">'
+        + 'Nadie alcanzó a contestar. Se puede borrar sin perder nada.</div>';
+    }
+
+    h += '<div style="display:flex;gap:9px;justify-content:flex-end;margin-top:14px">'
+      +   '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+      +   '<button class="btn bn" style="background:#b91c1c" onclick="jorEliminarYa(\''+id+'\')">'
+      +     '<svg class="icb"><use href="#i-trash-2"/></svg> Eliminar</button>'
+      + '</div>';
+
+    encModal('¿Eliminar la jornada?', h, 560);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function jorEliminarYa(id){
+  var r = document.querySelector('input[name="jor-del"]:checked');
+  var borrar = !!(r && r.value === 'si');
+  if(borrar && !confirm('Se van a borrar también las encuestas sin revisar de esta jornada.\n\n'
+      + 'Esto no se puede deshacer. ¿Seguro?')) return;
+
+  encPost({accion:'jornadaEliminar', id:id, borrarPendientes:borrar}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo eliminar: '+((d&&d.error)||'?')); return; }
+    encCerrarModal();
+    JOR_DET = null;
+    clearTimeout(JOR_TIMER);
+    JOR_ROWS = []; ENC_ROWS = []; ENC_RES = null;
+    jorCargar();
+    var t = 'Se eliminó «' + (d.nombre||'') + '».';
+    if(d.borradas)     t += '\n\nSe borraron ' + d.borradas + ' encuestas sin revisar.';
+    if(d.conservadas)  t += '\n\nSe conservaron ' + d.conservadas + ' encuestas, ahora sueltas de la jornada.';
+    alert(t);
   }).catch(function(e){ alert('Error de red: '+e.message); });
 }
 
