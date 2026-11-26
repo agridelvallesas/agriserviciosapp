@@ -72,7 +72,7 @@ const PORTADAS = new Set([
   'getNominaQna', 'guardarNominaQna',
   'getConceptosNom', 'guardarConceptoNom', 'eliminarConceptoNom',
   // Jornadas de reinducción (encPub* las llama el celular del trabajador):
-  'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'jornadaCrear', 'jornadaListar',
+  'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'encPubCatalogo', 'jornadaCrear', 'jornadaListar',
   'jornadaDetalle', 'jornadaCerrar', 'jornadaAsistentes', 'encuestasPendientes', 'encuestaRevisar',
   'jornadaEditar', 'jornadaQueTiene', 'jornadaEliminar',
   // Diagnóstico: qué api.js está vivo
@@ -206,6 +206,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'encPubAbrir')            r = await accionEncPubAbrir(body, env);
     else if (accion === 'encPubGuardar')          r = await accionEncPubGuardar(body, env);
     else if (accion === 'encPubEnviar')           r = await accionEncPubEnviar(body, env);
+    else if (accion === 'encPubCatalogo')      r = await accionEncPubCatalogo(body, env);
     else if (accion === 'jornadaCrear')           r = await accionJornadaCrear(body, env);
     else if (accion === 'jornadaListar')          r = await accionJornadaListar(body, env);
     else if (accion === 'jornadaDetalle')         r = await accionJornadaDetalle(body, env);
@@ -882,7 +883,7 @@ const TRAB_MAP = [
   ['BANCO','banco'],['CUENTA','num_cuenta'],
   ['EPS','eps'],['PENSION','pension'],['CAJA','caja'],['ARL','arl'],['CESANTIAS','cesantias'],
   ['TALLA_CAMISA','talla_camisa'],['TALLA_PANTALON','talla_pant'],['TALLA_GUAYO','talla_guayo'],['TALLA_BOTA','talla_bota'],['TALLA_ZAPATO','talla_zap'],['TALLA_IMPERMEABLE','talla_impermeable'],
-  ['BARRIO','barrio'],['TIPO_SANGRE','tipo_sangre'],['GENERO','genero'],['NUM_HIJOS','num_hijos'],['TEL_EMERG','tel_emerg'],['GRADO_ESCOLAR','grado_escolar'],
+  ['BARRIO','barrio'],['TIPO_SANGRE','tipo_sangre'],['GENERO','genero'],['DIRECCION_PARTES','direccion_partes'],['NUM_HIJOS','num_hijos'],['TEL_EMERG','tel_emerg'],['GRADO_ESCOLAR','grado_escolar'],
   ['PAIS_NAC','pais_nac'],['DEPTO_NAC','depto_nac'],['CIUDAD_NAC','ciudad_nac'],['DEPTO_EXP','depto_exp'],
   ['NIVEL_EDUCATIVO','nivel_educativo'],['TITULO','titulo'],['INSTITUCION','institucion'],
   ['ESTUDIA_ACTUAL','estudia_actual'],['EST_QUE','est_que'],['EST_DONDE','est_donde'],['EST_SEMESTRE','est_semestre'],
@@ -3289,8 +3290,8 @@ const ENC_SALUD_RESERVADA = [
 // Todas las columnas de la encuesta, en el orden del formulario.
 const ENC_COLS = [
   'id', 'cedula', 'tipo', 'anio', 'etiqueta', 'fecha_encuesta', 'realizado_por',
-  'nombres', 'email', 'lugar_exp', 'fecha_exp', 'cargo', 'fecha_ingreso',
-  'telefono', 'direccion', 'ciudad', 'estado', 'fecha_nac', 'tipo_sangre',
+  'nombres', 'email', 'lugar_exp', 'depto_exp', 'fecha_exp', 'cargo', 'fecha_ingreso',
+  'telefono', 'direccion', 'direccion_partes', 'ciudad', 'departamento_res', 'estado', 'fecha_nac', 'tipo_sangre',
   'estado_civil', 'genero', 'nivel_educativo', 'titulo',
   'talla_camisa', 'talla_pant', 'talla_bota_punt', 'talla_guayo', 'talla_impermeable',
   'monitor', 'talla_bota_lisa', 'edad', 'rango_edad',
@@ -3997,6 +3998,33 @@ async function accionEncPubEnviar(body, env) {
   return { ok: true };
 }
 
+// Departamentos y municipios para los desplegables del celular.
+// No pide sesión —la página del trabajador no la tiene— pero tampoco
+// entrega nada de nadie: es el catálogo público del DANE.
+async function accionEncPubCatalogo(body, env) {
+  const depto = encLimpiaTexto(body && body.departamento);
+  if (depto) {
+    const m = await sbAll(env, 'rh_catalogos?select=valor&tipo=eq.municipio&activo=is.true'
+      + '&padre=ilike.' + encodeURIComponent(depto) + '&order=valor');
+    const vistos = new Set();
+    const lista = [];
+    m.forEach((x) => {
+      const v = String(x.valor || '').trim().toUpperCase();
+      if (v && !vistos.has(v)) { vistos.add(v); lista.push(v); }
+    });
+    return { ok: true, municipios: lista };
+  }
+  const d = await sbAll(env,
+    'rh_catalogos?select=valor&tipo=eq.departamento&activo=is.true&order=valor');
+  const vistos = new Set();
+  const lista = [];
+  d.forEach((x) => {
+    const v = String(x.valor || '').trim().toUpperCase();
+    if (v && !vistos.has(v)) { vistos.add(v); lista.push(v); }
+  });
+  return { ok: true, departamentos: lista };
+}
+
 // ── LO QUE USA SST ──────────────────────────────────────────────────
 
 async function accionJornadaCrear(body, env) {
@@ -4316,7 +4344,7 @@ async function accionJornadaEliminar(body, env) {
 // Las encPub* las protege el token de la jornada, que valida la base.
 const SIN_SESION = new Set([
   'login', 'version',
-  'encPubAbrir', 'encPubGuardar', 'encPubEnviar',
+  'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'encPubCatalogo',
 ]);
 
 const SESION_HORAS = 12;
@@ -4410,21 +4438,21 @@ const ACCIONES_CONOCIDAS = [
   'eliminarFactura', 'eliminarIncapacidad', 'eliminarInvConfig', 'eliminarOtrosi',
   'eliminarPlantilla', 'eliminarReferencia', 'eliminarReg', 'eliminarRegistros',
   'eliminarRhCatalogo', 'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion',
-  'eliminarVinculacion', 'encPubAbrir', 'encPubEnviar', 'encPubGuardar', 'encuestaAplicar',
-  'encuestaComparar', 'encuestaRevisar', 'encuestasPendientes', 'facArchivoEliminar',
-  'facArchivoRegistrar', 'facArchivoSubirUrl', 'facArchivos', 'getAcumulados',
-  'getCobrosHist', 'getConceptosAcum', 'getConceptosNom', 'getConfigEmpresa',
-  'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos', 'getCoordinadoresAdmin',
-  'getCruces', 'getDatos', 'getDetallado', 'getEncuesta', 'getEncuestaHistorial',
-  'getEncuestas', 'getEncuestasResumen', 'getFacResponsables', 'getFacturas',
-  'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup', 'getIngresosRetiros',
-  'getInvConfig', 'getInventario', 'getNomConfig', 'getNominaQna', 'getPermisosSubida',
-  'getPlantillas', 'getQuincenasAcum', 'getReferencias', 'getRegistros', 'getRhCatalogos',
-  'getRhConfig', 'getTrabajadores', 'getUsuarios', 'getUsuariosAdmin', 'getVacaciones',
-  'getVigHorasSemana', 'getVinculaciones', 'guardar', 'guardarCobrosHist',
-  'guardarConceptoAcum', 'guardarConceptoNom', 'guardarConfigEmpresa', 'guardarContrato',
-  'guardarCoordinador', 'guardarCruce', 'guardarDetallado', 'guardarEncuesta',
-  'guardarFacResponsable', 'guardarFactura', 'guardarFotoTrabajador',
+  'eliminarVinculacion', 'encPubAbrir', 'encPubCatalogo', 'encPubEnviar', 'encPubGuardar',
+  'encuestaAplicar', 'encuestaComparar', 'encuestaRevisar', 'encuestasPendientes',
+  'facArchivoEliminar', 'facArchivoRegistrar', 'facArchivoSubirUrl', 'facArchivos',
+  'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
+  'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos',
+  'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado', 'getEncuesta',
+  'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen', 'getFacResponsables',
+  'getFacturas', 'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup',
+  'getIngresosRetiros', 'getInvConfig', 'getInventario', 'getNomConfig', 'getNominaQna',
+  'getPermisosSubida', 'getPlantillas', 'getQuincenasAcum', 'getReferencias',
+  'getRegistros', 'getRhCatalogos', 'getRhConfig', 'getTrabajadores', 'getUsuarios',
+  'getUsuariosAdmin', 'getVacaciones', 'getVigHorasSemana', 'getVinculaciones', 'guardar',
+  'guardarCobrosHist', 'guardarConceptoAcum', 'guardarConceptoNom', 'guardarConfigEmpresa',
+  'guardarContrato', 'guardarCoordinador', 'guardarCruce', 'guardarDetallado',
+  'guardarEncuesta', 'guardarFacResponsable', 'guardarFactura', 'guardarFotoTrabajador',
   'guardarHistoricoContrato', 'guardarIncapacidad', 'guardarInvConfig',
   'guardarMotivoRetiro', 'guardarNomConfig', 'guardarNominaQna', 'guardarOtrosi',
   'guardarPermisoSubida', 'guardarPlantilla', 'guardarReferencia', 'guardarRetiro',
