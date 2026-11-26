@@ -317,7 +317,10 @@ tfoot td{background:var(--gf);font-weight:700}
 .ac-chip-x{background:none;border:none;cursor:pointer;color:var(--g3);font-size:16px;padding:0;line-height:1;flex-shrink:0}
 .ac-chip-x:hover{color:var(--r)}
 @media print{.sidebar,.topbar,.no-print{display:none!important}.main{margin-left:0}.page{display:block!important;padding:0}}
+.barra-sel{position:fixed;left:296px;right:0;bottom:0;z-index:60;padding:0 20px 14px;pointer-events:none}
+.barra-sel>div{pointer-events:auto}
 @media(max-width:768px){
+  .barra-sel{left:0;padding:0 12px 12px}
   .sidebar{transform:translateX(-100%)}
   .sidebar.on{transform:translateX(0)}
   .ovl.on{display:block}
@@ -26881,6 +26884,12 @@ function vencCargar(){
       var cc = document.getElementById('venc-conteos'); if(cc) cc.innerHTML='';
       return;
     }
+    // Los que no tienen ninguna encuesta registrada se descartan aquí
+    // mismo, no solo se dejan de pintar: si se quedaran en VENC_DATA,
+    // podrían colarse en la selección por un camino que no se ve en
+    // pantalla y terminar citados a una jornada sin nombre.
+    if(d.data){ d.data.sinEncuesta = []; }
+    if(d.conteos){ d.conteos.sinEncuesta = 0; }
     VENC_DATA = d;
     VENC_SEL = {};
     vencLlenarSedes();
@@ -26890,10 +26899,14 @@ function vencCargar(){
   });
 }
 
+// Los que no tienen ninguna encuesta registrada NO se muestran: casi
+// todos entraron antes de que existiera esta matriz y su inducción sí
+// se hizo, solo que no quedó guardada aquí. Mostrarlos era ruido.
+// El servidor los sigue calculando por si algún día se quieren ver.
 function vencTodas(){
   if(!VENC_DATA) return [];
   var d = VENC_DATA.data;
-  return d.vencidas.concat(d.porVencer, d.sinEncuesta, d.alDia);
+  return d.vencidas.concat(d.porVencer, d.alDia);
 }
 
 function vencLlenarSedes(){
@@ -26941,7 +26954,6 @@ function vencPintar(){
     cc.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
       + vencTarjeta('VENCIDAS', k.vencidas, '#dc2626')
       + vencTarjeta('VENCEN EN ' + margen + ' DÍAS', k.porVencer, '#b45309')
-      + vencTarjeta('NUNCA HAN TENIDO', k.sinEncuesta, '#1e40af')
       + vencTarjeta('AL DÍA', k.alDia, '#15803d')
       + '</div>'
       + (k.estimadas
@@ -26958,9 +26970,6 @@ function vencPintar(){
         'Ya pasó el año desde la última encuesta. Lo más atrasado va de primero.');
   h += vencSeccion('porVencer', 'Vencen en los próximos ' + margen + ' días', d.porVencer, '#b45309', '#fffbeb',
         'Todavía está a tiempo de citarlos.');
-  h += vencSeccion('sinEncuesta', 'Nunca han tenido encuesta', d.sinEncuesta, '#1e40af', '#eff6ff',
-        'Estos no son reinducción atrasada: les falta la inducción, que SST hace en entrevista. '
-        + 'Van ordenados por el que lleva más tiempo en la empresa.');
 
   // "al día" se guarda cerrado: es la lista larga y no hay nada que hacer con ella
   h += '<div class="card" style="margin-bottom:12px">'
@@ -26968,7 +26977,7 @@ function vencPintar(){
     +   '<div style="font-weight:700;font-size:13.5px;color:#15803d">Al día · ' + d.alDia.length + ' personas</div>'
     +   '<button class="btn bg" style="height:30px;font-size:11.5px">' + (VENC_VERALDIA ? 'Ocultar' : 'Ver') + '</button>'
     + '</div>'
-    + (VENC_VERALDIA ? '<div style="margin-top:12px">' + vencTabla(vencFiltrar(d.alDia), false) + '</div>' : '')
+    + (VENC_VERALDIA ? '<div style="margin-top:12px">' + vencTabla(vencFiltrar(d.alDia), '') + '</div>' : '')
     + '</div>';
 
   c.innerHTML = h;
@@ -26994,22 +27003,38 @@ function vencSeccion(clave, titulo, lista, col, fondo, nota){
     +     '<div style="font-size:11.5px;color:var(--g3);margin-top:3px;max-width:680px">'+encEsc(nota)+'</div>'
     +   '</div>';
   if(vistos.length){
-    h += '<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    var marcadosAqui = vistos.filter(function(f){ return VENC_SEL[f.cedula]; }).length;
+    h += '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'
+      + (marcadosAqui
+        ? '<span style="font-size:11.5px;color:var(--g3)">'+marcadosAqui+' escogidos aquí</span>'
+        : '')
       +   '<button class="btn bg" style="height:30px;font-size:11.5px" onclick="vencEscoger(\'' + clave + '\',15)">Escoger 15</button>'
       +   '<button class="btn bg" style="height:30px;font-size:11.5px" onclick="vencEscoger(\'' + clave + '\',0)">Escoger todos</button>'
+      + (marcadosAqui
+        ? '<button class="btn bg" style="height:30px;font-size:11.5px;color:#b91c1c;border-color:#fecaca" '
+          + 'onclick="vencQuitar(\'' + clave + '\')">Quitar estos</button>'
+        : '')
       + '</div>';
   }
   h += '</div>';
   h += vistos.length
-    ? '<div style="margin-top:12px">' + vencTabla(vistos, true) + '</div>'
+    ? '<div style="margin-top:12px">' + vencTabla(vistos, clave) + '</div>'
     : '<div style="margin-top:12px;padding:16px;text-align:center;color:var(--g3);font-size:12.5px;background:'+fondo+';border-radius:var(--rads)">'
       + (lista.length ? 'Ninguno coincide con el filtro.' : 'Nadie en esta situación. ') + '</div>';
   return h + '</div>';
 }
 
-function vencTabla(lista, conCheck){
+// clave: el nombre de la sección, o '' para una tabla sin casillas
+function vencTabla(lista, clave){
+  var conCheck = !!clave;
+  var todosAqui = conCheck && lista.length
+    && lista.every(function(f){ return VENC_SEL[f.cedula]; });
   var h = '<div style="overflow:auto"><table><thead><tr>'
-    + (conCheck ? '<th style="width:28px"></th>' : '')
+    + (conCheck
+      ? '<th style="width:28px"><input type="checkbox" title="Marcar o desmarcar todos los de esta sección" '
+        + 'style="width:15px;height:15px;cursor:pointer"' + (todosAqui ? ' checked' : '')
+        + ' onchange="vencTodosSeccion(\'' + clave + '\',this.checked)"/></th>'
+      : '')
     + '<th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Sede</th>'
     + '<th>Última encuesta</th><th>Le toca</th><th>Estado</th></tr></thead><tbody>';
   lista.forEach(function(f){
@@ -27055,7 +27080,9 @@ function vencTabla(lista, conCheck){
 
 function vencMarcar(ced, on){
   if(on) VENC_SEL[ced] = 1; else delete VENC_SEL[ced];
-  vencBarra();
+  // repinta: cambian el contador de la sección, el botón de quitar
+  // y la casilla del encabezado
+  vencPintar();
 }
 
 // cuantos: 0 = todos los que se ven en esa seccion
@@ -27064,6 +27091,24 @@ function vencEscoger(clave, cuantos){
   var lista = vencFiltrar(VENC_DATA.data[clave] || []);
   if(cuantos > 0) lista = lista.slice(0, cuantos);
   lista.forEach(function(f){ VENC_SEL[f.cedula] = 1; });
+  vencPintar();
+}
+
+// Quita de la selección los de una sección (los que se ven con los
+// filtros puestos). Esto era lo que faltaba: se podía escoger pero no
+// deshacer sin bajar hasta el fondo de la página.
+function vencQuitar(clave){
+  if(!VENC_DATA) return;
+  vencFiltrar(VENC_DATA.data[clave] || []).forEach(function(f){ delete VENC_SEL[f.cedula]; });
+  vencPintar();
+}
+
+// La casilla del encabezado: marca o desmarca todo lo que se ve ahí.
+function vencTodosSeccion(clave, on){
+  if(!VENC_DATA) return;
+  vencFiltrar(VENC_DATA.data[clave] || []).forEach(function(f){
+    if(on) VENC_SEL[f.cedula] = 1; else delete VENC_SEL[f.cedula];
+  });
   vencPintar();
 }
 
@@ -27084,14 +27129,17 @@ function vencBarra(){
   var b = document.getElementById('venc-barra');
   if(!b) return;
   var n = Object.keys(VENC_SEL).length;
+  // la barra es fija: sin este respiro al final taparía las últimas filas
+  var pg = document.getElementById('p-venc');
+  if(pg) pg.style.paddingBottom = n ? '96px' : '';
   if(!n){ b.innerHTML = ''; return; }
-  b.innerHTML = '<div style="position:sticky;bottom:12px;z-index:30">'
+  b.innerHTML = '<div class="barra-sel">'
     + '<div class="card" style="margin:0;display:flex;align-items:center;justify-content:space-between;'
     +   'gap:12px;flex-wrap:wrap;border:1.5px solid var(--v);box-shadow:0 6px 20px rgba(22,32,45,.14)">'
     +   '<div style="font-size:13px"><strong>'+n+'</strong> '+(n===1?'persona escogida':'personas escogidas')
     +     '<span style="color:var(--g3);font-size:11.5px"> · se van a citar a una jornada</span></div>'
     +   '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +     '<button class="btn bg" style="height:34px" onclick="vencLimpiarSel()">Quitar la selección</button>'
+    +     '<button class="btn bg" style="height:34px;color:#b91c1c;border-color:#fecaca" onclick="vencLimpiarSel()">Quitar todo</button>'
     +     '<button class="btn bn" style="height:34px" onclick="vencCrearJornada()">'
     +       '<svg class="icb"><use href="#i-users"/></svg> Crear jornada con '+n+'</button>'
     +   '</div>'
@@ -27127,7 +27175,6 @@ function vencExcel(){
   var lineas = ['Grupo;Cedula;Nombres;Cargo;Sede;Ciudad;UltimoTipo;UltimaFecha;FechaAprox;Vence;DiasRestantes;FechaIngreso'];
   vencFiltrar(d.vencidas).forEach(function(f){ lineas.push(fila(f,'VENCIDA')); });
   vencFiltrar(d.porVencer).forEach(function(f){ lineas.push(fila(f,'POR VENCER')); });
-  vencFiltrar(d.sinEncuesta).forEach(function(f){ lineas.push(fila(f,'NUNCA HA TENIDO')); });
   vencFiltrar(d.alDia).forEach(function(f){ lineas.push(fila(f,'AL DIA')); });
   var blob = new Blob(['﻿' + lineas.join('\n')], {type:'text/csv;charset=utf-8;'});
   var a = document.createElement('a');
