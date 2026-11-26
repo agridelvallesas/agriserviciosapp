@@ -66,6 +66,7 @@ const PORTADAS = new Set([
   'facArchivoSubirUrl', 'facArchivoRegistrar', 'facArchivos', 'facArchivoEliminar',
   // Módulo SST — Encuesta sociodemográfica:
   'getEncuestas', 'getEncuesta', 'getEncuestaHistorial', 'getEncuestasResumen',
+  'encuestasVencimientos',
   'guardarEncuesta', 'editarEncuesta', 'eliminarEncuesta',
   'encuestaComparar', 'encuestaAplicar',
   // Consolidado de nómina (lo último que salía hacia Apps Script):
@@ -200,6 +201,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'encuestaComparar')     r = await accionEncuestaComparar(body, env);
     else if (accion === 'encuestaAplicar')      r = await accionEncuestaAplicar(body, env);
     else if (accion === 'getEncuestasResumen')  r = await accionGetEncuestasResumen(body, env);
+    else if (accion === 'encuestasVencimientos') r = await accionEncuestasVencimientos(body, env);
     else if (accion === 'getNominaQna')         r = await accionGetNominaQna(body, env);
     else if (accion === 'guardarNominaQna')     r = await accionGuardarNominaQna(body, env);
     else if (accion === 'getConceptosNom')      r = await accionGetConceptosNom(body, env);
@@ -3715,6 +3717,77 @@ async function accionEncuestaAplicar(body, env) {
 // Un solo recorrido: encuestas por año y tipo, cuántas sin volcar,
 // y los datos que se contradicen entre encuestas de la misma persona.
 // --------------------------------------------------------------
+// A quien le toca la proxima encuesta. La cuenta la hace la vista
+// encuestas_vencimientos (49_vencimientos_encuestas.sql); aqui solo se
+// reparte en grupos y se ordena por urgencia.
+//
+// Los que nunca han tenido encuesta van aparte a proposito: ese caso no
+// es una reinduccion atrasada, es una induccion que no se hizo, y se
+// atiende de otra forma (entrevista con SST, no jornada de grupo).
+async function accionEncuestasVencimientos(body, env) {
+  const aviso = encLimpiaEntero(body && body.dias);
+  const margen = (aviso === null || aviso < 0) ? 30 : aviso;
+
+  let filas;
+  try {
+    filas = await sbAll(env, 'encuestas_vencimientos?select=*');
+  } catch (e) {
+    return { ok: false, cod: 'FALTA_VISTA',
+      error: 'Todavia no esta creada la vista de vencimientos. Corra el archivo '
+           + '49_vencimientos_encuestas.sql en Supabase y vuelva a entrar.' };
+  }
+
+  const limpia = (f) => ({
+    cedula: String(f.cedula || ''),
+    nombres: f.nombres || '',
+    cargo: f.cargo || '',
+    sede: f.sede || '',
+    ciudad: f.ciudad || '',
+    fecha_ingreso: f.fecha_ingreso ? String(f.fecha_ingreso).slice(0, 10) : '',
+    ultima_fecha: f.ultima_fecha ? String(f.ultima_fecha).slice(0, 10) : '',
+    fecha_estimada: f.fecha_estimada === true || f.fecha_estimada === 'true',
+    ultimo_tipo: f.ultimo_tipo || '',
+    ultimo_anio: f.ultimo_anio == null ? null : parseInt(f.ultimo_anio, 10),
+    ultima_id: f.ultima_id == null ? null : parseInt(f.ultima_id, 10),
+    encuestas_total: parseInt(f.encuestas_total, 10) || 0,
+    vence: f.vence ? String(f.vence).slice(0, 10) : '',
+    dias: f.dias == null ? null : parseInt(f.dias, 10),
+    dias_desde_ingreso: f.dias_desde_ingreso == null ? null : parseInt(f.dias_desde_ingreso, 10),
+    sin_encuesta: f.sin_encuesta === true || f.sin_encuesta === 'true',
+  });
+
+  const vencidas = [], porVencer = [], sinEncuesta = [], alDia = [];
+  filas.map(limpia).forEach((f) => {
+    if (f.sin_encuesta) sinEncuesta.push(f);
+    else if (f.dias === null) sinEncuesta.push(f);
+    else if (f.dias < 0) vencidas.push(f);
+    else if (f.dias <= margen) porVencer.push(f);
+    else alDia.push(f);
+  });
+
+  // lo mas urgente primero, que es como se va a leer
+  const porDias = (a, b) => (a.dias || 0) - (b.dias || 0);
+  vencidas.sort(porDias);
+  porVencer.sort(porDias);
+  // de los que nunca han tenido, primero el que lleva mas tiempo adentro
+  sinEncuesta.sort((a, b) => (b.dias_desde_ingreso || 0) - (a.dias_desde_ingreso || 0));
+  alDia.sort(porDias);
+
+  return {
+    ok: true,
+    dias: margen,
+    data: { vencidas, porVencer, sinEncuesta, alDia },
+    conteos: {
+      activos: filas.length,
+      vencidas: vencidas.length,
+      porVencer: porVencer.length,
+      sinEncuesta: sinEncuesta.length,
+      alDia: alDia.length,
+      estimadas: vencidas.concat(porVencer, alDia).filter((f) => f.fecha_estimada).length,
+    },
+  };
+}
+
 async function accionGetEncuestasResumen(body, env) {
   const rows = await sbAll(env,
     'encuestas_sst?select=id,cedula,nombres,tipo,anio,fecha_encuesta,tipo_sangre,fecha_nac,volcada_trab');
@@ -4527,6 +4600,7 @@ const ACCIONES_CONOCIDAS = [
   'facArchivos', 'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
   'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos',
   'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado', 'getEncuesta',
+  'encuestasVencimientos',
   'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen', 'getFacResponsables',
   'getFacturas', 'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup',
   'getIngresosRetiros', 'getInvConfig', 'getInventario', 'getNomConfig', 'getNominaQna',
