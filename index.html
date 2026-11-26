@@ -344,6 +344,11 @@ tfoot td{background:var(--gf);font-weight:700}
   .enc-grid .fld{grid-column:1 / -1 !important}
   .enc-grid input,.enc-grid select,.enc-grid textarea{font-size:16px;min-height:44px}
 }
+
+/* Compositor de direcciones DIAN */
+.dir-fila{display:flex;gap:8px;flex-wrap:wrap}
+.dir-caja{border:1px solid var(--bd);border-radius:10px;padding:11px;background:#fcfdfe;margin-top:4px}
+@media (max-width:620px){ .dir-fila > div{flex:1 1 100% !important} }
 </style>
 </head>
 <body>
@@ -16008,7 +16013,8 @@ var RH_BLOQUES={
   ]},
   contacto:{titulo:'📞 Contacto', campos:[
     {k:'TELEFONO', n:'Teléfono', tipo:'text'},
-    {k:'DIRECCION', n:'Dirección', tipo:'text', w:2},
+    {k:'DIRECCION', n:'Dirección', tipo:'dir', w:2},
+    {k:'DIRECCION_PARTES', n:'', tipo:'oculto'},
     {k:'BARRIO', n:'Barrio / corregimiento', tipo:'text'},
     {k:'DEPARTAMENTO', n:'Departamento', tipo:'cat', cat:'departamento'},
     {k:'CIUDAD', n:'Ciudad / municipio', tipo:'cat', cat:'municipio', padreDe:'DEPARTAMENTO'},
@@ -17665,6 +17671,7 @@ function rhAbrirModal(t){
   modal.id='rh-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   modalCerrarAlFondo(modal, function(){ rhCerrarModal(); });
+  setTimeout(function(){ rhMontarDireccion(t); }, 0);
 
   var esEdicion=!!RH_EDITANDO;
   var titulo=esEdicion?'✏️ Editar trabajador':'➕ Nuevo trabajador';
@@ -17678,7 +17685,15 @@ function rhAbrirModal(t){
       var req=c.req?' required':'';
       var reqMark=c.req?' <span style="color:var(--r)">*</span>':'';
       var input='';
-      if(c.tipo==='cat'){
+      if(c.tipo==='oculto'){
+        input='<input type="hidden" id="rh-f-'+c.k+'" value="'+String(val||'').replace(/"/g,'&quot;')+'"/>';
+      } else if(c.tipo==='dir'){
+        // La dirección se arma por partes con nomenclatura DIAN. Los dos
+        // ocultos guardan el texto y las partes, así que el código que ya
+        // recogía los valores sigue funcionando sin cambios.
+        input='<input type="hidden" id="rh-f-'+c.k+'" value="'+String(val||'').replace(/"/g,'&quot;')+'"/>'
+             +'<div id="rh-dir-box" class="dir-caja"></div>';
+      } else if(c.tipo==='cat'){
         var padreVal=c.padreDe?String(t[c.padreDe]||'').toUpperCase():'';
         if(c.cat==='municipio'){
           // Municipios: son más de 1.100, se busca escribiendo (con sugerencias)
@@ -17761,6 +17776,13 @@ function rhCerrarModal(){
   RH_EDITANDO=null;
 }
 
+// Conecta el compositor con los dos ocultos de la ficha
+function rhMontarDireccion(t){
+  if(!document.getElementById('rh-dir-box')) return;
+  dirDestino('rh-dir', 'rh-f-DIRECCION', 'rh-f-DIRECCION_PARTES');
+  dirMontar('rh-dir', (t&&t.DIRECCION)||'', (t&&t.DIRECCION_PARTES)||'');
+}
+
 function rhGuardarTrabajador(){
   // Recoger valores
   var t={};
@@ -17778,6 +17800,16 @@ function rhGuardarTrabajador(){
       t[c.k]=v;
     });
   });
+
+  // La dirección tiene que quedar en nomenclatura DIAN. Si la ficha venía
+  // con la dirección escrita a mano, aquí es donde se termina de arreglar.
+  if(document.getElementById('rh-dir-box')){
+    var faltaDir = dirFalta('rh-dir');
+    var hayDir = String(dirValor('rh-dir')||'').trim();
+    if(hayDir && faltaDir.length){
+      errores.push('A la dirección le falta ' + faltaDir.join(', '));
+    }
+  }
 
   // Construir NOMBRES concatenado en el frontend (el backend también lo hace, pero
   // esto permite que el cache local tenga el valor correcto sin esperar respuesta)
@@ -25656,7 +25688,8 @@ var ENC_FORM = [
   { sec:'Identificación', ico:'i-user-check', campos:[
     {k:'cedula', l:'Cédula', t:'num', req:1},
     {k:'nombres', l:'Nombre completo', t:'txt', req:1, ancho:2},
-    {k:'lugar_exp', l:'Lugar de expedición', t:'txt'},
+    {k:'depto_exp', l:'Departamento de expedición', t:'cat', cat:'departamento'},
+    {k:'lugar_exp', l:'Municipio de expedición', t:'cat', cat:'municipio', padre:'depto_exp'},
     {k:'fecha_exp', l:'Fecha de expedición', t:'fecha'},
     {k:'fecha_nac', l:'Fecha de nacimiento', t:'fecha'},
     {k:'edad', l:'Edad', t:'calc', nota:'se calcula de la fecha de nacimiento'},
@@ -25668,8 +25701,9 @@ var ENC_FORM = [
   { sec:'Contacto', ico:'i-map-pin', campos:[
     {k:'telefono', l:'Teléfono', t:'txt'},
     {k:'email', l:'Correo electrónico', t:'txt', ancho:2},
-    {k:'direccion', l:'Dirección completa', t:'txt', ancho:2},
-    {k:'ciudad', l:'Ciudad', t:'sel+', op:'ciudad'}
+    {k:'direccion', l:'Dirección', t:'dir', ancho:3},
+    {k:'departamento_res', l:'Departamento donde vive', t:'cat', cat:'departamento'},
+    {k:'ciudad', l:'Municipio donde vive', t:'cat', cat:'municipio', padre:'departamento_res'}
   ]},
   { sec:'Vinculación', ico:'i-briefcase', campos:[
     {k:'cargo', l:'Cargo', t:'sel+', op:'cargo'},
@@ -25787,6 +25821,7 @@ function encRangoFuma(prom){
 
 // ══ LISTADO ══════════════════════════════════════════════════════════
 function encAbrir(){
+  if(typeof rhCargarCatalogos === 'function' && !Object.keys(RH_CAT||{}).length) rhCargarCatalogos();
   encPoblarAnios();
   if(!ENC_ROWS.length) encCargar(); else encRender();
   if(!ENC_RES) encCargarResumen();
@@ -26082,6 +26117,10 @@ function encFormPintar(e){
   });
 
   cont.innerHTML = h;
+  if(document.getElementById('enc-dir-box')){
+    dirDestino('enc-dir', 'enc-f-direccion', 'enc-f-direccion_partes');
+    dirMontar('enc-dir', e.direccion || '', e.direccion_partes || '');
+  }
   encFormDeps();
   encRecalc();
 
@@ -26113,7 +26152,24 @@ function encCampoHTML(c, e){
 
   var ev = ' onchange="encCambio(\''+c.k+'\')"';
 
-  if(c.t === 'calc'){
+  if(c.t === 'dir'){
+    // La dirección se arma por partes con nomenclatura DIAN
+    h += '<input type="hidden" id="'+id+'"/>'
+       + '<input type="hidden" id="enc-f-direccion_partes"/>'
+       + '<div id="enc-dir-box" class="dir-caja"></div>';
+  } else if(c.t === 'cat'){
+    // departamento / municipio, del catálogo DANE que ya usa RH
+    var padreVal = c.padre ? String(e[c.padre]||'').toUpperCase() : '';
+    if(c.cat === 'municipio'){
+      var dl = 'encdl-' + c.k;
+      h += '<input type="text" id="'+id+'" list="'+dl+'" value="'+encEsc(v)+'"'+ev
+         + ' placeholder="escriba para buscar…" autocomplete="off" style="text-transform:uppercase"/>'
+         + '<datalist id="'+dl+'">'+rhCatOpciones(c.cat, padreVal)+'</datalist>';
+    } else {
+      h += '<select id="'+id+'"'+ev+'><option value="">—</option>'
+         + rhCatOpcionesSel(c.cat, padreVal, v)+'</select>';
+    }
+  } else if(c.t === 'calc'){
     h += '<input type="text" id="'+id+'" value="'+encEsc(v)+'" readonly '
       + 'style="background:#f1f5f9;color:#475569;font-weight:600"/>';
   } else if(c.t === 'area'){
@@ -26181,6 +26237,17 @@ function encRecalc(){
 }
 
 function encCambio(campo){
+  // si cambió un departamento, se vacía su municipio y se recargan las opciones
+  ENC_FORM.forEach(function(sec){
+    sec.campos.forEach(function(c){
+      if(c.padre !== campo) return;
+      var pad = document.getElementById('enc-f-' + campo);
+      var dl = document.getElementById('encdl-' + c.k);
+      var hijo = document.getElementById('enc-f-' + c.k);
+      if(dl && pad) dl.innerHTML = rhCatOpciones(c.cat, String(pad.value||'').toUpperCase());
+      if(hijo) hijo.value = '';
+    });
+  });
   encFormDeps();
   encRecalc();
 }
@@ -26203,6 +26270,8 @@ function encRecoger(){
       o[c.k] = String(el.value || '').trim();
     });
   });
+  var dp = document.getElementById('enc-f-direccion_partes');
+  if(dp) o.direccion_partes = dp.value || '';
   if(ENC_EDIT && ENC_EDIT.id) o.id = ENC_EDIT.id;
   return o;
 }
@@ -26215,6 +26284,10 @@ function encGuardar(){
       if(c.req && !String(e[c.k]||'').trim()) faltan.push(c.l);
     });
   });
+  if(document.getElementById('enc-dir-box') && String(dirValor('enc-dir')||'').trim()){
+    var fd = dirFalta('enc-dir');
+    if(fd.length) faltan.push('Dirección: falta ' + fd.join(', '));
+  }
   if(faltan.length){ alert('Faltan datos obligatorios:\n\n· ' + faltan.join('\n· ')); return; }
 
   var ced = String(e.cedula||'').replace(/\D/g,'');
@@ -27016,6 +27089,434 @@ function jorEliminarYa(id){
     alert(t);
   }).catch(function(e){ alert('Error de red: '+e.message); });
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  DIRECCIONES CON NOMENCLATURA DIAN
+//  Abreviaturas tomadas de la tabla oficial de la DIAN.
+//  Este bloque es idéntico en index.html y en encuesta.html: si se
+//  cambia en uno, hay que cambiarlo en el otro.
+// ══════════════════════════════════════════════════════════════════════
+
+// Vías urbanas, las más usadas primero
+var DIAN_VIAS = [
+  ['CR','Carrera'], ['CL','Calle'], ['AV','Avenida'], ['AC','Avenida calle'],
+  ['AK','Avenida carrera'], ['DG','Diagonal'], ['TV','Transversal'],
+  ['CIR','Circular'], ['CRV','Circunvalar'], ['AUT','Autopista'],
+  ['MZ','Manzana'], ['SM','Súper manzana'], ['PS','Paseo'], ['PJ','Pasaje'],
+  ['CLJ','Callejón'], ['BLV','Boulevard'], ['PW','Park Way'], ['VTE','Variante']
+];
+
+// Vías rurales: 36 de sus direcciones son veredas y 12 son fincas
+var DIAN_RURAL = [
+  ['VRD','Vereda'], ['C','Corregimiento'], ['FCA','Finca'], ['KM','Kilómetro'],
+  ['CAS','Caserío'], ['PRJ','Paraje'], ['HC','Hacienda'], ['CRT','Carretera'],
+  ['IP','Inspección de Policía'], ['PD','Predio'], ['LT','Lote'], ['PA','Parcela']
+];
+
+// Para el complemento: barrio, casa, apartamento…
+var DIAN_COMPL = [
+  ['BRR','Barrio'], ['C','Corregimiento'], ['VRD','Vereda'], ['MZ','Manzana'],
+  ['CA','Casa'], ['AP','Apartamento'], ['IN','Interior'], ['TO','Torre'],
+  ['ET','Etapa'], ['LT','Lote'], ['BL','Bloque'], ['URB','Urbanización'],
+  ['CON','Conjunto residencial'], ['ED','Edificio'], ['OF','Oficina'],
+  ['LC','Local'], ['P','Piso'], ['FCA','Finca'], ['SEC','Sector'], ['ZN','Zona']
+];
+
+var DIAN_CUAD = ['', 'NORTE', 'SUR', 'ESTE', 'OESTE'];
+
+function dianLimpia(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+// Arma la dirección canónica desde sus partes.
+//   urbana:  CR 6 # 10 - 15 BRR LA PAILA
+//   rural:   VRD EL ROCIO FCA LA ESPERANZA
+function dianArmar(p){
+  p = p || {};
+  // Manzana y casa no llevan # ni -: "MZ 1 CA 22 BRR BUENOS AIRES".
+  // 14 de sus direcciones son así; forzarlas al molde urbano las dañaba.
+  if(String(p.modo || '') === 'manzana'){
+    var mz = [dianLimpia(p.via) || 'MZ', dianLimpia(p.num)].filter(Boolean).join(' ');
+    var ca = dianLimpia(p.casaTipo) || 'CA';
+    if(dianLimpia(p.casa)) mz += ' ' + ca + ' ' + dianLimpia(p.casa);
+    var cm = dianLimpia(p.compl);
+    return (cm ? mz + ' ' + cm : mz).replace(/\s+/g, ' ').trim();
+  }
+  if(String(p.modo || 'urbana') === 'rural'){
+    var r = [dianLimpia(p.via), dianLimpia(p.nombre)].filter(Boolean).join(' ');
+    var cr = dianLimpia(p.compl);
+    return (cr ? r + ' ' + cr : r).trim();
+  }
+  var via = dianLimpia(p.via);
+  var n1  = dianLimpia(p.num) + dianLimpia(p.letra) + (p.bis ? ' BIS' : '');
+  var cu  = dianLimpia(p.cuad);
+  if(cu) n1 += ' ' + cu;
+  var n2  = dianLimpia(p.num2) + dianLimpia(p.letra2);
+  var pl  = dianLimpia(p.placa);
+  var co  = dianLimpia(p.compl);
+
+  var base = (via + ' ' + n1).trim();
+  if(n2) base += ' # ' + n2;
+  if(pl) base += ' - ' + pl;
+  if(co) base += ' ' + co;
+  return base.replace(/\s+/g, ' ').trim();
+}
+
+// Qué le falta para estar completa. Devuelve [] si está bien.
+function dianProblemas(p){
+  p = p || {};
+  var f = [];
+  if(String(p.modo || '') === 'manzana'){
+    if(!dianLimpia(p.num))  f.push('el número de la manzana');
+    if(!dianLimpia(p.casa)) f.push('el número de la casa o lote');
+    return f;
+  }
+  if(String(p.modo || 'urbana') === 'rural'){
+    if(!dianLimpia(p.via))    f.push('el tipo (vereda, finca, corregimiento…)');
+    if(!dianLimpia(p.nombre)) f.push('el nombre');
+    return f;
+  }
+  if(!dianLimpia(p.via))   f.push('el tipo de vía (carrera, calle…)');
+  if(!dianLimpia(p.num))   f.push('el número de la vía');
+  if(!dianLimpia(p.num2))  f.push('el número después del #');
+  if(!dianLimpia(p.placa)) f.push('el número de la placa');
+  return f;
+}
+
+// Cómo escriben hoy ↔ la abreviatura DIAN
+var DIAN_SINON = [
+  [/^(CRA|CRRA|KRA|KR|CARRERA|CARRRERA|CAR)\b/, 'CR'],
+  [/^(CLL|CLLE|CALLE|CA?LL)\b/,                 'CL'],
+  [/^(AVENIDA|AVDA|AVE)\b/,                     'AV'],
+  [/^(DIAGONAL|DIAG)\b/,                        'DG'],
+  [/^(TRANSVERSAL|TRANS|TRV)\b/,                'TV'],
+  [/^(MANZANA|MZA|MZN)\b/,                      'MZ'],
+  [/^(VEREDA|VDA|VER)\b/,                       'VRD'],
+  [/^(CORREGIMIENTO|CORREG|CRR|CGTO)\b/,        'C'],
+  [/^(FINCA)\b/,                                'FCA'],
+  [/^(KILOMETRO|KILÓMETRO|KMT)\b/,              'KM'],
+  [/^(CIRCUNVALAR)\b/,                          'CRV'],
+  [/^(AUTOPISTA)\b/,                            'AUT'],
+  [/^(CALLEJON|CALLEJÓN)\b/,                    'CLJ'],
+  [/^(BARRIO|BRRIO|BR|B)\b/,                    'BRR'],
+  [/^(CASA|CAS)\b/,                             'CA'],
+  [/^(APARTAMENTO|APTO|APT)\b/,                 'AP'],
+  [/^(TORRE)\b/,                                'TO'],
+  [/^(INTERIOR|INT)\b/,                         'IN'],
+  [/^(LOTE)\b/,                                 'LT'],
+  [/^(URBANIZACION|URBANIZACIÓN|URB)\b/,        'URB'],
+  [/^(HACIENDA)\b/,                             'HC'],
+  [/^(ETAPA)\b/,                                'ET'],
+  [/^(BLOQUE|BLQ)\b/,                           'BL']
+];
+
+function dianAbrev(palabra){
+  var w = dianLimpia(palabra);
+  for(var i = 0; i < DIAN_SINON.length; i++){
+    if(DIAN_SINON[i][0].test(w)) return DIAN_SINON[i][1];
+  }
+  return '';
+}
+
+var DIAN_VIAS_OK  = DIAN_VIAS.map(function(x){ return x[0]; });
+var DIAN_RURAL_OK = DIAN_RURAL.map(function(x){ return x[0]; });
+
+// Propone las partes a partir de una dirección escrita a mano.
+// Es una SUGERENCIA: siempre la confirma una persona antes de guardar.
+function dianParsear(texto){
+  var t = dianLimpia(texto)
+    .replace(/[.]/g, ' ')
+    .replace(/(\d)\s*\/\s*B\b/g, '$1 BRR ')  // "61/B los almendros"
+    .replace(/\bB\s*\/\s*/g, ' BRR ')         // "B/ el llano"
+    .replace(/\bBRR\s*\/\s*/g, ' BRR ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if(!t) return null;
+
+  // ── manzana + casa/lote ──
+  var mz = t.match(/^(MZ|MZA|MZN|MANZANA|SM)\s*([A-Z0-9]+)\s*(?:(CASA|CAS|CA|LOTE|LT|LOT)\s*([A-Z0-9]+))?\s*(.*)$/);
+  if(mz){
+    var rc = (mz[5] || '').trim();
+    return {
+      modo: 'manzana',
+      via: 'MZ',
+      num: mz[2] || '',
+      casaTipo: mz[3] ? (dianAbrev(mz[3]) || 'CA') : 'CA',
+      casa: mz[4] || '',
+      compl: rc.split(' ').map(function(w){ return dianAbrev(w) || w; }).join(' ').trim()
+    };
+  }
+
+  var prim = t.split(' ')[0];
+  var ab = dianAbrev(prim) || (DIAN_VIAS_OK.concat(DIAN_RURAL_OK).indexOf(prim) >= 0 ? prim : '');
+
+  // ── rural ──
+  if(ab && DIAN_RURAL_OK.indexOf(ab) >= 0 && DIAN_VIAS_OK.indexOf(ab) < 0){
+    var resto = t.slice(prim.length).trim();
+    // el nombre va hasta que aparezca otra abreviatura conocida
+    var pal = resto.split(' ');
+    var nom = [], com = [];
+    for(var i = 0; i < pal.length; i++){
+      var a2 = dianAbrev(pal[i]);
+      if(a2 && nom.length){ com = pal.slice(i); break; }
+      nom.push(pal[i]);
+    }
+    return { modo:'rural', via:ab, nombre:nom.join(' ').trim(),
+             compl:com.map(function(w){ return dianAbrev(w) || w; }).join(' ').trim() };
+  }
+
+  // ── urbana ──
+  // CR 6 A # 10 B - 15 resto      |      CL 5 #5 61 resto
+  var m = t.match(
+    /^([A-ZÁÉÍÓÚÑ]{1,8})\s*(\d+)\s*([A-Z]{0,2})?\s*(BIS)?\s*(NORTE|SUR|ESTE|OESTE)?\s*(?:#|NO|N°|NRO|-)?\s*(\d+)?\s*([A-Z]{0,2})?\s*(?:-|\s)\s*(\d+)?\s*(.*)$/
+  );
+  if(!m){
+    // Vía con nombre propio y sin número: "Callejón La Jertrudis",
+    // "Calle Larga". La DIAN las contempla. Va al modo de nombre, que
+    // es vía + nombre; si se dejara en el molde urbano, el prefijo se
+    // acumularía cada vez que alguien editara ("CLJ CLJ CLJ …").
+    if(ab){
+      var sinVia = t.slice(prim.length).trim()
+        .split(' ').map(function(w){ return dianAbrev(w) || w; }).join(' ').trim();
+      return { modo:'rural', via:ab, nombre:sinVia, compl:'' };
+    }
+    return { modo:'urbana', via:'', num:'', letra:'', bis:false, cuad:'',
+             num2:'', letra2:'', placa:'', compl:t };
+  }
+
+  var compl = (m[9] || '').trim();
+  compl = compl.split(' ').map(function(w){ return dianAbrev(w) || w; }).join(' ').trim();
+
+  return {
+    modo:   'urbana',
+    via:    ab || dianLimpia(m[1]),
+    num:    m[2] || '',
+    letra:  (m[3] || '').replace(/^(BIS|NORTE|SUR|ESTE|OESTE)$/, ''),
+    bis:    !!m[4],
+    cuad:   m[5] || '',
+    num2:   m[6] || '',
+    letra2: (m[7] || '').replace(/^(BIS|NORTE|SUR|ESTE|OESTE)$/, ''),
+    placa:  m[8] || '',
+    compl:  compl
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  COMPOSITOR DE DIRECCIONES
+//  Se usa en la ficha del trabajador y en la encuesta de SST.
+//  Mantiene sincronizados dos campos ocultos —el texto armado y las
+//  partes— para que el código que ya recogía los valores siga igual.
+// ══════════════════════════════════════════════════════════════════════
+
+var DIR_P = {};     // {base: partes}
+var DIR_DEST = {};  // {base: {valor:idInput, partes:idInput}} — a dónde escribe
+
+// Dice en qué campos ocultos dejar el texto armado y las partes. Antes
+// se renombraban los ids al vuelo y quedaban desincronizados apenas el
+// usuario escribía algo.
+function dirDestino(base, idValor, idPartes){
+  DIR_DEST[base] = { valor: idValor, partes: idPartes };
+}
+
+function dirEsc(s){
+  return String(s===null||s===undefined?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// base: prefijo de los ids. destino: id del input oculto con el texto.
+// partesId: id del input oculto con el JSON de las partes.
+function dirMontar(base, textoActual, partesActuales){
+  var p = null;
+  if(partesActuales){
+    try { p = (typeof partesActuales === 'string') ? JSON.parse(partesActuales) : partesActuales; }
+    catch(e){ p = null; }
+  }
+  var sugerida = false;
+  if(!p || !p.modo){
+    // ficha vieja: se propone una conversión desde el texto libre
+    p = dianParsear(textoActual) || {modo:'urbana'};
+    sugerida = !!String(textoActual||'').trim();
+  }
+  DIR_P[base] = p;
+  dirPintar(base, sugerida);
+}
+
+function dirPintar(base, sugerida){
+  var caja = document.getElementById(base + '-box');
+  if(!caja) return;
+  var p = DIR_P[base] || {modo:'urbana'};
+  var modo = p.modo || 'urbana';
+
+  var h = '<div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap">';
+  [['urbana','Calle o carrera'], ['manzana','Manzana y casa'], ['rural','Vereda, finca o nombre']]
+    .forEach(function(m){
+      h += '<button type="button" onclick="dirModo(\''+base+'\',\''+m[0]+'\')" '
+        + 'style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
+        + 'font-family:inherit;border:1.5px solid '+(modo===m[0]?'var(--v,#2d7a4d)':'var(--bd)')+';'
+        + 'background:'+(modo===m[0]?'var(--v,#2d7a4d)':'#fff')+';'
+        + 'color:'+(modo===m[0]?'#fff':'var(--g2)')+'">'+m[1]+'</button>';
+    });
+  h += '</div>';
+
+  var E = 'style="width:100%;text-transform:uppercase"';
+  var ON = ' oninput="dirCambio(\''+base+'\')" onchange="dirCambio(\''+base+'\')"';
+
+  if(modo === 'rural'){
+    h += '<div class="dir-fila">'
+      + dirCampo('Tipo', '<select id="'+base+'-via"'+ON+' style="width:100%">'
+          + dirOpts(DIAN_RURAL, p.via) + '</select>', 1)
+      + dirCampo('Nombre', '<input type="text" id="'+base+'-nombre" value="'+dirEsc(p.nombre||'')+'"'
+          + ON+' '+E+' placeholder="EL ROCÍO"/>', 2)
+      + '</div>';
+  } else if(modo === 'manzana'){
+    h += '<div class="dir-fila">'
+      + dirCampo('Manzana', '<input type="text" id="'+base+'-num" value="'+dirEsc(p.num||'')+'"'
+          + ON+' '+E+' placeholder="1"/>', 1)
+      + dirCampo('', '<select id="'+base+'-casatipo"'+ON+' style="width:100%">'
+          + dirOpts([['CA','Casa'],['LT','Lote'],['AP','Apartamento'],['BL','Bloque']], p.casaTipo||'CA')
+          + '</select>', 1)
+      + dirCampo('Número', '<input type="text" id="'+base+'-casa" value="'+dirEsc(p.casa||'')+'"'
+          + ON+' '+E+' placeholder="22"/>', 1)
+      + '</div>';
+  } else {
+    h += '<div class="dir-fila">'
+      + dirCampo('Vía', '<select id="'+base+'-via"'+ON+' style="width:100%">'
+          + dirOpts(DIAN_VIAS, p.via) + '</select>', 2)
+      + dirCampo('Número', '<input type="text" id="'+base+'-num" value="'+dirEsc(p.num||'')+'"'
+          + ON+' '+E+' placeholder="6"/>', 1)
+      + dirCampo('Letra', '<input type="text" id="'+base+'-letra" value="'+dirEsc(p.letra||'')+'"'
+          + ON+' '+E+' maxlength="2" placeholder="A"/>', 1)
+      + dirCampo('Cuadrante', '<select id="'+base+'-cuad"'+ON+' style="width:100%">'
+          + DIAN_CUAD.map(function(c){
+              return '<option value="'+c+'"'+((p.cuad||'')===c?' selected':'')+'>'+(c||'—')+'</option>';
+            }).join('') + '</select>', 1)
+      + '</div>'
+      + '<div class="dir-fila" style="margin-top:8px">'
+      + dirCampo('# Número', '<input type="text" id="'+base+'-num2" value="'+dirEsc(p.num2||'')+'"'
+          + ON+' '+E+' placeholder="10"/>', 1)
+      + dirCampo('Letra', '<input type="text" id="'+base+'-letra2" value="'+dirEsc(p.letra2||'')+'"'
+          + ON+' '+E+' maxlength="2" placeholder="B"/>', 1)
+      + dirCampo('– Placa', '<input type="text" id="'+base+'-placa" value="'+dirEsc(p.placa||'')+'"'
+          + ON+' '+E+' placeholder="15"/>', 1)
+      + dirCampo('', '<label style="display:flex;align-items:center;gap:6px;font-size:12px;'
+          + 'height:38px;cursor:pointer;white-space:nowrap">'
+          + '<input type="checkbox" id="'+base+'-bis"'+(p.bis?' checked':'')
+          + ' onchange="dirCambio(\''+base+'\')"/> BIS</label>', 1)
+      + '</div>';
+  }
+
+  h += '<div style="margin-top:8px">'
+    + '<label style="font-size:11px;color:var(--g2);font-weight:600;display:block;margin-bottom:4px">'
+    + 'Barrio, corregimiento, casa…</label>'
+    + '<input type="text" id="'+base+'-compl" value="'+dirEsc(p.compl||'')+'"'+ON+' '+E
+    + ' placeholder="BRR LA PAILA"/>'
+    + '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">';
+  [['BRR','Barrio'],['C','Corregimiento'],['VRD','Vereda'],['CA','Casa'],
+   ['AP','Apto'],['TO','Torre'],['IN','Interior'],['ET','Etapa']].forEach(function(x){
+    h += '<button type="button" onclick="dirCompl(\''+base+'\',\''+x[0]+'\')" '
+      + 'style="padding:3px 8px;border:1px solid var(--bd);background:#f8fafc;border-radius:6px;'
+      + 'font-size:11px;cursor:pointer;font-family:inherit;color:var(--g2)" title="'+x[1]+'">'
+      + x[0]+'</button>';
+  });
+  h += '</div></div>';
+
+  // lo que va a quedar guardado
+  h += '<div id="'+base+'-prev" style="margin-top:10px;background:#f1f5f9;border:1px solid var(--bd);'
+    + 'border-radius:8px;padding:9px 11px"></div>';
+
+  if(sugerida){
+    h += '<div style="margin-top:7px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;'
+      + 'padding:8px 11px;font-size:11.5px;color:#78350f">'
+      + 'Esta dirección estaba escrita a mano. Le propusimos cómo se parte; '
+      + '<b>revísela y corrija lo que haga falta</b> antes de guardar.</div>';
+  }
+
+  caja.innerHTML = h;
+  dirCambio(base);
+}
+
+function dirCampo(et, inp, w){
+  return '<div style="flex:'+w+' 1 0;min-width:72px">'
+    + (et ? '<label style="font-size:11px;color:var(--g2);font-weight:600;display:block;margin-bottom:4px">'
+            + dirEsc(et) + '</label>'
+          : '<div style="height:19px"></div>')
+    + inp + '</div>';
+}
+
+function dirOpts(lista, sel){
+  var s = String(sel||'').toUpperCase();
+  var h = '<option value="">—</option>';
+  var hay = false;
+  lista.forEach(function(x){
+    if(x[0] === s) hay = true;
+    h += '<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[0]+' · '+dirEsc(x[1])+'</option>';
+  });
+  if(s && !hay) h += '<option value="'+dirEsc(s)+'" selected>'+dirEsc(s)+'</option>';
+  return h;
+}
+
+function dirModo(base, modo){
+  var p = DIR_P[base] || {};
+  DIR_P[base] = { modo: modo, compl: p.compl || '',
+                  via: '', num: p.num || '', nombre: p.nombre || '',
+                  casaTipo: p.casaTipo || 'CA', casa: p.casa || '' };
+  dirPintar(base, false);
+}
+
+function dirCompl(base, abrev){
+  var el = document.getElementById(base + '-compl');
+  if(!el) return;
+  var v = String(el.value || '').trim();
+  el.value = (v ? v + ' ' : '') + abrev + ' ';
+  el.focus();
+  dirCambio(base);
+}
+
+function dirCambio(base){
+  var g = function(suf){
+    var e = document.getElementById(base + '-' + suf);
+    if(!e) return '';
+    return (e.type === 'checkbox') ? e.checked : (e.value || '');
+  };
+  var p = DIR_P[base] || {};
+  p.modo = p.modo || 'urbana';
+  if(p.modo === 'rural'){
+    p.via = g('via'); p.nombre = g('nombre');
+  } else if(p.modo === 'manzana'){
+    p.via = 'MZ'; p.num = g('num'); p.casaTipo = g('casatipo') || 'CA'; p.casa = g('casa');
+  } else {
+    p.via = g('via'); p.num = g('num'); p.letra = g('letra'); p.cuad = g('cuad');
+    p.num2 = g('num2'); p.letra2 = g('letra2'); p.placa = g('placa'); p.bis = !!g('bis');
+  }
+  p.compl = g('compl');
+  DIR_P[base] = p;
+
+  var texto = dianArmar(p);
+  var falta = dianProblemas(p);
+
+  var dst = DIR_DEST[base] || { valor: base + '-valor', partes: base + '-partes' };
+  var oc = document.getElementById(dst.valor);
+  if(oc) oc.value = texto;
+  var op = document.getElementById(dst.partes);
+  if(op) op.value = texto ? JSON.stringify(p) : '';
+
+  var pv = document.getElementById(base + '-prev');
+  if(pv){
+    pv.innerHTML = '<div style="font-size:10px;letter-spacing:.08em;color:var(--g3);font-weight:700">'
+      + 'ASÍ VA A QUEDAR</div>'
+      + '<div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;font-weight:700;'
+      + 'margin-top:2px;color:'+(falta.length?'#b45309':'#15803d')+'">'
+      + (dirEsc(texto) || '<span style="color:var(--g3);font-weight:400">—</span>') + '</div>'
+      + (falta.length
+          ? '<div style="font-size:11.5px;color:#b45309;margin-top:4px">Falta ' + dirEsc(falta.join(', ')) + '</div>'
+          : '');
+  }
+}
+
+// Para que quien guarde pueda preguntar si está completa
+function dirFalta(base){ return dianProblemas(DIR_P[base] || {}); }
+function dirValor(base){ return dianArmar(DIR_P[base] || {}); }
 
 </script>
 
