@@ -55,10 +55,15 @@
   /* Grises cálidos (stone family) en lugar de grises fríos */
   --g1:#1a1a1a;       /* texto principal */
   --g2:#57534e;       /* texto secundario */
-  --g3:#a8a29e;       /* texto suave */
-  --gf:#fafaf9;       /* fondo de página (cálido) */
-  --w:#ffffff;        /* cards y elementos */
-  --bd:#f3f1ed;       /* bordes (más suaves y cálidos) */
+  --g3:#7c848d;       /* texto suave (sube el contraste sobre el gris) */
+  /* El fondo de página es gris, no blanco: así las tarjetas blancas se
+     despegan solas y el ojo descansa en jornadas largas. El borde es
+     el que antes desaparecía con brillo alto. */
+  --gf:#eef0f2;       /* fondo de página */
+  --w:#ffffff;        /* cards y elementos: siguen blancos, por contraste */
+  --pan:#f7f8f9;      /* panel del menú: entre los dos, para no deslumbrar */
+  --bd:#d4d8dd;       /* bordes: ahora sí se ven */
+  --sm:0 1px 3px rgba(22,32,45,.07);   /* sombra de tarjeta */
 
   /* Radios más redondeados para sentir más amable */
   --rad:14px;
@@ -78,8 +83,8 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .sb-mod.on::before{content:'';position:absolute;left:-14px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:0 3px 3px 0;background:#fff}
 .sb-mod-lbl{position:absolute;left:58px;background:var(--g1);color:#fff;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:7px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.3)}
 .sb-mod:hover .sb-mod-lbl{opacity:1}
-.sb-panel{flex:1;min-width:0;background:#fff;border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
-.sb-panel-h{padding:16px;border-bottom:1px solid #eef2f0;position:relative}
+.sb-panel{flex:1;min-width:0;background:var(--pan);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.sb-panel-h{padding:16px;border-bottom:1px solid var(--bd);position:relative}
 .sb-panel-h::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--modcol,var(--v))}
 .sb-panel-t{font-size:14.5px;font-weight:800;color:var(--g1);letter-spacing:-0.01em;line-height:1.25}
 .sb-panel-s{font-size:11px;color:var(--g3);margin-top:2px}
@@ -141,7 +146,7 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .rbdg{padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700}
 .page{padding:20px;display:none;max-width:100%;overflow-x:hidden}
 .page.on{display:block}
-.card{background:var(--w);border-radius:var(--rad);border:1px solid var(--bd);padding:20px;margin-bottom:12px;box-shadow:0 1px 2px rgba(45,90,61,.04)}
+.card{background:var(--w);border-radius:var(--rad);border:1px solid var(--bd);padding:20px;margin-bottom:12px;box-shadow:var(--sm)}
 .ct{font-family:inherit;font-weight:700;letter-spacing:-0.02em;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--g1)}
 .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
 .st{background:#334155;border:none;border-radius:var(--rad);padding:15px 16px;box-shadow:0 2px 6px rgba(15,23,42,.12);transition:transform .15s,box-shadow .15s;color:#fff}
@@ -268,7 +273,7 @@ tfoot td{background:var(--gf);font-weight:700}
 .l-dep-ico{font-size:32px;margin-bottom:8px;line-height:1}
 .l-dep-nom{font-size:13px;font-weight:600;color:#374151}
 .l-dep.dis{background:#fafafa;border-style:dashed;cursor:not-allowed;opacity:.6}
-.l-dep.dis:hover{transform:none;box-shadow:none;border-color:#d1d5db}
+.l-dep.dis:hover{transform:none;box-shadow:none;border-color:var(--g3)}
 .l-dep.dis .l-dep-ico{opacity:.5}
 .l-dep.dis .l-dep-nom{color:#9ca3af;font-size:11px}
 /* Paso 2: formulario */
@@ -722,7 +727,7 @@ tfoot td{background:var(--gf);font-weight:700}
               <label style="font-size:12px;color:#0891b2;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px;margin-bottom:6px">
                 <span style="font-size:14px">🍽️</span>
                 <span>Auxilio de alimentación</span>
-                <span style="font-size:10px;font-weight:500;color:#94a3b8;text-transform:none">(opcional)</span>
+                <span style="font-size:10px;font-weight:500;color:var(--g3);text-transform:none">(opcional)</span>
               </label>
               <input type="number" id="r-alim" placeholder="0" min="0" step="1000" oninput="calcTots()" style="border:2px solid #67e8f9;border-radius:10px;font-size:15px;font-weight:700;padding:12px 14px;background:#ecfeff;color:#0c4a6e"/>
               <div style="font-size:10px;color:#64748b;margin-top:4px">No salarial. Se proratea igual que el salario en quincenas.</div>
@@ -823,7 +828,7 @@ tfoot td{background:var(--gf);font-weight:700}
 
         <div style="padding:14px">
           <div id="lote-lista">
-            <div style="text-align:center;padding:24px 16px;color:#94a3b8;background:#f8fafc;border-radius:12px;border:2px dashed #cbd5e1">
+            <div style="text-align:center;padding:24px 16px;color:var(--g3);background:#f8fafc;border-radius:12px;border:2px dashed #cbd5e1">
               <div style="font-size:42px;margin-bottom:8px">📭</div>
               <div style="font-weight:700;font-size:14px;color:#64748b">Lote vacío</div>
               <div style="font-size:11px;margin-top:4px">Agrega empleados arriba para luego enviarlos todos juntos.</div>
@@ -8238,13 +8243,13 @@ function renderNomRows(rows){
     var semCells=qnaSems.map(function(s){
       var v=salPorSem[s]||0;
       return '<td style="text-align:right;font-size:11px;background:#fffbeb;font-weight:600;color:#92400e">'
-        +(v>0?cop(v):'<span style="color:#d1d5db">—</span>')
+        +(v>0?cop(v):'<span style="color:var(--g3)">—</span>')
         +'</td>';
     }).join('');
     var domCells=qnaSems.map(function(s){
       var dm=domPorSem[s]||0;
       return '<td style="text-align:right;font-size:11px;background:#fef2f2;font-weight:700;color:#dc2626" title="Dominical real de la semana '+s+'">'
-        +(dm>0?'🔴 '+cop(dm):'<span style="color:#d1d5db">—</span>')
+        +(dm>0?'🔴 '+cop(dm):'<span style="color:var(--g3)">—</span>')
         +'</td>';
     }).join('');
     // Fila principal
@@ -16134,7 +16139,7 @@ function rhHojaRenderHTML(t, foto){
         +'<div style="font-size:8.5pt;letter-spacing:.12em;color:#64748b;text-transform:uppercase">Hoja de datos del trabajador</div>'
         +'<div style="font-size:16pt;font-weight:800;line-height:1.15;margin-top:2px">'+gcEsc(nombre)+'</div>'
         +(sub?'<div style="font-size:10pt;color:#475569">'+gcEsc(sub)+'</div>':'')
-        +'<div style="font-size:8pt;color:#94a3b8;margin-top:3px">Elaborada el '+fechaElab+'</div>'
+        +'<div style="font-size:8pt;color:var(--g3);margin-top:3px">Elaborada el '+fechaElab+'</div>'
       +'</td>'
       +(fotoHtml?('<td style="width:110px;text-align:right;vertical-align:top">'+fotoHtml+'</td>'):'')
     +'</tr></table>'
@@ -26176,7 +26181,7 @@ function encRender(){
       + '<td style="font-size:11px;color:var(--g3)">'+encEsc(f.realizado_por)+'</td>'
       + '<td style="text-align:center">'+(volc
           ? '<span title="ya se pasó a Trabajadores" style="color:#16a34a"><svg class="icb"><use href="#i-circle-check"/></svg></span>'
-          : '<span title="sin pasar a Trabajadores" style="color:#cbd5e1">—</span>')+'</td>'
+          : '<span title="sin pasar a Trabajadores" style="color:var(--g3)">—</span>')+'</td>'
       + '<td style="white-space:nowrap">'
       +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Cruzar con Trabajadores" onclick="encComparar('+f.id+')"><svg class="icb"><use href="#i-arrow-right-left"/></svg></button> '
       +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Historial de la persona" onclick="encHistorial(\''+f.cedula+'\')"><svg class="icb"><use href="#i-history"/></svg></button> '
