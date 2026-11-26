@@ -75,6 +75,7 @@ const PORTADAS = new Set([
   'encPubAbrir', 'encPubGuardar', 'encPubEnviar', 'encPubCatalogo', 'jornadaCrear', 'jornadaListar',
   'jornadaDetalle', 'jornadaCerrar', 'jornadaAsistentes', 'encuestasPendientes', 'encuestaRevisar',
   'jornadaEditar', 'jornadaQueTiene', 'jornadaEliminar',
+  'encuestaQueTiene',
   // Diagnóstico: qué api.js está vivo
   'version',
 ]);
@@ -195,6 +196,7 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'guardarEncuesta')      r = await accionGuardarEncuesta(body, env);
     else if (accion === 'editarEncuesta')       r = await accionEditarEncuesta(body, env);
     else if (accion === 'eliminarEncuesta')     r = await accionEliminarEncuesta(body, env);
+    else if (accion === 'encuestaQueTiene')     r = await accionEncuestaQueTiene(body, env);
     else if (accion === 'encuestaComparar')     r = await accionEncuestaComparar(body, env);
     else if (accion === 'encuestaAplicar')      r = await accionEncuestaAplicar(body, env);
     else if (accion === 'getEncuestasResumen')  r = await accionGetEncuestasResumen(body, env);
@@ -3519,7 +3521,31 @@ async function accionEditarEncuesta(body, env) {
   if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
   const e = body.encuesta || {};
   const row = encAFilaDB(e);
-  delete row.cedula;   // la cédula no se cambia: se borra y se crea de nuevo
+
+  // Cambiar la cédula mueve la encuesta a OTRA persona. Se permite —es
+  // la forma de corregir una cédula mal digitada— pero nunca en
+  // silencio: quien llama tiene que confirmarlo.
+  if (row.cedula) {
+    const act = await sb(env, 'encuestas_sst?select=cedula,nombres,volcada_trab&id=eq.'
+      + id + '&limit=1');
+    if (!act.length) return { ok: false, error: 'Esa encuesta ya no existe' };
+    const antes = parseInt(String(act[0].cedula || ''), 10) || 0;
+    if (antes && row.cedula !== antes) {
+      if (body.confirmaCambioCedula !== true) {
+        return { ok: false, cod: 'CAMBIO_CEDULA',
+          cedula_actual: String(antes),
+          nombres_actual: act[0].nombres || '',
+          volcada: (act[0].volcada_trab === true || act[0].volcada_trab === 'true'),
+          error: 'La cédula cambió: esta encuesta pasaría a otra persona.' };
+      }
+      // al cambiar de dueño, el volcado anterior ya no corresponde
+      row.volcada_trab = false;
+      row.volcada_en = null;
+      row.volcada_por = null;
+    } else {
+      delete row.cedula;   // no cambió: no hay nada que tocar
+    }
+  }
 
   if (!encVeSalud(body)) {
     for (const c of ENC_SALUD_RESERVADA) delete row[c];
@@ -3532,11 +3558,68 @@ async function accionEditarEncuesta(body, env) {
   return { ok: true };
 }
 
+// Qué se está a punto de borrar. La pantalla lo muestra con números
+// antes de preguntar, para que nadie borre a ciegas.
+async function accionEncuestaQueTiene(body, env) {
+  const id = encLimpiaEntero(body && body.id);
+  if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+  const e = await sb(env, 'encuestas_sst?select=id,cedula,nombres,etiqueta,tipo,anio,'
+    + 'estado_rev,volcada_trab,volcada_en,origen,jornada_id,fecha_encuesta&id=eq.' + id + '&limit=1');
+  if (!e.length) return { ok: false, error: 'Esa encuesta ya no existe' };
+  const x = e[0];
+  const otras = await sbAll(env,
+    'encuestas_sst?select=id&cedula=eq.' + x.cedula);
+  return {
+    ok: true,
+    nombres: x.nombres || '',
+    cedula: String(x.cedula || ''),
+    etiqueta: x.etiqueta || (x.tipo + '-' + x.anio),
+    fecha: String(x.fecha_encuesta || '').slice(0, 10),
+    origen: x.origen || '',
+    revisada: x.estado_rev === 'revisada',
+    volcada: (x.volcada_trab === true || x.volcada_trab === 'true'),
+    volcada_en: String(x.volcada_en || '').slice(0, 10),
+    de_jornada: !!x.jornada_id,
+    total_persona: otras.length,
+    es_la_unica: otras.length <= 1,
+  };
+}
+
+// Borrar una encuesta.
+//
+// Solo SST y el ADMIN. RH puede consultarlas, pero no borrar el trabajo
+// de la otra área.
+//
+// Si la encuesta ya se volcó a la ficha de Trabajadores, borrarla NO
+// deshace ese volcado: esos datos ya viven en la ficha. Se avisa, y se
+// exige que quien llama lo confirme.
 async function accionEliminarEncuesta(body, env) {
   const id = encLimpiaEntero(body && body.id);
   if (!id) return { ok: false, error: 'Falta el id de la encuesta' };
+
+  if (!encVeSalud(body)) {
+    return { ok: false, error: 'Solo SST puede eliminar encuestas' };
+  }
+
+  const e = await sb(env, 'encuestas_sst?select=id,nombres,etiqueta,volcada_trab,estado_rev'
+    + '&id=eq.' + id + '&limit=1');
+  if (!e.length) return { ok: false, error: 'Esa encuesta ya no existe' };
+  const x = e[0];
+  const volcada = (x.volcada_trab === true || x.volcada_trab === 'true');
+
+  if (volcada && body.confirmaVolcada !== true) {
+    return { ok: false, cod: 'YA_VOLCADA',
+      error: 'Esta encuesta ya pasó sus datos a la ficha de Trabajadores. '
+           + 'Borrarla no deshace ese cambio.' };
+  }
+
   await sbWrite(env, 'DELETE', 'encuestas_sst?id=eq.' + id);
-  return { ok: true };
+
+  // si venía de una jornada, el asistente queda sin encuesta
+  await sbWrite(env, 'PATCH', 'encuestas_jornada_asistentes?encuesta_id=eq.' + id,
+    { encuesta_id: null, estado: 'sin_abrir', avance: 0, enviada_en: null });
+
+  return { ok: true, nombres: x.nombres || '', etiqueta: x.etiqueta || '', volcada: volcada };
 }
 
 // --------------------------------------------------------------
@@ -4439,9 +4522,9 @@ const ACCIONES_CONOCIDAS = [
   'eliminarPlantilla', 'eliminarReferencia', 'eliminarReg', 'eliminarRegistros',
   'eliminarRhCatalogo', 'eliminarTrabajador', 'eliminarUsuario', 'eliminarVacacion',
   'eliminarVinculacion', 'encPubAbrir', 'encPubCatalogo', 'encPubEnviar', 'encPubGuardar',
-  'encuestaAplicar', 'encuestaComparar', 'encuestaRevisar', 'encuestasPendientes',
-  'facArchivoEliminar', 'facArchivoRegistrar', 'facArchivoSubirUrl', 'facArchivos',
-  'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
+  'encuestaAplicar', 'encuestaComparar', 'encuestaQueTiene', 'encuestaRevisar',
+  'encuestasPendientes', 'facArchivoEliminar', 'facArchivoRegistrar', 'facArchivoSubirUrl',
+  'facArchivos', 'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
   'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos',
   'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado', 'getEncuesta',
   'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen', 'getFacResponsables',
