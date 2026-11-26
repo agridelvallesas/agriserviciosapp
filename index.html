@@ -3276,8 +3276,8 @@ tfoot td{background:var(--gf);font-weight:700}
               <option value="">Inducción y reinducción</option>
               <option value="IND">Solo inducción</option>
               <option value="REIN">Solo reinducción</option></select></div>
-          <div class="fld" style="min-width:220px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre, cédula, monitor o ciudad</label>
-            <input type="text" id="enc-busca" oninput="encRender()" placeholder="escriba para filtrar…"/></div>
+          <div class="fld" style="min-width:220px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o cédula</label>
+            <input type="text" id="enc-busca" oninput="encRender()" placeholder="escriba el nombre o la cédula…"/></div>
           <button class="btn bn" onclick="encNueva()" style="height:36px"><svg class="icb"><use href="#i-file-plus-2"/></svg> Nueva encuesta</button>
           <button class="btn bg" onclick="encCargar();encCargarResumen()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
           <button class="btn bg" onclick="encExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
@@ -26033,6 +26033,7 @@ function encCargar(){
       return;
     }
     ENC_ROWS = d.data || [];
+    encBuscaEnganchar();
     encRender();
   }).catch(function(e){
     if(cont) cont.innerHTML = '<div class="card" style="color:var(--r)">Error de red: '+e.message+'</div>';
@@ -26100,6 +26101,37 @@ function encVerConflictos(cual){
   encModal(tit, h, 820);
 }
 
+// Las sugerencias salen de quienes SÍ tienen encuesta, no del maestro de
+// trabajadores: si saliera del maestro se podría escoger a alguien sin
+// encuesta y la lista quedaría vacía. Una persona con varias encuestas
+// (inducción y cada reinducción) aparece una sola vez.
+function encBuscaFuente(){
+  var vistos = {}, salida = [];
+  (typeof ENC_ROWS !== 'undefined' ? ENC_ROWS : []).forEach(function(f){
+    var c = String(f.cedula||'').trim();
+    var nm = String(f.nombres||'').trim();
+    if(!c && !nm) return;
+    var llave = c || nm;
+    if(vistos[llave]) return;
+    vistos[llave] = 1;
+    salida.push({c:c, n:nm});
+  });
+  salida.sort(function(a,b){ return a.n.localeCompare(b.n); });
+  return salida;
+}
+
+// Engancha el desplegable de sugerencias al buscador, igual que en los
+// otros módulos. Al escoger a alguien se deja la cédula en el campo,
+// porque identifica sin ambigüedad, y se filtra la lista.
+function encBuscaEnganchar(){
+  if(typeof acAdjuntarBuscador !== 'function') return;
+  acAdjuntarBuscador('enc-busca', encBuscaFuente, function(ced, nom){
+    var i = document.getElementById('enc-busca');
+    if(i) i.value = ced || nom;
+    encRender();
+  });
+}
+
 function encRender(){
   var cont = document.getElementById('enc-cont');
   if(!cont) return;
@@ -26107,9 +26139,7 @@ function encRender(){
   var filas = ENC_ROWS.filter(function(f){
     if(!q) return true;
     return String(f.nombres||'').toUpperCase().indexOf(q) >= 0
-        || String(f.cedula||'').indexOf(q) >= 0
-        || String(f.monitor||'').toUpperCase().indexOf(q) >= 0
-        || String(f.ciudad||'').toUpperCase().indexOf(q) >= 0;
+        || String(f.cedula||'').indexOf(q) >= 0;
   });
 
   if(!filas.length){
