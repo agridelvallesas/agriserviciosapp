@@ -3297,6 +3297,7 @@ const ENC_COLS = [
   'nombres', 'email', 'lugar_exp', 'depto_exp', 'fecha_exp', 'cargo', 'fecha_ingreso',
   'telefono', 'direccion', 'direccion_partes', 'ciudad', 'departamento_res', 'estado', 'fecha_nac', 'tipo_sangre',
   'estado_civil', 'genero', 'nivel_educativo', 'titulo',
+  'contacto_emer', 'tel_emerg',
   'talla_camisa', 'talla_pant', 'talla_bota_punt', 'talla_guayo', 'talla_impermeable',
   'monitor', 'talla_bota_lisa', 'edad', 'rango_edad',
   'planta_agua', 'suministro_agua', 'estrato', 'tipo_vivienda',
@@ -3329,6 +3330,7 @@ const ENC_A_TRAB = {
   direccion: 'direccion', ciudad: 'ciudad', estado: 'estado', fecha_nac: 'fecha_nac',
   tipo_sangre: 'tipo_sangre', estado_civil: 'estado_civil', genero: 'genero',
   nivel_educativo: 'nivel_educativo', titulo: 'titulo',
+  contacto_emer: 'contacto_emer', tel_emerg: 'tel_emerg',
   talla_camisa: 'talla_camisa', talla_pant: 'talla_pant',
   talla_bota_punt: 'talla_bota', talla_guayo: 'talla_guayo',
   talla_impermeable: 'talla_impermeable',
@@ -4065,6 +4067,7 @@ async function accionEncPubAbrir(body, env) {
     lugar_exp: 'lugar_exp', fecha_exp: 'fecha_exp', cargo: 'cargo',
     fecha_ingreso: 'fecha_ingreso', estado_civil: 'estado_civil', genero: 'genero',
     nivel_educativo: 'nivel_educativo', titulo: 'titulo',
+    contacto_emer: 'contacto_emer', tel_emerg: 'tel_emerg',
     talla_camisa: 'talla_camisa', talla_pant: 'talla_pant',
     talla_bota_punt: 'talla_bota', talla_guayo: 'talla_guayo',
     talla_impermeable: 'talla_impermeable',
@@ -4183,6 +4186,28 @@ async function accionEncPubCatalogo(body, env) {
 
 // ── LO QUE USA SST ──────────────────────────────────────────────────
 
+// Hasta cuando vale el enlace.
+//
+// Antes se contaba desde el momento de crear la jornada, y eso rompia
+// el uso real: si hoy jueves se programa la jornada del lunes con 12
+// horas, el enlace se moria el jueves por la noche, cuatro dias antes.
+// Ahora se cuenta desde las 00:00 del DIA DE LA JORNADA. Colombia no
+// cambia de hora en todo el año, asi que el -05:00 es fijo.
+//
+// Si esa hora ya paso (una jornada de hoy creada por la tarde, o una
+// con fecha vieja) el enlace naceria muerto: en ese caso se cuenta
+// desde ahora, para que al menos sirva.
+function jorCierre(fecha, horas) {
+  const h = (horas && horas > 0) ? horas : 12;
+  const f = String(fecha || '').slice(0, 10);
+  let base = NaN;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(f)) base = new Date(f + 'T00:00:00-05:00').getTime();
+  if (!base || isNaN(base)) base = Date.now();
+  let cierre = base + h * 3600 * 1000;
+  if (cierre < Date.now() + 3600 * 1000) cierre = Date.now() + h * 3600 * 1000;
+  return new Date(cierre).toISOString();
+}
+
 async function accionJornadaCrear(body, env) {
   const nombre = encLimpiaTexto(body && body.nombre);
   if (!nombre) return { ok: false, error: 'Póngale un nombre a la jornada' };
@@ -4198,10 +4223,10 @@ async function accionJornadaCrear(body, env) {
   const anio = encLimpiaEntero(body && body.anio) || parseInt(fecha.slice(0, 4), 10);
   const tipo = String((body && body.tipo) || 'REIN').toUpperCase() === 'IND' ? 'IND' : 'REIN';
 
-  // por defecto la jornada se cierra sola a las 12 horas, para que un
-  // enlace olvidado no quede vivo
+  // por defecto la jornada se cierra sola a las 12 horas del dia de la
+  // jornada, para que un enlace olvidado no quede vivo
   const horas = encLimpiaEntero(body && body.horas) || 12;
-  const cierra = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+  const cierra = jorCierre(fecha, horas);
 
   let token = '', libre = false;
   for (let i = 0; i < 5 && !libre; i++) {
@@ -4238,7 +4263,7 @@ async function accionJornadaCrear(body, env) {
   return {
     ok: true, id: jid, token: token, asistentes: unicas.length,
     sin_ficha: unicas.filter((c) => !nombrePorCed[c]),
-    cierra_en: cierra,
+    cierra_en: cierra, fecha: fecha,
   };
 }
 
@@ -4281,6 +4306,36 @@ async function accionJornadaDetalle(body, env) {
   if (!j.length) return { ok: false, error: 'Jornada no encontrada' };
   const a = await sbAll(env,
     'encuestas_jornada_asistentes?select=*&jornada_id=eq.' + id + '&order=nombres.asc');
+
+  // Datos de apoyo para el Excel: SST acomoda la lista por coordinador,
+  // y si alguien no contesta hay que poder llamarlo.
+  const ceds = [...new Set(a.map((x) => String(x.cedula)))].filter(Boolean);
+  const ficha = {}, coord = {};
+  if (ceds.length) {
+    try {
+      const t = await sbAll(env,
+        'trabajadores?select=cedula,cargo,sede,telefono&cedula=in.(' + ceds.join(',') + ')');
+      t.forEach((x) => { ficha[String(x.cedula)] = x; });
+    } catch (e) { /* sin ficha el Excel sale igual, con las celdas vacias */ }
+    try {
+      // El coordinador no esta en trabajadores: es el del ultimo dia que
+      // le reportaron labor. Se trae lo mas reciente primero y se queda
+      // con el primero que aparece de cada cedula.
+      const nom = new Map();
+      (await sb(env, 'coordinadores?select=id,nombre')).forEach((c) => {
+        nom.set(String(c.id), String(c.nombre || '').trim());
+      });
+      const regs = await sbAll(env,
+        'detalle_dia?select=cedula,coordinador_id,fecha&cedula=in.(' + ceds.join(',')
+        + ')&order=fecha.desc&limit=4000');
+      regs.forEach((r) => {
+        const c = String(r.cedula);
+        if (coord[c] || !r.coordinador_id) return;
+        coord[c] = nom.get(String(r.coordinador_id)) || '';
+      });
+    } catch (e) { /* idem */ }
+  }
+
   return {
     ok: true,
     jornada: {
@@ -4291,11 +4346,17 @@ async function accionJornadaDetalle(body, env) {
       cierra_en: j[0].cierra_en || '', sede: j[0].sede || '',
       creada_por: j[0].creada_por || '',
     },
-    asistentes: a.map((x) => ({
-      cedula: String(x.cedula), nombres: x.nombres || '', estado: x.estado || 'sin_abrir',
-      encuesta_id: x.encuesta_id ? String(x.encuesta_id) : '',
-      avance: x.avance || 0, enviada_en: x.enviada_en || '',
-    })),
+    asistentes: a.map((x) => {
+      const f = ficha[String(x.cedula)] || {};
+      return {
+        cedula: String(x.cedula), nombres: x.nombres || '', estado: x.estado || 'sin_abrir',
+        encuesta_id: x.encuesta_id ? String(x.encuesta_id) : '',
+        avance: x.avance || 0, enviada_en: x.enviada_en || '',
+        cargo: f.cargo || '', sede: f.sede || '',
+        telefono: f.telefono == null ? '' : String(f.telefono),
+        coordinador: coord[String(x.cedula)] || '',
+      };
+    }),
   };
 }
 
@@ -4407,9 +4468,28 @@ async function accionJornadaEditar(body, env) {
   if ('sede' in body)        row.sede = encLimpiaTexto(body.sede);
   if ('observacion' in body) row.observacion = encLimpiaTexto(body.observacion);
 
-  // alargar o acortar el vencimiento, contado desde ahora
+  // El vencimiento se recalcula si cambian las horas O la fecha: mover
+  // la jornada de dia sin mover el enlace dejaba el enlace apuntando al
+  // dia viejo.
   const horas = encLimpiaEntero(body && body.horas);
-  if (horas) row.cierra_en = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+  if (horas || row.fecha) {
+    let fechaBase = row.fecha;
+    let horasBase = horas;
+    if (!fechaBase || !horasBase) {
+      const act = await sb(env, 'encuestas_jornadas?select=fecha,cierra_en&id=eq.' + id + '&limit=1');
+      if (act.length) {
+        if (!fechaBase) fechaBase = act[0].fecha;
+        if (!horasBase) {
+          // conservar la duracion que tenia, medida desde su propio dia
+          const d0 = new Date(String(act[0].fecha).slice(0, 10) + 'T00:00:00-05:00').getTime();
+          const d1 = new Date(act[0].cierra_en).getTime();
+          const h = Math.round((d1 - d0) / 3600000);
+          horasBase = (h > 0 && h <= 24 * 14) ? h : 12;
+        }
+      }
+    }
+    row.cierra_en = jorCierre(fechaBase, horasBase);
+  }
 
   if (!Object.keys(row).length) return { ok: false, error: 'Nada que cambiar' };
   await sbWrite(env, 'PATCH', 'encuestas_jornadas?id=eq.' + id, row);
