@@ -316,7 +316,33 @@ tfoot td{background:var(--gf);font-weight:700}
 .ac-chip-sub{font-size:11px;color:var(--g3)}
 .ac-chip-x{background:none;border:none;cursor:pointer;color:var(--g3);font-size:16px;padding:0;line-height:1;flex-shrink:0}
 .ac-chip-x:hover{color:var(--r)}
-@media print{.sidebar,.topbar,.no-print{display:none!important}.main{margin-left:0}.page{display:block!important;padding:0}}
+/* Al imprimir sale SOLO lo que se está viendo. Antes decía
+   .page{display:block} sin más, y eso destapaba los 40 y pico módulos
+   de la app: de ahí salía el montonal de hojas. Y si hay un cuadro
+   abierto (el QR de la jornada) se imprime el cuadro solo. */
+@media print{
+  .sidebar,.topbar,.no-print{display:none!important}
+  /* sin esto el armazon reserva una hoja entera en blanco */
+  body,.shell,.main{min-height:0!important}
+  .main{margin-left:0}
+  .ovl{display:none!important}
+  .page{display:none!important}
+  .page.on{display:block!important;padding:0}
+  .mwrap{display:none!important}
+  .mwrap.on{display:block!important;position:static!important;background:none!important;
+            padding:0!important;overflow:visible!important}
+  .mwrap.on .modal{box-shadow:none!important;max-width:none!important;max-height:none!important;
+                   width:100%!important;margin:0!important;overflow:visible!important}
+  /* el cuadro del QR y los demás que arma encModal */
+  #enc-modal{position:static!important;background:none!important;padding:0!important;
+             overflow:visible!important;display:block!important}
+  #enc-modal>div{box-shadow:none!important;max-width:none!important;width:100%!important;border-radius:0!important}
+  #enc-modal button{display:none!important}
+  /* con un cuadro abierto, la página de atrás estorba */
+  body.imprimiendo-cuadro .page,
+  body.imprimiendo-cuadro .mwrap:not(.on){display:none!important}
+}
+
 .barra-sel{position:fixed;left:296px;right:0;bottom:0;z-index:60;padding:0 20px 14px;pointer-events:none}
 .barra-sel>div{pointer-events:auto}
 @media(max-width:768px){
@@ -25911,7 +25937,10 @@ var ENC_FORM = [
     {k:'email', l:'Correo electrónico', t:'txt', ancho:2},
     {k:'direccion', l:'Dirección', t:'dir', ancho:3},
     {k:'departamento_res', l:'Departamento donde vive', t:'cat', cat:'departamento'},
-    {k:'ciudad', l:'Municipio donde vive', t:'cat', cat:'municipio', padre:'departamento_res'}
+    {k:'ciudad', l:'Municipio donde vive', t:'cat', cat:'municipio', padre:'departamento_res'},
+    {k:'contacto_emer', l:'En una emergencia, ¿a quién llamamos?', t:'txt', ancho:2,
+     nota:'nombre completo de esa persona'},
+    {k:'tel_emerg', l:'Teléfono de esa persona', t:'txt'}
   ]},
   { sec:'Vinculación', ico:'i-briefcase', campos:[
     {k:'cargo', l:'Cargo', t:'sel+', op:'cargo'},
@@ -26821,6 +26850,19 @@ function encExcel(){
 }
 
 // ══ MODAL ════════════════════════════════════════════════════════════
+// Imprime SOLO el cuadro que está abierto. Sin esto, window.print()
+// se lleva también la página de atrás.
+function imprimirCuadro(){
+  document.body.classList.add('imprimiendo-cuadro');
+  var limpiar = function(){ document.body.classList.remove('imprimiendo-cuadro'); };
+  if(window.onafterprint !== undefined){
+    var antes = window.onafterprint;
+    window.onafterprint = function(){ limpiar(); window.onafterprint = antes || null; };
+  }
+  window.print();
+  setTimeout(limpiar, 1500);   // por si el navegador no avisa
+}
+
 function encModal(titulo, html, ancho){
   encCerrarModal();
   var d = document.createElement('div');
@@ -27251,14 +27293,17 @@ function jorNueva(preSel, preNombre){
   var h = '<div class="fld"><label>Nombre de la jornada</label>'
     + '<input type="text" id="jor-n-nombre" placeholder="Reinducción grupo 1 — Zarzal"/></div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
-    +   '<div class="fld" style="margin:0"><label>Fecha</label><input type="date" id="jor-n-fecha" value="'+hoy+'"/></div>'
+    +   '<div class="fld" style="margin:0"><label>Fecha</label><input type="date" id="jor-n-fecha" value="'+hoy+'" onchange="jorPintarCierre()"/></div>'
     +   '<div class="fld" style="margin:0"><label>Clase</label><select id="jor-n-tipo">'
     +     '<option value="REIN">Reinducción</option><option value="IND">Inducción</option></select></div>'
-    +   '<div class="fld" style="margin:0"><label>El enlace vence en</label><select id="jor-n-horas">'
-    +     '<option value="4">4 horas</option><option value="8">8 horas</option>'
-    +     '<option value="12" selected>12 horas</option><option value="24">24 horas</option>'
+    +   '<div class="fld" style="margin:0"><label>El enlace dura</label>'
+    +     '<select id="jor-n-horas" onchange="jorPintarCierre()">'
+    +     '<option value="6">6 horas</option><option value="8">8 horas</option>'
+    +     '<option value="12" selected>12 horas</option><option value="18">18 horas</option>'
+    +     '<option value="24">todo el día</option>'
     +     '</select></div>'
     + '</div>'
+    + '<div id="jor-n-cierre" style="margin-top:-4px;margin-bottom:10px"></div>'
     + '<div class="fld"><label>Agregar trabajadores <span style="font-weight:400;color:var(--g3)">· escriba el nombre o la cédula</span></label>'
     + '<input type="text" id="jor-n-buscar" placeholder="buscar…" autocomplete="off"/></div>'
     + '<div id="jor-n-lista" style="margin-top:4px"></div>'
@@ -27271,6 +27316,7 @@ function jorNueva(preSel, preNombre){
     var nn = document.getElementById('jor-n-nombre');
     if(nn) nn.value = preNombre;
   }
+  jorPintarCierre();
   jorPintarSel();
   if(typeof acAdjuntarBuscador === 'function'){
     acTrabAsegurar(function(){
@@ -27281,6 +27327,106 @@ function jorNueva(preSel, preNombre){
       });
     });
   }
+}
+
+// El mismo cálculo que hace el servidor (jorCierre en api.js): el
+// enlace se cuenta desde las 00:00 del día de la jornada, hora de
+// Colombia. Aquí se repite solo para poder mostrarlo antes de crearla.
+function jorCalcCierre(fecha, horas){
+  var h = parseInt(horas, 10) || 12;
+  var f = String(fecha || '').slice(0, 10);
+  var base = NaN;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(f)) base = new Date(f + 'T00:00:00-05:00').getTime();
+  if(!base || isNaN(base)) base = Date.now();
+  var cierre = base + h * 3600 * 1000;
+  var corrido = false;
+  if(cierre < Date.now() + 3600 * 1000){ cierre = Date.now() + h * 3600 * 1000; corrido = true; }
+  return { cuando: new Date(cierre), corrido: corrido };
+}
+
+var JOR_DIAS = ['domingo','lunes','martes','mi\u00e9rcoles','jueves','viernes','s\u00e1bado'];
+var JOR_MESES = ['enero','febrero','marzo','abril','mayo','junio','julio',
+                 'agosto','septiembre','octubre','noviembre','diciembre'];
+
+// En palabras y en hora de Colombia, no en UTC.
+function jorFechaLarga(d){
+  var bog = new Date(d.getTime() - 5 * 3600 * 1000);   // a hora de Colombia
+  var hh = bog.getUTCHours(), mm = bog.getUTCMinutes();
+  var ampm = hh < 12 ? 'de la ma\u00f1ana' : (hh < 19 ? 'de la tarde' : 'de la noche');
+  var h12 = hh % 12; if(h12 === 0) h12 = 12;
+  var hora = (hh === 12 && mm === 0) ? 'las 12 del mediod\u00eda'
+           : (hh === 0 && mm === 0) ? 'la medianoche'
+           : 'las ' + h12 + (mm ? ':' + String(mm).padStart(2,'0') : '') + ' ' + ampm;
+  return JOR_DIAS[bog.getUTCDay()] + ' ' + bog.getUTCDate() + ' de '
+       + JOR_MESES[bog.getUTCMonth()] + ' a ' + hora;
+}
+
+function jorPintarCierre(){
+  var caja = document.getElementById('jor-n-cierre');
+  if(!caja) return;
+  var f = (document.getElementById('jor-n-fecha')||{}).value || '';
+  var h = (document.getElementById('jor-n-horas')||{}).value || 12;
+  var r = jorCalcCierre(f, h);
+  caja.innerHTML = '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--rads);'
+    + 'padding:8px 12px;font-size:11.5px;color:#166534">'
+    + 'El enlace se cierra el <b>' + jorFechaLarga(r.cuando) + '</b>. '
+    + (r.corrido
+      ? 'Esa duraci\u00f3n contada desde el d\u00eda de la jornada ya habr\u00eda pasado, as\u00ed que se cuenta desde ahora.'
+      : 'Se cuenta desde las 12 de la noche del d\u00eda de la jornada, no desde ahora.')
+    + ' Igual la puede cerrar antes con el bot\u00f3n de cerrar.'
+    + '</div>';
+}
+
+// El Excel de la jornada. SST la acomoda por coordinador, así que va
+// ordenada por coordinador y luego por nombre, y lleva el teléfono
+// para poder llamar al que no conteste.
+var JOR_ESTADO_TXT = {enviada:'Enviada', en_curso:'Contestando', sin_abrir:'Sin abrir'};
+
+function jorExcel(){
+  if(!JOR_DET || !JOR_DET.jornada){ alert('Abra primero la jornada.'); return; }
+  var j = JOR_DET.jornada;
+  var a = (JOR_DET.asistentes || []).slice();
+  if(!a.length){ alert('Esta jornada no tiene a nadie en la lista.'); return; }
+
+  a.sort(function(x, y){
+    // los que no tienen coordinador al final, no revueltos entre los que sí
+    var cx = x.coordinador || '\uffff', cy = y.coordinador || '\uffff';
+    if(cx !== cy) return cx.localeCompare(cy);
+    return String(x.nombres||'').localeCompare(String(y.nombres||''));
+  });
+
+  consCargarSheetJS(function(listo){
+    if(!listo){ alert('No se pudo cargar el generador de Excel. Revise la conexión.'); return; }
+    var filas = [
+      ['Jornada', j.nombre || ''],
+      ['Fecha', j.fecha || ''],
+      ['Clase', String(j.tipo).toUpperCase() === 'IND' ? 'Inducción' : 'Reinducción'],
+      ['Código', j.token || ''],
+      ['Estado', j.abierta ? 'Abierta' : 'Cerrada'],
+      ['Citados', a.length],
+      ['Ya enviaron', a.filter(function(x){ return x.estado === 'enviada'; }).length],
+      [],
+      ['Coordinador','Nombre','Cédula','Cargo','Sede','Teléfono','Estado','Enviada el']
+    ];
+    a.forEach(function(x){
+      filas.push([
+        x.coordinador || '',
+        x.nombres || '',
+        x.cedula || '',
+        x.cargo || '',
+        x.sede || '',
+        x.telefono || '',
+        JOR_ESTADO_TXT[x.estado] || x.estado || '',
+        x.enviada_en ? String(x.enviada_en).slice(0,16).replace('T',' ') : ''
+      ]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = [{wch:24},{wch:32},{wch:13},{wch:22},{wch:10},{wch:14},{wch:13},{wch:17}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Jornada');
+    var nom = String(j.nombre || 'jornada').replace(/[^\w\s-]+/g,'').trim().replace(/\s+/g,'_').slice(0,40);
+    XLSX.writeFile(wb, 'Jornada_' + (nom || 'sin_nombre') + '_' + (j.fecha || '') + '.xlsx');
+  });
 }
 
 function jorAgregarSel(ced, nom){
@@ -27376,7 +27522,7 @@ function jorQR(id, jDirecta){
     + '</div>'
     + '<div style="display:flex;gap:9px;justify-content:center;margin-top:13px;flex-wrap:wrap" class="no-print">'
     +   '<button class="btn bg" onclick="jorCopiar(\''+encEsc(j.token)+'\')"><svg class="icb"><use href="#i-copy"/></svg> Copiar el enlace</button>'
-    +   '<button class="btn bg" onclick="window.print()"><svg class="icb"><use href="#i-printer"/></svg> Imprimir</button>'
+    +   '<button class="btn bg" onclick="imprimirCuadro()"><svg class="icb"><use href="#i-printer"/></svg> Imprimir</button>'
     +   '<button class="btn bn" onclick="jorDetalle(\''+j.id+'\')"><svg class="icb"><use href="#i-users"/></svg> Ver quién va entrando</button>'
     + '</div>'
     + '<div style="font-size:11.5px;color:var(--g3);margin-top:11px;text-align:left;background:#fffbeb;'
@@ -27449,18 +27595,20 @@ function jorPintarDetalle(){
       +   'Jornada <b>abierta</b> · código <b style="letter-spacing:.1em">'+encEsc(j.token)+'</b></div>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorQR(\''+j.id+'\')">Ver el QR</button>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',false)">Cerrar la jornada</button>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorExcel()"><svg class="icb"><use href="#i-download"/></svg> Excel</button>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorEditar(\''+j.id+'\')">Editar</button>'
       + '</div>';
   } else {
     h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-bottom:12px;'
       + 'display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
       + '<div style="flex:1;min-width:170px;font-size:12.5px;color:var(--g2)">Jornada <b>cerrada</b>. El enlace ya no sirve.</div>'
+      + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorExcel()"><svg class="icb"><use href="#i-download"/></svg> Excel</button>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorCerrar(\''+j.id+'\',true)">Volver a abrirla</button>'
       + '<button class="btn bg" style="height:30px;font-size:12px" onclick="jorEditar(\''+j.id+'\')">Editar</button>'
       + '</div>';
   }
 
-  h += '<table><thead><tr><th>Trabajador</th><th>Cédula</th><th>Cómo va</th><th></th></tr></thead><tbody>';
+  h += '<table><thead><tr><th>Trabajador</th><th>Cédula</th><th>Coordinador</th><th>Cómo va</th><th></th></tr></thead><tbody>';
   a.forEach(function(x){
     var pinta = x.estado === 'enviada'
       ? {t:'Enviada', c:'#16a34a', b:'#f0fdf4'}
@@ -27470,6 +27618,7 @@ function jorPintarDetalle(){
     h += '<tr'+(pinta.b ? ' style="background:'+pinta.b+'"' : '')+'>'
       + '<td style="font-weight:600">'+encEsc(x.nombres || '(sin ficha en Trabajadores)')+'</td>'
       + '<td style="font-variant-numeric:tabular-nums">'+encEsc(x.cedula)+'</td>'
+      + '<td style="font-size:12px">'+encEsc(x.coordinador || '\u2014')+'</td>'
       + '<td style="color:'+pinta.c+';font-weight:600;font-size:12px">'+pinta.t+'</td>'
       + '<td style="text-align:right">'
       +   (x.encuesta_id
