@@ -3298,6 +3298,31 @@ tfoot td{background:var(--gf);font-weight:700}
     </div>
 
     <!-- ══════════ SST — JORNADAS DE REINDUCCIÓN ══════════ -->
+    <!-- ══════════ SST — PRÓXIMAS ENCUESTAS ══════════ -->
+    <div class="page" id="p-venc">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-calendar-check"/></svg> Próximas encuestas
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">A cada quien le toca un año después de su última encuesta, sea de inducción o de reinducción. Solo trabajadores activos.</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:170px;margin:0"><label style="font-size:10px">Avisar con</label>
+            <select id="venc-dias" onchange="vencCargar()">
+              <option value="30" selected>30 días de anticipación</option>
+              <option value="60">60 días de anticipación</option>
+              <option value="90">90 días de anticipación</option>
+            </select></div>
+          <div class="fld" style="min-width:150px;margin:0"><label style="font-size:10px">Sede</label>
+            <select id="venc-sede" onchange="vencPintar()"><option value="">Todas</option></select></div>
+          <div class="fld" style="min-width:220px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o cédula</label>
+            <input type="text" id="venc-busca" oninput="vencPintar()" placeholder="escriba el nombre o la cédula…"/></div>
+          <button class="btn bg" onclick="vencCargar()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
+          <button class="btn bg" onclick="vencExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
+        </div>
+      </div>
+      <div id="venc-conteos" style="margin-bottom:12px"></div>
+      <div id="venc-cont"></div>
+      <div id="venc-barra"></div>
+    </div>
+
     <div class="page" id="p-jor">
       <div class="card" style="margin-bottom:12px">
         <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-users"/></svg> Jornadas de reinducción
@@ -5071,6 +5096,7 @@ function buildNav(){
     nav.innerHTML=
       '<div class="sb-sec">SST — Salud y seguridad</div>'+
       '<button class="ni" onclick="go(\'enc\')"><span class="ni-ico"><svg class="ico"><use href="#i-file-text"/></svg></span>Encuesta sociodemográfica</button>'+
+      '<button class="ni" onclick="go(\'venc\')"><span class="ni-ico"><svg class="ico"><use href="#i-calendar-check"/></svg></span>Próximas encuestas</button>'+
       '<button class="ni" onclick="go(\'jor\')"><span class="ni-ico"><svg class="ico"><use href="#i-users"/></svg></span>Jornadas de reinducción</button>'+
       '<div class="sb-sec">SST — Inventario</div>'+
       '<button class="ni" onclick="go(\'inv\')"><span class="ni-ico"><svg class="ico"><use href="#i-package"/></svg></span>Inventario</button>'+
@@ -5111,7 +5137,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica','jor':'SST — Jornadas de reinducción'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica','jor':'SST — Jornadas de reinducción','venc':'SST — Próximas encuestas'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -5152,6 +5178,7 @@ function go(pg){
   if(pg==='inv-cfg') invCfgInit();
   if(pg==='enc') encAbrir();
   if(pg==='jor') jorAbrir();
+  if(pg==='venc') vencAbrir();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -26825,6 +26852,291 @@ var JOR_DET = null;
 var JOR_SEL = [];        // cédulas que se van agregando a la jornada nueva
 var JOR_TIMER = null;    // refresco del avance en vivo
 
+// ══════════════════════════════════════════════════════════════════
+// SST — PRÓXIMAS ENCUESTAS
+// A cada quien le toca un año después de su última encuesta, sea de
+// inducción o de reinducción. La cuenta la hace la base (la vista
+// encuestas_vencimientos); aquí solo se muestra y se arma la jornada.
+// ══════════════════════════════════════════════════════════════════
+var VENC_DATA = null;     // lo que devolvió el servidor
+var VENC_SEL  = {};       // cédulas escogidas, de cualquier sección
+var VENC_VERALDIA = false;
+
+function vencAbrir(){ vencCargar(); }
+
+function vencCargar(){
+  var c = document.getElementById('venc-cont');
+  if(c) c.innerHTML = '<div style="padding:28px;text-align:center;color:var(--g3)">Calculando a quién le toca…</div>';
+  var dias = (document.getElementById('venc-dias')||{}).value || 30;
+  encPost({accion:'encuestasVencimientos', dias:dias}).then(function(d){
+    if(!d || !d.ok){
+      if(c) c.innerHTML = (d && d.cod === 'FALTA_VISTA')
+        ? '<div class="card" style="border-left:3px solid #b45309">'
+          + '<div style="font-weight:700;color:#b45309;display:flex;align-items:center;gap:7px">'
+          + '<svg class="ict"><use href="#i-triangle-alert"/></svg> Falta correr un archivo en Supabase</div>'
+          + '<div style="font-size:12.5px;color:var(--g2);margin-top:6px">'
+          + 'Esta pantalla necesita la vista que hace la cuenta de los vencimientos.<br><br>'
+          + 'Corra <code>49_vencimientos_encuestas.sql</code> en Supabase y vuelva a entrar aquí.</div></div>'
+        : '<div class="card" style="color:var(--r)">No se pudo calcular: '+encEsc((d&&d.error)||'?')+'</div>';
+      var cc = document.getElementById('venc-conteos'); if(cc) cc.innerHTML='';
+      return;
+    }
+    VENC_DATA = d;
+    VENC_SEL = {};
+    vencLlenarSedes();
+    vencPintar();
+  }).catch(function(e){
+    if(c) c.innerHTML = '<div class="card" style="color:var(--r)">Error de red: '+encEsc(e.message)+'</div>';
+  });
+}
+
+function vencTodas(){
+  if(!VENC_DATA) return [];
+  var d = VENC_DATA.data;
+  return d.vencidas.concat(d.porVencer, d.sinEncuesta, d.alDia);
+}
+
+function vencLlenarSedes(){
+  var sel = document.getElementById('venc-sede');
+  if(!sel) return;
+  var antes = sel.value;
+  var vistas = {};
+  vencTodas().forEach(function(f){ if(f.sede) vistas[f.sede]=1; });
+  var ops = Object.keys(vistas).sort();
+  sel.innerHTML = '<option value="">Todas</option>'
+    + ops.map(function(s){ return '<option value="'+encEsc(s)+'">'+encEsc(s)+'</option>'; }).join('');
+  if(antes && vistas[antes]) sel.value = antes;
+}
+
+// Los filtros de arriba valen para todas las secciones por igual.
+function vencFiltrar(lista){
+  var q = ((document.getElementById('venc-busca')||{}).value||'').trim().toUpperCase();
+  var sede = (document.getElementById('venc-sede')||{}).value || '';
+  return lista.filter(function(f){
+    if(sede && String(f.sede||'') !== sede) return false;
+    if(!q) return true;
+    return String(f.nombres||'').toUpperCase().indexOf(q) >= 0
+        || String(f.cedula||'').indexOf(q) >= 0;
+  });
+}
+
+function vencDiasTexto(f){
+  if(f.sin_encuesta) return '—';
+  var n = f.dias;
+  if(n === null) return '—';
+  if(n < 0)  return 'vencida hace ' + vencPlural(-n, 'día', 'días');
+  if(n === 0) return 'vence hoy';
+  return 'en ' + vencPlural(n, 'día', 'días');
+}
+function vencPlural(n, uno, varios){ return n + ' ' + (n === 1 ? uno : varios); }
+
+function vencPintar(){
+  var c = document.getElementById('venc-cont');
+  if(!c || !VENC_DATA) return;
+  var d = VENC_DATA.data, k = VENC_DATA.conteos, margen = VENC_DATA.dias;
+
+  // ── los conteos de arriba ──
+  var cc = document.getElementById('venc-conteos');
+  if(cc){
+    cc.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + vencTarjeta('VENCIDAS', k.vencidas, '#dc2626')
+      + vencTarjeta('VENCEN EN ' + margen + ' DÍAS', k.porVencer, '#b45309')
+      + vencTarjeta('NUNCA HAN TENIDO', k.sinEncuesta, '#1e40af')
+      + vencTarjeta('AL DÍA', k.alDia, '#15803d')
+      + '</div>'
+      + (k.estimadas
+        ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#92400e">'
+          + '<b>' + k.estimadas + '</b> de estas encuestas no tienen la fecha exacta guardada, solo el año. '
+          + 'Para esas se tomó el 31 de diciembre de ese año, así que la fecha de vencimiento es aproximada '
+          + '(van marcadas con <b>aprox</b>). Si corrige la fecha en la encuesta, el cálculo se ajusta solo.</div>'
+        : '');
+  }
+
+  var h = '';
+  h += vencSeccion('vencidas', 'Vencidas', d.vencidas, '#dc2626', '#fef2f2',
+        'Ya pasó el año desde la última encuesta. Lo más atrasado va de primero.');
+  h += vencSeccion('porVencer', 'Vencen en los próximos ' + margen + ' días', d.porVencer, '#b45309', '#fffbeb',
+        'Todavía está a tiempo de citarlos.');
+  h += vencSeccion('sinEncuesta', 'Nunca han tenido encuesta', d.sinEncuesta, '#1e40af', '#eff6ff',
+        'Estos no son reinducción atrasada: les falta la inducción, que SST hace en entrevista. '
+        + 'Van ordenados por el que lleva más tiempo en la empresa.');
+
+  // "al día" se guarda cerrado: es la lista larga y no hay nada que hacer con ella
+  h += '<div class="card" style="margin-bottom:12px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="vencTogAlDia()">'
+    +   '<div style="font-weight:700;font-size:13.5px;color:#15803d">Al día · ' + d.alDia.length + ' personas</div>'
+    +   '<button class="btn bg" style="height:30px;font-size:11.5px">' + (VENC_VERALDIA ? 'Ocultar' : 'Ver') + '</button>'
+    + '</div>'
+    + (VENC_VERALDIA ? '<div style="margin-top:12px">' + vencTabla(vencFiltrar(d.alDia), false) + '</div>' : '')
+    + '</div>';
+
+  c.innerHTML = h;
+  vencBarra();
+}
+
+function vencTarjeta(rotulo, n, col){
+  return '<div class="card" style="flex:1;min-width:160px;margin:0;border-left:3px solid '+col+'">'
+    + '<div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;color:var(--g3)">'+rotulo+'</div>'
+    + '<div style="font-size:26px;font-weight:800;color:'+col+';line-height:1.15">'+n+'</div></div>';
+}
+
+function vencTogAlDia(){ VENC_VERALDIA = !VENC_VERALDIA; vencPintar(); }
+
+function vencSeccion(clave, titulo, lista, col, fondo, nota){
+  var vistos = vencFiltrar(lista);
+  var h = '<div class="card" style="margin-bottom:12px;border-left:3px solid '+col+'">'
+    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+    +   '<div>'
+    +     '<div style="font-weight:700;font-size:14px;color:'+col+'">'+encEsc(titulo)+' · '+vistos.length
+    +        (vistos.length !== lista.length ? ' <span style="font-weight:400;color:var(--g3);font-size:11.5px">de '+lista.length+' (hay filtros puestos)</span>' : '')
+    +     '</div>'
+    +     '<div style="font-size:11.5px;color:var(--g3);margin-top:3px;max-width:680px">'+encEsc(nota)+'</div>'
+    +   '</div>';
+  if(vistos.length){
+    h += '<div style="display:flex;gap:7px;flex-wrap:wrap">'
+      +   '<button class="btn bg" style="height:30px;font-size:11.5px" onclick="vencEscoger(\'' + clave + '\',15)">Escoger 15</button>'
+      +   '<button class="btn bg" style="height:30px;font-size:11.5px" onclick="vencEscoger(\'' + clave + '\',0)">Escoger todos</button>'
+      + '</div>';
+  }
+  h += '</div>';
+  h += vistos.length
+    ? '<div style="margin-top:12px">' + vencTabla(vistos, true) + '</div>'
+    : '<div style="margin-top:12px;padding:16px;text-align:center;color:var(--g3);font-size:12.5px;background:'+fondo+';border-radius:var(--rads)">'
+      + (lista.length ? 'Ninguno coincide con el filtro.' : 'Nadie en esta situación. ') + '</div>';
+  return h + '</div>';
+}
+
+function vencTabla(lista, conCheck){
+  var h = '<div style="overflow:auto"><table><thead><tr>'
+    + (conCheck ? '<th style="width:28px"></th>' : '')
+    + '<th>Nombre</th><th>Cédula</th><th>Cargo</th><th>Sede</th>'
+    + '<th>Última encuesta</th><th>Le toca</th><th>Estado</th></tr></thead><tbody>';
+  lista.forEach(function(f){
+    var marcada = VENC_SEL[f.cedula] ? ' checked' : '';
+    h += '<tr>'
+      + (conCheck
+        ? '<td><input type="checkbox" style="width:16px;height:16px;cursor:pointer"'+marcada
+          + ' onchange="vencMarcar(\''+f.cedula+'\',this.checked)"/></td>'
+        : '')
+      + '<td><strong>'+encEsc(f.nombres || '(sin nombre)')+'</strong></td>'
+      + '<td style="white-space:nowrap">'+encEsc(f.cedula)+'</td>'
+      + '<td>'+encEsc(f.cargo)+'</td>'
+      + '<td>'+encEsc(f.sede)+'</td>';
+    if(f.sin_encuesta){
+      var di = f.dias_desde_ingreso;
+      h += '<td colspan="2" style="color:#1e40af;font-size:11.5px">'
+        + (f.fecha_ingreso
+          ? 'Entró el '+encEsc(f.fecha_ingreso)+(di !== null ? ' · hace '+vencPlural(di,'día','días') : '')
+          : 'Sin fecha de ingreso')
+        + '</td>'
+        + '<td><span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:10.5px;'
+        + 'font-weight:700;background:#dbeafe;color:#1e40af">Falta inducción</span></td>';
+    } else {
+      var esInd = String(f.ultimo_tipo).toUpperCase() === 'IND';
+      h += '<td style="white-space:nowrap">'
+        + '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;'
+        +   (esInd ? 'background:#dcfce7;color:#15803d' : 'background:#e0e7ff;color:#4338ca')+'">'
+        +   (esInd ? 'IND' : 'REIN')+'</span> '
+        + encEsc(f.ultima_fecha)
+        + (f.fecha_estimada
+          ? ' <span title="La encuesta no tiene fecha exacta, solo el año: se tomó el 31 de diciembre" '
+            + 'style="font-size:9.5px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:4px;padding:1px 4px">aprox</span>'
+          : '')
+        + '</td>'
+        + '<td style="white-space:nowrap">'+encEsc(f.vence)+'</td>'
+        + '<td style="white-space:nowrap;font-weight:600;color:'+(f.dias < 0 ? '#dc2626' : (f.dias <= 30 ? '#b45309' : '#15803d'))+'">'
+        + encEsc(vencDiasTexto(f))+'</td>';
+    }
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+function vencMarcar(ced, on){
+  if(on) VENC_SEL[ced] = 1; else delete VENC_SEL[ced];
+  vencBarra();
+}
+
+// cuantos: 0 = todos los que se ven en esa seccion
+function vencEscoger(clave, cuantos){
+  if(!VENC_DATA) return;
+  var lista = vencFiltrar(VENC_DATA.data[clave] || []);
+  if(cuantos > 0) lista = lista.slice(0, cuantos);
+  lista.forEach(function(f){ VENC_SEL[f.cedula] = 1; });
+  vencPintar();
+}
+
+function vencLimpiarSel(){ VENC_SEL = {}; vencPintar(); }
+
+function vencEscogidos(){
+  var porCed = {};
+  vencTodas().forEach(function(f){ porCed[f.cedula] = f; });
+  return Object.keys(VENC_SEL).map(function(c){
+    var f = porCed[c] || {};
+    return {ced: c, nom: f.nombres || ''};
+  });
+}
+
+// La barra de abajo solo aparece cuando hay alguien escogido: si no,
+// estorba.
+function vencBarra(){
+  var b = document.getElementById('venc-barra');
+  if(!b) return;
+  var n = Object.keys(VENC_SEL).length;
+  if(!n){ b.innerHTML = ''; return; }
+  b.innerHTML = '<div style="position:sticky;bottom:12px;z-index:30">'
+    + '<div class="card" style="margin:0;display:flex;align-items:center;justify-content:space-between;'
+    +   'gap:12px;flex-wrap:wrap;border:1.5px solid var(--v);box-shadow:0 6px 20px rgba(22,32,45,.14)">'
+    +   '<div style="font-size:13px"><strong>'+n+'</strong> '+(n===1?'persona escogida':'personas escogidas')
+    +     '<span style="color:var(--g3);font-size:11.5px"> · se van a citar a una jornada</span></div>'
+    +   '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +     '<button class="btn bg" style="height:34px" onclick="vencLimpiarSel()">Quitar la selección</button>'
+    +     '<button class="btn bn" style="height:34px" onclick="vencCrearJornada()">'
+    +       '<svg class="icb"><use href="#i-users"/></svg> Crear jornada con '+n+'</button>'
+    +   '</div>'
+    + '</div></div>';
+}
+
+function vencCrearJornada(){
+  var sel = vencEscogidos();
+  if(!sel.length){ alert('No hay nadie escogido.'); return; }
+  if(sel.length > 25 && !confirm('Escogió ' + sel.length + ' personas para una sola jornada.\n\n'
+    + 'Las jornadas se hacen en grupos de 10 o 15 para que alcancen a contestar '
+    + 'mientras el enlace está abierto.\n\n¿Seguir de todos modos?')) return;
+  var sede = (document.getElementById('venc-sede')||{}).value || '';
+  var hoy = new Date().toISOString().slice(0,10);
+  jorNueva(sel, 'Reinducción ' + hoy + (sede ? ' — ' + sede : ''));
+}
+
+function vencExcel(){
+  if(!VENC_DATA){ alert('Todavía no hay datos.'); return; }
+  var d = VENC_DATA.data;
+  var fila = function(f, grupo){
+    return [grupo, f.cedula, f.nombres, f.cargo, f.sede, f.ciudad,
+            f.sin_encuesta ? '' : f.ultimo_tipo,
+            f.sin_encuesta ? '' : f.ultima_fecha,
+            f.fecha_estimada ? 'aproximada' : '',
+            f.sin_encuesta ? '' : f.vence,
+            f.sin_encuesta ? '' : f.dias,
+            f.fecha_ingreso].map(function(x){
+      var s = String(x == null ? '' : x);
+      return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }).join(';');
+  };
+  var lineas = ['Grupo;Cedula;Nombres;Cargo;Sede;Ciudad;UltimoTipo;UltimaFecha;FechaAprox;Vence;DiasRestantes;FechaIngreso'];
+  vencFiltrar(d.vencidas).forEach(function(f){ lineas.push(fila(f,'VENCIDA')); });
+  vencFiltrar(d.porVencer).forEach(function(f){ lineas.push(fila(f,'POR VENCER')); });
+  vencFiltrar(d.sinEncuesta).forEach(function(f){ lineas.push(fila(f,'NUNCA HA TENIDO')); });
+  vencFiltrar(d.alDia).forEach(function(f){ lineas.push(fila(f,'AL DIA')); });
+  var blob = new Blob(['﻿' + lineas.join('\n')], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'proximas_encuestas_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+}
+
 function jorAbrir(){
   jorCargar();
 }
@@ -26884,8 +27196,10 @@ function jorRender(){
 }
 
 // ── crear ────────────────────────────────────────────────────────────
-function jorNueva(){
-  JOR_SEL = [];
+// preSel: [{ced,nom}] con los que ya vienen escogidos desde
+// "Próximas encuestas". preNombre: el nombre sugerido de la jornada.
+function jorNueva(preSel, preNombre){
+  JOR_SEL = Array.isArray(preSel) ? preSel.slice() : [];
   var hoy = new Date().toISOString().slice(0,10);
   var h = '<div class="fld"><label>Nombre de la jornada</label>'
     + '<input type="text" id="jor-n-nombre" placeholder="Reinducción grupo 1 — Zarzal"/></div>'
@@ -26906,6 +27220,10 @@ function jorNueva(){
     +   '<button class="btn bn" onclick="jorCrear()"><svg class="icb"><use href="#i-save"/></svg> Crear y generar el enlace</button>'
     + '</div>';
   encModal('Nueva jornada de reinducción', h, 680);
+  if(preNombre){
+    var nn = document.getElementById('jor-n-nombre');
+    if(nn) nn.value = preNombre;
+  }
   jorPintarSel();
   if(typeof acAdjuntarBuscador === 'function'){
     acTrabAsegurar(function(){
