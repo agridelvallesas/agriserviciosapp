@@ -99,6 +99,23 @@
   .ok-grande{font-size:52px;line-height:1;margin-bottom:10px}
   .paso{font-size:12px;font-weight:700;letter-spacing:.09em;color:var(--vd);text-transform:uppercase}
   @media (min-width:520px){ .dos{display:grid;grid-template-columns:1fr 1fr;gap:0 14px} }
+
+  /* Dirección por partes */
+  .dcaja{border:1.5px solid var(--bd);border-radius:11px;padding:12px;background:#fcfdfe}
+  .dmodos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:11px}
+  .dmodos button{min-height:46px;font-size:12px;font-weight:700;border-radius:9px;
+    border:1.5px solid var(--bd);background:#fff;color:var(--g2);font-family:inherit;
+    cursor:pointer;padding:4px 2px;line-height:1.2}
+  .dmodos button.on{background:var(--vd);border-color:var(--vd);color:#fff}
+  .dfila{display:grid;gap:8px;margin-bottom:9px}
+  .dfila.d2{grid-template-columns:1fr 1fr}
+  .dfila.d3{grid-template-columns:1.4fr 1fr 1fr}
+  .dfila label{font-size:11.5px;margin:0 0 4px}
+  .dprev{background:#f1f5f9;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;margin-top:4px}
+  .dprev b{font-family:ui-monospace,Menlo,monospace;font-size:15px;display:block;margin-top:2px}
+  .dchips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+  .dchips button{padding:6px 10px;border:1px solid var(--bd);background:#f8fafc;border-radius:7px;
+    font-size:12px;font-family:inherit;color:var(--g2);cursor:pointer;min-height:34px}
 </style>
 </head>
 <body>
@@ -131,7 +148,8 @@
     { t:'Sus datos', a:'Confirme lo que ya tenemos y corrija lo que haya cambiado.', c:[
       {k:'nombres', l:'Nombre completo', t:'txt'},
       {k:'fecha_nac', l:'Fecha de nacimiento', t:'fecha'},
-      {k:'lugar_exp', l:'Lugar de expedición de la cédula', t:'txt'},
+      {k:'depto_exp', l:'Departamento donde le expidieron la cédula', t:'depto'},
+      {k:'lugar_exp', l:'Municipio donde le expidieron la cédula', t:'muni', padre:'depto_exp'},
       {k:'fecha_exp', l:'Fecha de expedición', t:'fecha'},
       {k:'genero', l:'Género', t:'sel', o:['MASCULINO','FEMENINO']},
       {k:'estado_civil', l:'Estado civil', t:'sel', o:['UNIÓN LIBRE','SOLTERO/A','CASADO/A','DIVORCIADO/A','VIUDO/A']},
@@ -139,8 +157,9 @@
        n:'Si no está seguro, déjelo vacío y dígale a la persona de SST.'},
       {k:'telefono', l:'Teléfono', t:'tel'},
       {k:'email', l:'Correo electrónico', t:'mail'},
-      {k:'direccion', l:'Dirección de su casa', t:'txt'},
-      {k:'ciudad', l:'Municipio donde vive', t:'txt'}
+      {k:'direccion', l:'Dirección de su casa', t:'dir'},
+      {k:'departamento_res', l:'Departamento donde vive', t:'depto'},
+      {k:'ciudad', l:'Municipio donde vive', t:'muni', padre:'departamento_res'}
     ]},
     { t:'Su trabajo y su dotación', a:'El cargo y la fecha de ingreso los pone la empresa.', c:[
       {k:'cargo', l:'Cargo', t:'ro'},
@@ -199,6 +218,148 @@
       {k:'observacion', l:'¿Algo más que quiera contarle a SST?', t:'area'}
     ]}
   ];
+
+  // ── dirección con nomenclatura DIAN ──────────────────────────────
+  // Lo esencial de la tabla de la DIAN: lo que de verdad usa la gente
+  // aquí. La lista completa vive en el sistema de la oficina.
+  var D_VIAS  = [['CR','Carrera'],['CL','Calle'],['AV','Avenida'],['DG','Diagonal'],
+                 ['TV','Transversal'],['AC','Avenida calle'],['AK','Avenida carrera'],
+                 ['CLJ','Callejón'],['AUT','Autopista']];
+  var D_RURAL = [['VRD','Vereda'],['C','Corregimiento'],['FCA','Finca'],['KM','Kilómetro'],
+                 ['CAS','Caserío'],['HC','Hacienda'],['PRJ','Paraje']];
+  var D_CASA  = [['CA','Casa'],['LT','Lote'],['AP','Apto'],['BL','Bloque']];
+  var D_CHIPS = [['BRR','Barrio'],['C','Corregimiento'],['VRD','Vereda'],
+                 ['CA','Casa'],['AP','Apto'],['TO','Torre']];
+
+  var DIRP = {modo:'urbana'};
+
+  function dUp(x){ return String(x===null||x===undefined?'':x).replace(/\s+/g,' ').trim().toUpperCase(); }
+
+  function celDirArmar(p){
+    p = p || {};
+    if(p.modo === 'manzana'){
+      var m = ['MZ', dUp(p.num)].filter(Boolean).join(' ');
+      if(dUp(p.casa)) m += ' ' + (dUp(p.casaTipo)||'CA') + ' ' + dUp(p.casa);
+      return (dUp(p.compl) ? m + ' ' + dUp(p.compl) : m).trim();
+    }
+    if(p.modo === 'rural'){
+      var r = [dUp(p.via), dUp(p.nombre)].filter(Boolean).join(' ');
+      return (dUp(p.compl) ? r + ' ' + dUp(p.compl) : r).trim();
+    }
+    var b = (dUp(p.via) + ' ' + dUp(p.num) + dUp(p.letra)).trim();
+    if(dUp(p.num2)) b += ' # ' + dUp(p.num2) + dUp(p.letra2);
+    if(dUp(p.placa)) b += ' - ' + dUp(p.placa);
+    if(dUp(p.compl)) b += ' ' + dUp(p.compl);
+    return b.replace(/\s+/g,' ').trim();
+  }
+
+  function dOpts(lista, sel){
+    var s = dUp(sel), h = '<option value="">— escoja —</option>', hay = false;
+    lista.forEach(function(x){
+      if(x[0] === s) hay = true;
+      h += '<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>';
+    });
+    if(s && !hay) h += '<option value="'+esc(s)+'" selected>'+esc(s)+'</option>';
+    return h;
+  }
+
+  function celDirHTML(){
+    var p = DIRP, m = p.modo || 'urbana';
+    var h = '<div class="dcaja"><div class="dmodos">';
+    [['urbana','Calle o<br>carrera'],['manzana','Manzana<br>y casa'],['rural','Vereda o<br>finca']]
+      .forEach(function(x){
+        h += '<button type="button" class="'+(m===x[0]?'on':'')+'" data-modo="'+x[0]+'">'+x[1]+'</button>';
+      });
+    h += '</div>';
+
+    if(m === 'rural'){
+      h += '<div class="dfila"><div><label>Tipo</label>'
+        + '<select id="d_via">'+dOpts(D_RURAL, p.via)+'</select></div></div>'
+        + '<div class="dfila"><div><label>Nombre</label>'
+        + '<input type="text" id="d_nombre" value="'+esc(p.nombre||'')+'" placeholder="EL ROCÍO"/></div></div>';
+    } else if(m === 'manzana'){
+      h += '<div class="dfila d3">'
+        + '<div><label>Manzana</label><input type="tel" inputmode="text" id="d_num" value="'+esc(p.num||'')+'" placeholder="1"/></div>'
+        + '<div><label>&nbsp;</label><select id="d_casatipo">'+dOpts(D_CASA, p.casaTipo||'CA')+'</select></div>'
+        + '<div><label>Número</label><input type="tel" inputmode="text" id="d_casa" value="'+esc(p.casa||'')+'" placeholder="22"/></div>'
+        + '</div>';
+    } else {
+      h += '<div class="dfila d3">'
+        + '<div><label>Vía</label><select id="d_via">'+dOpts(D_VIAS, p.via)+'</select></div>'
+        + '<div><label>Número</label><input type="tel" inputmode="numeric" id="d_num" value="'+esc(p.num||'')+'" placeholder="6"/></div>'
+        + '<div><label>Letra</label><input type="text" id="d_letra" value="'+esc(p.letra||'')+'" maxlength="2" placeholder="A"/></div>'
+        + '</div>'
+        + '<div class="dfila d3">'
+        + '<div><label># Número</label><input type="tel" inputmode="numeric" id="d_num2" value="'+esc(p.num2||'')+'" placeholder="10"/></div>'
+        + '<div><label>Letra</label><input type="text" id="d_letra2" value="'+esc(p.letra2||'')+'" maxlength="2" placeholder="B"/></div>'
+        + '<div><label>– Placa</label><input type="tel" inputmode="numeric" id="d_placa" value="'+esc(p.placa||'')+'" placeholder="15"/></div>'
+        + '</div>';
+    }
+
+    h += '<div class="dfila"><div><label>Barrio, corregimiento…</label>'
+      + '<input type="text" id="d_compl" value="'+esc(p.compl||'')+'" placeholder="BRR LA PAILA"/>'
+      + '<div class="dchips">'
+      + D_CHIPS.map(function(x){ return '<button type="button" data-chip="'+x[0]+'" title="'+x[1]+'">'+x[0]+'</button>'; }).join('')
+      + '</div></div></div>'
+      + '<div class="dprev"><span style="font-size:10.5px;letter-spacing:.07em;color:var(--g3);font-weight:700">ASÍ VA A QUEDAR</span>'
+      + '<b id="d_prev">—</b></div></div>';
+    return h;
+  }
+
+  function celDirEscuchas(){
+    var caja = document.querySelector('.dcaja');
+    if(!caja) return;
+    caja.querySelectorAll('.dmodos button').forEach(function(b){
+      b.onclick = function(){
+        DIRP = {modo: b.dataset.modo, compl: DIRP.compl || '',
+                num: DIRP.num || '', casaTipo: DIRP.casaTipo || 'CA'};
+        var cont = caja.parentNode;
+        cont.innerHTML = celDirHTML();
+        celDirEscuchas();
+      };
+    });
+    caja.querySelectorAll('.dchips button').forEach(function(b){
+      b.onclick = function(){
+        var el = $('d_compl');
+        var v = String(el.value||'').trim();
+        el.value = (v ? v + ' ' : '') + b.dataset.chip + ' ';
+        el.focus(); celDirLeer();
+      };
+    });
+    ['via','num','letra','num2','letra2','placa','nombre','casa','casatipo','compl'].forEach(function(k){
+      var el = $('d_' + k);
+      if(el){ el.addEventListener('input', celDirLeer); el.addEventListener('change', celDirLeer); }
+    });
+    celDirLeer();
+  }
+
+  function celDirLeer(){
+    var g = function(k){ var e = $('d_' + k); return e ? (e.value || '') : ''; };
+    var p = DIRP;
+    if(p.modo === 'rural'){ p.via = g('via'); p.nombre = g('nombre'); }
+    else if(p.modo === 'manzana'){ p.num = g('num'); p.casaTipo = g('casatipo') || 'CA'; p.casa = g('casa'); }
+    else { p.via = g('via'); p.num = g('num'); p.letra = g('letra');
+           p.num2 = g('num2'); p.letra2 = g('letra2'); p.placa = g('placa'); }
+    p.compl = g('compl');
+    var t = celDirArmar(p);
+    DATOS.direccion = t;
+    DATOS.direccion_partes = t ? JSON.stringify(p) : '';
+    var pv = $('d_prev');
+    if(pv) pv.textContent = t || '—';
+  }
+
+  // ── departamentos y municipios ───────────────────────────────────
+  var CAT_DEP = [], CAT_MUN = {};
+  function catCargar(depto, cb){
+    var cuerpo = {accion:'encPubCatalogo'};
+    if(depto) cuerpo.departamento = depto;
+    post(cuerpo).then(function(d){
+      if(!d || !d.ok) return cb && cb(false);
+      if(depto) CAT_MUN[depto] = d.municipios || [];
+      else CAT_DEP = d.departamentos || [];
+      cb && cb(true);
+    }).catch(function(){ cb && cb(false); });
+  }
 
   // ── utilidades ──
   function esc(s){
@@ -280,8 +441,19 @@
         return;
       }
       JORNADA = d.jornada; NOMBRE = d.nombres || ''; DATOS = d.datos || {};
+      if (DATOS.direccion_partes) {
+        try { DIRP = JSON.parse(DATOS.direccion_partes); } catch(e){ DIRP = {modo:'urbana'}; }
+      }
       if (d.ya_enviada) { pantallaYaEnviada(); return; }
-      pantallaConfirmar();
+      // los desplegables de departamento y municipio necesitan el catálogo
+      catCargar('', function(){
+        var pend = ['depto_exp','departamento_res']
+          .map(function(k){ return String(DATOS[k]||'').toUpperCase(); })
+          .filter(function(x){ return x && !CAT_MUN[x]; });
+        if (!pend.length) { pantallaConfirmar(); return; }
+        var n = pend.length;
+        pend.forEach(function(dp){ catCargar(dp, function(){ if(--n === 0) pantallaConfirmar(); }); });
+      });
     }).catch(function(){
       CED = '';
       pantallaCedula('<div class="aviso a-rojo"><b>No hay conexión</b><br>' +
@@ -333,7 +505,22 @@
       '<label for="' + id + '">' + esc(c.l) +
       (c.n ? '<span class="nota"><br>' + esc(c.n) + '</span>' : '') + '</label>';
 
-    if (c.t === 'sino') {
+    if (c.t === 'dir') {
+      h += celDirHTML();
+    } else if (c.t === 'depto') {
+      h += '<select id="' + id + '"><option value="">— escoja —</option>'
+        + CAT_DEP.map(function(x){
+            return '<option value="'+esc(x)+'"'+(v===x?' selected':'')+'>'+esc(x)+'</option>';
+          }).join('') + '</select>';
+    } else if (c.t === 'muni') {
+      var pad = String(DATOS[c.padre] || '').toUpperCase();
+      var lista = CAT_MUN[pad] || [];
+      h += '<select id="' + id + '">'
+        + (pad ? '<option value="">— escoja —</option>' : '<option value="">escoja primero el departamento</option>')
+        + lista.map(function(x){
+            return '<option value="'+esc(x)+'"'+(v===x?' selected':'')+'>'+esc(x)+'</option>';
+          }).join('') + '</select>';
+    } else if (c.t === 'sino') {
       h += '<div class="sino" id="' + id + '">' +
         '<button type="button" class="' + (v === 'SI' ? 'on' : '') + '" data-v="SI">Sí</button>' +
         '<button type="button" class="no ' + (v === 'NO' ? 'on' : '') + '" data-v="NO">No</button></div>';
@@ -382,9 +569,25 @@
     $('app').innerHTML = h;
 
     // escuchas
+    if (p.c.some(function(c){ return c.t === 'dir'; })) celDirEscuchas();
+
     p.c.forEach(function(c){
+      if (c.t === 'dir') return;              // tiene sus propias escuchas
       var el = $('f_' + c.k);
       if (!el) return;
+      if (c.t === 'depto') {
+        el.addEventListener('change', function(){
+          DATOS[c.k] = el.value;
+          var hijo = p.c.filter(function(x){ return x.padre === c.k; })[0];
+          if (hijo) DATOS[hijo.k] = '';
+          var d = String(el.value || '').toUpperCase();
+          if (d && !CAT_MUN[d]) {
+            señal('Buscando municipios…');
+            catCargar(d, function(){ pintarPaso(); });
+          } else { pintarPaso(); }
+        });
+        return;
+      }
       if (c.t === 'sino') {
         el.querySelectorAll('button').forEach(function(b){
           b.onclick = function(){
@@ -431,6 +634,7 @@
   function recoger(){
     PASOS[PASO].c.forEach(function(c){
       if (c.t === 'sino') return;         // ese se guarda al tocarlo
+      if (c.t === 'dir') { celDirLeer(); return; }
       var el = $('f_' + c.k);
       if (el) DATOS[c.k] = el.value;
     });
