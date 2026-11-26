@@ -3620,6 +3620,13 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="sy" style="font-size:15px;font-weight:600;margin-bottom:16px">Editar registro</div>
     <div class="fg">
       <div class="fld full"><label>Empleado</label><input type="text" id="me-emp" readonly/></div>
+      <div class="fld full"><label>Tipo de registro</label>
+        <select id="me-tipo" onchange="meTipoCambio()">
+          <option value="labor">Labor — trabajó ese día</option>
+          <option value="novedad">Novedad — no trabajó ese día</option>
+        </select>
+      </div>
+      <div class="fld full" id="me-tipo-aviso" style="display:none"></div>
       <div class="fld"><label>Día</label><select id="me-dia" onchange="meDiaCambio()"><option>L</option><option>M</option><option>MI</option><option>J</option><option>V</option><option>S</option><option>D</option></select></div>
       <div class="fld"><label>Semana</label><select id="me-sem" onchange="meDiaCambio()"></select></div>
       <div class="fld full" id="me-nov-wrap" style="display:none">
@@ -4568,7 +4575,9 @@ function rebuilTarSelects(){
   // no hay selects que reconstruir. Solo actualizar el modal de editar.
   var ml=document.getElementById('me-lab');
   if(ml){
-    ml.innerHTML='';
+    // la primera opción en blanco: al pasar una novedad a labor el campo
+    // queda vacío y hay que escoger, no se adivina la labor
+    ml.innerHTML='<option value="">— Escoja la labor —</option>';
     TAR.forEach(function(t){
       var o=document.createElement('option');
       o.value=t.id; o.textContent=t.d+' · '+t.u;
@@ -11786,6 +11795,9 @@ function abrirME(id){
   if(typeof pintarSelectNovedades==='function') pintarSelectNovedades();
   var nvEl=document.getElementById('me-nov');      if(nvEl) nvEl.value=r.nov||'';
   ME_TIPO = String(r.tipo||'labor');
+  ME_TIPO_ORIG = ME_TIPO;
+  var tpEl=document.getElementById('me-tipo'); if(tpEl) tpEl.value=ME_TIPO;
+  meTipoAviso();
   // Sede del registro (la del coordinador que lo reportó): define tarifa y manejo de vigilancia
   ME_SEDE=meSedeDeRegistro(r);
   // Cargar valores de vigilancia si aplica
@@ -11801,6 +11813,53 @@ function abrirME(id){
 function closeME(){document.getElementById('med').classList.remove('on');}
 
 var ME_TIPO='labor';   // 'labor' o 'novedad': decide qué se muestra
+var ME_TIPO_ORIG='labor';   // con cuál se abrió, para avisar si cambió
+
+// Un registro puede estar mal clasificado: se reportó como labor algo que
+// era un permiso, o al contrario. Cambiarlo aquí evita borrarlo y
+// volverlo a crear. Lo que no corresponde al tipo nuevo se limpia, para
+// que no quede un pago pegado a una incapacidad ni una novedad pegada a
+// una labor.
+function meTipoCambio(){
+  var sel=document.getElementById('me-tipo');
+  var nuevo=String((sel&&sel.value)||'labor')==='novedad' ? 'novedad' : 'labor';
+  if(nuevo===ME_TIPO){ meTipoAviso(); return; }
+  ME_TIPO=nuevo;
+  if(ME_TIPO==='novedad'){
+    // deja de ser labor: no hay labor, ni cantidad, ni valores, ni vigilancia
+    var lb=document.getElementById('me-lab');      if(lb) lb.value='';
+    var ct=document.getElementById('me-cant');     if(ct) ct.value='';
+    var ot=document.getElementById('me-obstarea'); if(ot) ot.value='';
+    var pg=document.getElementById('me-pago');     if(pg) pg.value=cop(0);
+    var cb=document.getElementById('me-cobro');    if(cb) cb.value=cop(0);
+    var vd=document.getElementById('me-vigD');     if(vd) vd.value=0;
+    var vn=document.getElementById('me-vigN');     if(vn) vn.value=0;
+    if(typeof meCalcVig==='function') meCalcVig();
+  } else {
+    // deja de ser novedad: la novedad ya no aplica
+    var nv=document.getElementById('me-nov');      if(nv) nv.value='';
+  }
+  meAcomodar();
+  if(ME_TIPO!=='novedad' && typeof calcME==='function') calcME();
+  meTipoAviso();
+}
+
+// Cambiar el tipo no es un ajuste menor: cambia qué se le paga al
+// trabajador y qué se le cobra a Riopaila. Se dice en pantalla antes
+// de guardar.
+function meTipoAviso(){
+  var av=document.getElementById('me-tipo-aviso');
+  if(!av) return;
+  if(ME_TIPO===ME_TIPO_ORIG){ av.style.display='none'; av.innerHTML=''; return; }
+  var txt = (ME_TIPO==='novedad')
+    ? 'Este registro entró como <strong>labor</strong> y va a quedar como <strong>novedad</strong>: '
+      + 'se le quitan la labor, la cantidad, el pago y el cobro. Queda en cero.'
+    : 'Este registro entró como <strong>novedad</strong> y va a quedar como <strong>labor</strong>: '
+      + 'se le quita la novedad y hay que escoger la labor y la cantidad para que calcule el pago.';
+  av.style.display='';
+  av.innerHTML='<div style="background:#fff8e1;border:1px solid #fbbf24;border-radius:var(--rads);'
+    + 'padding:8px 12px;font-size:11.5px;color:#92400e;font-weight:600">' + txt + '</div>';
+}
 
 // Un registro es una labor o una novedad: no tiene sentido pedir la
 // cantidad de una incapacidad ni la novedad de una labor.
@@ -11973,7 +12032,7 @@ function saveME(){
   // silencio — por eso no se podía ni cambiar el día de una novedad.
   var o = (lab && lab.selectedIndex >= 0) ? lab.options[lab.selectedIndex] : null;
 
-  if(!esNov && !o){
+  if(!esNov && (!o || !o.value)){
     showSync('⚠️ Escoja la labor antes de guardar','r');
     return;
   }
@@ -11983,12 +12042,22 @@ function saveME(){
   var c = esNov ? {tar:{},u:'',cant:0,pago:0,cobro:0,esVigFinal:false,vigHd:0,vigHn:0,cobroVig:0}
                 : meCalcular();
 
+  // lo que viaja a la base y se refleja en las listas en memoria.
+  // 'nov' y 'obsTarea' se limpian según el tipo: si quedó labor no
+  // puede quedar con novedad, y si quedó novedad no lleva observación
+  // de tarea.
+  var novFinal = esNov ? meTxt('me-nov', srcCache[idx].nov) : '';
+  var otFinal  = esNov ? '' : meTxt('me-obstarea', srcCache[idx].obsTarea);
+  var alimFinal= meNum('me-alim', srcCache[idx].alim);
+
   var nuevo = esNov ? {
+    tipo:'novedad',
     dia:  document.getElementById('me-dia').value,
     sem:  document.getElementById('me-sem').value,
     labId:'', lab:'', u:'', cant:0, pago:0, cobro:0,
     esVig:false, vigHd:0, vigHn:0, cobroVig:0
   } : {
+    tipo:'labor',
     dia:  document.getElementById('me-dia').value,
     sem:  document.getElementById('me-sem').value,
     labId:o.value, lab:(c.tar.d||o.text.split(' · ')[0]),
@@ -12012,17 +12081,17 @@ function saveME(){
   fetch(APPS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({accion:'editarReg',
     id:srcCache[idx].id, coord:srcCache[idx].coord,
     adm:srcCache[idx].adm, sem:nuevo.sem, ced:srcCache[idx].ced,
-    emp:srcCache[idx].emp, dia:nuevo.dia, tipo:srcCache[idx].tipo,
+    emp:srcCache[idx].emp, dia:nuevo.dia, tipo:ME_TIPO,
     labId:nuevo.labId, lab:nuevo.lab, u:nuevo.u,
     cant:nuevo.cant, pago:nuevo.pago, cobro:nuevo.cobro,
-    alim:meNum('me-alim', srcCache[idx].alim),
-    nov:meTxt('me-nov', srcCache[idx].nov),
+    alim:alimFinal,
+    nov:novFinal,
     obs:obs,
     esVig:nuevo.esVig||false, vigHd:nuevo.vigHd||0,
     vigHn:nuevo.vigHn||0,
     domFest: meDomFestActual(),     // sale de la fecha nueva, no de la vieja
     cobroVig:nuevo.cobroVig||0,
-    obsTarea: esNov ? '' : meTxt('me-obstarea', srcCache[idx].obsTarea)
+    obsTarea: otFinal
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -12033,6 +12102,10 @@ function saveME(){
     }
     // Confirmar en memoria en TODAS las listas donde esté ese registro
     var idReg=srcCache[idx].id;
+    // antes solo se actualizaban los valores: la novedad, las dos
+    // observaciones y el auxilio se quedaban con lo viejo en la lista
+    // hasta recargar la página.
+    nuevo.nov=novFinal; nuevo.obs=obs; nuevo.obsTarea=otFinal; nuevo.alim=alimFinal;
     [REGS, (typeof TD_REGS_CACHE!=='undefined'?TD_REGS_CACHE:[]), (typeof MR_CACHE!=='undefined'?MR_CACHE:[])].forEach(function(arr){
       if(!Array.isArray(arr)) return;
       arr.forEach(function(x){ if(x && x.id===idReg) Object.assign(x, nuevo); });
