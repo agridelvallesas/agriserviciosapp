@@ -26232,17 +26232,48 @@ function encFormPintar(e){
 
   // buscador por nombre sobre el campo de cédula: el mismo que ya usan
   // RH, vacaciones e incapacidades
-  if(!editando && typeof acAdjuntarBuscador === 'function'){
+  // Buscar por nombre o por cédula, igual al crear que al editar. Al
+  // editar sirve para corregir una cédula mal digitada.
+  ENC_CED_ORIG = String((e && e.cedula) || '').replace(/\D/g, '');
+  if(typeof acAdjuntarBuscador === 'function'){
     acTrabAsegurar(function(){
       acAdjuntarBuscador('enc-f-cedula', acTrabFuente, function(ced, nom){
         var i = document.getElementById('enc-f-cedula');
         if(i) i.value = ced;
         var n = document.getElementById('enc-f-nombres');
-        if(n && !String(n.value||'').trim()) n.value = nom;
-        encDesdeTrabajador();
+        // al editar sí se pisa el nombre: si cambió la cédula, el de
+        // antes es el de la persona equivocada
+        if(n && (!String(n.value||'').trim() || editando)) n.value = nom;
+        encAvisoCedula();
+        if(!editando) encDesdeTrabajador();
       });
     });
   }
+  var ci = document.getElementById('enc-f-cedula');
+  if(ci) ci.addEventListener('input', encAvisoCedula);
+}
+
+var ENC_CED_ORIG = '';   // la cédula con la que se abrió, para avisar si cambia
+
+// Avisa en el formulario cuando la cédula deja de ser la original
+function encAvisoCedula(){
+  if(!ENC_CED_ORIG) return;
+  var i = document.getElementById('enc-f-cedula');
+  if(!i) return;
+  var ahora = String(i.value || '').replace(/\D/g, '');
+  var caja = document.getElementById('enc-ced-aviso');
+  if(!caja){
+    var fld = i.closest ? i.closest('.fld') : null;
+    if(!fld) return;
+    caja = document.createElement('div');
+    caja.id = 'enc-ced-aviso';
+    fld.appendChild(caja);
+  }
+  if(!ahora || ahora === ENC_CED_ORIG){ caja.innerHTML = ''; return; }
+  caja.innerHTML = '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;'
+    + 'padding:7px 10px;font-size:11.5px;color:#78350f;margin-top:5px">'
+    + 'La cédula cambió (antes <b>' + encEsc(ENC_CED_ORIG) + '</b>). '
+    + 'Al guardar, esta encuesta pasa a otra persona.</div>';
 }
 
 function encCampoHTML(c, e){
@@ -26407,6 +26438,26 @@ function encGuardar(){
     : {accion:'guardarEncuesta', encuesta:e};
 
   encPost(cuerpo).then(function(d){
+    // el servidor frena el cambio de cédula hasta que alguien lo confirme
+    if(d && d.ok === false && d.cod === 'CAMBIO_CEDULA'){
+      var msj = 'Esta encuesta es de ' + (d.nombres_actual || 'C.C. ' + d.cedula_actual)
+        + ' (C.C. ' + d.cedula_actual + ').\n\n'
+        + 'Al cambiar la cédula a ' + ced + ', la encuesta pasa a ser de otra persona.\n';
+      if(d.volcada){
+        msj += '\nOJO: sus datos ya se habían pasado a la ficha de '
+             + (d.nombres_actual || 'la persona anterior')
+             + '. Ese cambio en la ficha de RH NO se deshace, toca revisarlo aparte.\n';
+      }
+      if(!confirm(msj + '\n¿Continuar?')) return;
+      cuerpo.confirmaCambioCedula = true;
+      encPost(cuerpo).then(function(d2){
+        if(!d2 || !d2.ok){ alert('No se pudo guardar: '+((d2&&d2.error)||'?')); return; }
+        ENC_ROWS = []; ENC_RES = null;
+        alert('Encuesta actualizada. Ahora es de la cédula ' + ced + '.');
+        go('enc'); encAbrir();
+      }).catch(function(ex){ alert('Error de red: '+ex.message); });
+      return;
+    }
     if(!d || !d.ok){ alert('No se pudo guardar: '+((d&&d.error)||'?')); return; }
     ENC_ROWS = []; ENC_RES = null;
     if(d.aviso) alert(d.aviso);
