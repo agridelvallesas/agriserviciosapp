@@ -349,6 +349,11 @@ tfoot td{background:var(--gf);font-weight:700}
 .dir-fila{display:flex;gap:8px;flex-wrap:wrap}
 .dir-caja{border:1px solid var(--bd);border-radius:10px;padding:11px;background:#fcfdfe;margin-top:4px}
 @media (max-width:620px){ .dir-fila > div{flex:1 1 100% !important} }
+
+/* Hoja de resumen de la encuesta */
+.enc-rejilla{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+@media (max-width:620px){ .enc-rejilla{grid-template-columns:1fr} }
+@media print{ .no-print{display:none !important} }
 </style>
 </head>
 <body>
@@ -3615,14 +3620,21 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="sy" style="font-size:15px;font-weight:600;margin-bottom:16px">Editar registro</div>
     <div class="fg">
       <div class="fld full"><label>Empleado</label><input type="text" id="me-emp" readonly/></div>
-      <div class="fld"><label>Día</label><select id="me-dia"><option>L</option><option>M</option><option>MI</option><option>J</option><option>V</option><option>S</option><option>D</option></select></div>
-      <div class="fld"><label>Semana</label><select id="me-sem"></select></div>
-      <div class="fld full"><label>Labor <span style="font-size:10px;color:var(--g3)">(N=Norte, S=Sur)</span></label><select id="me-lab" onchange="calcME()"></select></div>
+      <div class="fld"><label>Día</label><select id="me-dia" onchange="meDiaCambio()"><option>L</option><option>M</option><option>MI</option><option>J</option><option>V</option><option>S</option><option>D</option></select></div>
+      <div class="fld"><label>Semana</label><select id="me-sem" onchange="meDiaCambio()"></select></div>
+      <div class="fld full" id="me-nov-wrap" style="display:none">
+        <label>Novedad</label>
+        <select id="me-nov" style="border:2px solid #fbbf24;border-radius:10px;padding:10px;font-weight:600"></select>
+      </div>
+      <div class="fld full" id="me-lab-wrap"><label>Labor <span style="font-size:10px;color:var(--g3)">(N=Norte, S=Sur)</span></label><select id="me-lab" onchange="calcME()"></select></div>
       <div class="fld" id="me-cant-wrap"><label>Cantidad</label><input type="number" id="me-cant" step="0.01" min="0" oninput="calcME()"/></div>
-      <div class="fld"><label>Pago calculado</label><input type="text" id="me-pago" readonly/></div>
-      <div class="fld"><label>Cobro calculado</label><input type="text" id="me-cobro" readonly/></div>
+      <div class="fld" id="me-pago-wrap"><label>Pago calculado</label><input type="text" id="me-pago" readonly/></div>
+      <div class="fld" id="me-cobro-wrap"><label>Cobro calculado</label><input type="text" id="me-cobro" readonly/></div>
       <div class="fld full" id="me-tar-info" style="font-size:11px;color:var(--g3);margin-top:-4px"></div>
-      <div class="fld full"><label>Observación</label><input type="text" id="me-obs" placeholder="Observación del registro..."/></div>
+      <div class="fld full" id="me-obstarea-wrap"><label>Observación de la labor <span style="font-size:10px;color:var(--g3)">(la que va con la tarea)</span></label><input type="text" id="me-obstarea" placeholder="Observación de la labor..."/></div>
+      <div class="fld full"><label>Observación del registro</label><input type="text" id="me-obs" placeholder="Observación del registro..."/></div>
+      <div class="fld" id="me-alim-wrap"><label>Auxilio de alimentación</label><input type="number" id="me-alim" step="1000" min="0" placeholder="0"/></div>
+      <div class="fld full" id="me-domfest-aviso" style="display:none"></div>
       <!-- PANEL VIGILANCIA MAQUINARIA NORTE — solo aparece si la labor es vigilancia y sede norte -->
       <div class="fld full" id="me-vig-panel" style="display:none">
         <div style="background:#fff8e1;border:1px solid #fbbf24;border-radius:var(--rads);padding:10px 14px">
@@ -11769,6 +11781,11 @@ function abrirME(id){
   document.getElementById('me-pago').value=cop(r.pago);
   var ceEl=document.getElementById('me-cobro'); if(ceEl) ceEl.value=cop((r.cobro||0)+(r.cobroVig||0));
   var obsEl=document.getElementById('me-obs');if(obsEl)obsEl.value=r.obs||'';
+  var otEl=document.getElementById('me-obstarea'); if(otEl) otEl.value=r.obsTarea||'';
+  var alEl=document.getElementById('me-alim');     if(alEl) alEl.value=r.alim||'';
+  if(typeof pintarSelectNovedades==='function') pintarSelectNovedades();
+  var nvEl=document.getElementById('me-nov');      if(nvEl) nvEl.value=r.nov||'';
+  ME_TIPO = String(r.tipo||'labor');
   // Sede del registro (la del coordinador que lo reportó): define tarifa y manejo de vigilancia
   ME_SEDE=meSedeDeRegistro(r);
   // Cargar valores de vigilancia si aplica
@@ -11777,10 +11794,63 @@ function abrirME(id){
   meCalcVig();
   meTogVigPanel();
   calcME(); // recalcula con la tarifa VIGENTE (por si cambió desde que se reportó)
+  meAcomodar();   // de último: calcME vuelve a mostrar la cantidad
   document.getElementById('med').classList.add('on');
 }
 
 function closeME(){document.getElementById('med').classList.remove('on');}
+
+var ME_TIPO='labor';   // 'labor' o 'novedad': decide qué se muestra
+
+// Un registro es una labor o una novedad: no tiene sentido pedir la
+// cantidad de una incapacidad ni la novedad de una labor.
+function meAcomodar(){
+  var esNov = (ME_TIPO === 'novedad');
+  var ver = function(id, on){
+    var e=document.getElementById(id);
+    if(e) e.style.display = on ? '' : 'none';
+  };
+  ver('me-nov-wrap',    esNov);
+  ver('me-lab-wrap',    !esNov);
+  ver('me-cant-wrap',   !esNov);
+  ver('me-pago-wrap',   !esNov);
+  ver('me-cobro-wrap',  !esNov);
+  ver('me-tar-info',    !esNov);
+  ver('me-obstarea-wrap', !esNov);
+  if(esNov){
+    var vp=document.getElementById('me-vig-panel');
+    if(vp) vp.style.display='none';
+  }
+  meDiaCambio();
+}
+
+// El recargo dominical/festivo sale de la FECHA, no se escribe a mano.
+// Si se cambia el día o la semana hay que recalcularlo: si no, un
+// registro movido de domingo a lunes se quedaba con el recargo.
+function meDomFestActual(){
+  var dia=(document.getElementById('me-dia')||{}).value||'';
+  var semv=(document.getElementById('me-sem')||{}).value||'';
+  if(!dia||!semv) return false;
+  try{
+    var p = (typeof semSel==='function') ? semSel('me-sem') : {anio:ANIO_ACTIVO, sem:semv};
+    var f = getFecha(p.sem, dia, p.anio);
+    return esDomFest(f);
+  }catch(e){ return false; }
+}
+
+function meDiaCambio(){
+  var df = meDomFestActual();
+  var av = document.getElementById('me-domfest-aviso');
+  if(av){
+    av.style.display = df ? '' : 'none';
+    av.innerHTML = df
+      ? '<div style="background:#fdecea;border:1px solid #f5b7b1;border-radius:var(--rads);'
+        + 'padding:8px 12px;font-size:11.5px;color:var(--r);font-weight:600">'
+        + 'Ese día es dominical o festivo: el registro queda marcado como tal.</div>'
+      : '';
+  }
+  if(ME_TIPO !== 'novedad' && typeof calcME==='function') calcME();
+}
 
 var ME_SEDE='';   // sede del registro que se está editando (NORTE / SUR)
 
@@ -11872,6 +11942,17 @@ function calcME(){
   }
 }
 
+// Lee del cuadro si el campo existe; si no, conserva lo que ya tenía
+function meTxt(id, porDefecto){
+  var e=document.getElementById(id);
+  return e ? String(e.value||'') : String(porDefecto||'');
+}
+function meNum(id, porDefecto){
+  var e=document.getElementById(id);
+  if(!e) return parseFloat(porDefecto)||0;
+  return parseFloat(e.value)||0;
+}
+
 function saveME(){
   var idx=REGS.findIndex(function(x){return x.id===S.editId;});
   var srcCache=REGS;
@@ -11885,13 +11966,29 @@ function saveME(){
   }
   if(idx<0)return;
 
+  var esNov = (ME_TIPO === 'novedad');
   var lab=document.getElementById('me-lab');
-  var o=lab.options[lab.selectedIndex];
+  // Una novedad no tiene labor: selectedIndex queda en -1 y 'o' sale
+  // indefinido. Antes se usaba sin comprobar y el guardado se moría en
+  // silencio — por eso no se podía ni cambiar el día de una novedad.
+  var o = (lab && lab.selectedIndex >= 0) ? lab.options[lab.selectedIndex] : null;
+
+  if(!esNov && !o){
+    showSync('⚠️ Escoja la labor antes de guardar','r');
+    return;
+  }
+
   // Si se abrió sin pasar por abrirME, deducir la sede del registro
   if(!ME_SEDE) ME_SEDE=meSedeDeRegistro(srcCache[idx]);
-  var c=meCalcular();
+  var c = esNov ? {tar:{},u:'',cant:0,pago:0,cobro:0,esVigFinal:false,vigHd:0,vigHn:0,cobroVig:0}
+                : meCalcular();
 
-  var nuevo={
+  var nuevo = esNov ? {
+    dia:  document.getElementById('me-dia').value,
+    sem:  document.getElementById('me-sem').value,
+    labId:'', lab:'', u:'', cant:0, pago:0, cobro:0,
+    esVig:false, vigHd:0, vigHn:0, cobroVig:0
+  } : {
     dia:  document.getElementById('me-dia').value,
     sem:  document.getElementById('me-sem').value,
     labId:o.value, lab:(c.tar.d||o.text.split(' · ')[0]),
@@ -11918,11 +12015,14 @@ function saveME(){
     emp:srcCache[idx].emp, dia:nuevo.dia, tipo:srcCache[idx].tipo,
     labId:nuevo.labId, lab:nuevo.lab, u:nuevo.u,
     cant:nuevo.cant, pago:nuevo.pago, cobro:nuevo.cobro,
-    alim:srcCache[idx].alim||0, nov:srcCache[idx].nov||'',
+    alim:meNum('me-alim', srcCache[idx].alim),
+    nov:meTxt('me-nov', srcCache[idx].nov),
     obs:obs,
     esVig:nuevo.esVig||false, vigHd:nuevo.vigHd||0,
-    vigHn:nuevo.vigHn||0, domFest:srcCache[idx].domFest||false,
-    cobroVig:nuevo.cobroVig||0, obsTarea:srcCache[idx].obsTarea||''
+    vigHn:nuevo.vigHn||0,
+    domFest: meDomFestActual(),     // sale de la fecha nueva, no de la vieja
+    cobroVig:nuevo.cobroVig||0,
+    obsTarea: esNov ? '' : meTxt('me-obstarea', srcCache[idx].obsTarea)
   })})
   .then(function(r){return r.json();})
   .then(function(data){
@@ -25740,10 +25840,10 @@ var ENC_FORM = [
   { sec:'Salud — alergias y tipo de sangre', ico:'i-stethoscope', campos:[
     {k:'activ_salud', l:'¿Ha participado en actividades de salud de la empresa?', t:'sel+', op:'activ_salud', ancho:2},
     {k:'alergia', l:'¿Es alérgico a algún medicamento, alimento o picadura?', t:'sino', ancho:2},
-    {k:'alergia_cual', l:'¿A cuál?', t:'txt', ancho:2, dep:{k:'alergia', v:'SI'}},
+    {k:'alergia_cual', l:'¿A cuál?', lr:'Alérgico a', t:'txt', ancho:2, dep:{k:'alergia', v:'SI'}},
     {k:'deporte', l:'¿Practica alguna actividad física o deporte?', t:'sino', ancho:2},
-    {k:'deporte_cual', l:'¿Cuál?', t:'txt', dep:{k:'deporte', v:'SI'}},
-    {k:'deporte_frec', l:'Veces al mes', t:'num', dep:{k:'deporte', v:'SI'}}
+    {k:'deporte_cual', l:'¿Cuál?', lr:'Qué deporte', t:'txt', dep:{k:'deporte', v:'SI'}},
+    {k:'deporte_frec', l:'Veces al mes', lr:'Veces al mes que hace deporte', t:'num', dep:{k:'deporte', v:'SI'}}
   ]},
   { sec:'Salud reservada', ico:'i-activity', salud:1, campos:[
     {k:'enfermedad', l:'¿Le han diagnosticado alguna enfermedad?', t:'sino', ancho:2},
@@ -25751,10 +25851,10 @@ var ENC_FORM = [
     {k:'medicamento', l:'¿Toma algún medicamento permanente?', t:'sino', ancho:2},
     {k:'medicamento_cual', l:'¿Cuál y por qué?', t:'txt', ancho:2, dep:{k:'medicamento', v:'SI'}},
     {k:'fuma', l:'¿Fuma?', t:'sino'},
-    {k:'fuma_prom', l:'Promedio diario', t:'num', dep:{k:'fuma', v:'SI'}},
+    {k:'fuma_prom', l:'Promedio diario', lr:'Cigarrillos al día', t:'num', dep:{k:'fuma', v:'SI'}},
     {k:'fuma_rango', l:'Rango', t:'calc', nota:'se calcula del promedio'},
     {k:'alcohol', l:'¿Consume bebidas alcohólicas?', t:'sino'},
-    {k:'alcohol_frec', l:'Frecuencia', t:'sel', op:'alcohol_frec', dep:{k:'alcohol', v:'SI'}}
+    {k:'alcohol_frec', l:'Frecuencia', lr:'Con qué frecuencia toma', t:'sel', op:'alcohol_frec', dep:{k:'alcohol', v:'SI'}}
   ]},
   { sec:'Documentos del vehículo', ico:'i-file-text', campos:[
     {k:'licencia', l:'Licencia de conducción', t:'sino'},
@@ -25948,7 +26048,7 @@ function encRender(){
 
   var h = '<div class="card" style="padding:0;overflow:auto">'
     + '<table><thead><tr>'
-    + '<th>Clase</th><th>Fecha</th><th>Cédula</th><th>Nombre</th><th>Cargo</th>'
+    + '<th>Clase</th><th>Fecha</th><th>Cédula</th><th>Nombre <span style="font-weight:400;color:var(--g3);font-size:10px">· clic para ver</span></th><th>Cargo</th>'
     + '<th>Ciudad</th><th>Monitor</th><th>Estado</th><th>Realizó</th><th>RH</th><th></th>'
     + '</tr></thead><tbody>';
 
@@ -25961,7 +26061,9 @@ function encRender(){
       +   (esInd ? 'IND' : 'REIN')+' '+encEsc(f.anio)+'</span></td>'
       + '<td style="white-space:nowrap">'+encEsc(f.fecha_encuesta)+'</td>'
       + '<td style="font-variant-numeric:tabular-nums">'+encEsc(f.cedula)+'</td>'
-      + '<td style="font-weight:600">'+encEsc(f.nombres)+'</td>'
+      + '<td><a href="javascript:void(0)" onclick="encVerResumen('+f.id+')" '
+      +   'style="font-weight:600;color:var(--v,#2d7a4d);text-decoration:none" '
+      +   'title="Ver el resumen">'+encEsc(f.nombres)+'</a></td>'
       + '<td>'+encEsc(f.cargo)+'</td>'
       + '<td>'+encEsc(f.ciudad)+'</td>'
       + '<td style="font-size:11.5px">'+encEsc(f.monitor)+'</td>'
@@ -25976,6 +26078,9 @@ function encRender(){
       +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Cruzar con Trabajadores" onclick="encComparar('+f.id+')"><svg class="icb"><use href="#i-arrow-right-left"/></svg></button> '
       +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Historial de la persona" onclick="encHistorial(\''+f.cedula+'\')"><svg class="icb"><use href="#i-history"/></svg></button> '
       +   '<button class="btn bg" style="height:26px;font-size:11px;padding:0 7px" title="Abrir" onclick="encEditar('+f.id+')"><svg class="icb"><use href="#i-pencil"/></svg></button>'
+      +   (encVeSaludUI()
+          ? ' <button class="btn bg" style="height:26px;font-size:11px;padding:0 7px;color:#b91c1c" title="Eliminar" onclick="encEliminar('+f.id+')"><svg class="icb"><use href="#i-trash-2"/></svg></button>'
+          : '')
       + '</td></tr>';
   });
 
@@ -26093,6 +26198,7 @@ function encFormPintar(e){
     +   (editando ? 'Encuesta '+encEsc(e.etiqueta||'')+' · '+encEsc(e.nombres||'') : 'Nueva encuesta sociodemográfica')
     + '</div>'
     + '<button class="btn bg" onclick="go(\'enc\')" style="height:34px"><svg class="icb"><use href="#i-arrow-left"/></svg> Volver</button>'
+    + (editando ? '<button class="btn bg" onclick="encVerResumen('+e.id+')" style="height:34px"><svg class="icb"><use href="#i-file-text"/></svg> Resumen</button>' : '')
     + (editando ? '' : '<button class="btn bg" onclick="encDesdeTrabajador()" style="height:34px"><svg class="icb"><use href="#i-search-check"/></svg> Traer datos de RH</button>')
     + '<button class="btn bn" onclick="encGuardar()" style="height:34px"><svg class="icb"><use href="#i-save"/></svg> Guardar</button>'
     + '</div>'
@@ -27517,6 +27623,176 @@ function dirCambio(base){
 // Para que quien guarde pueda preguntar si está completa
 function dirFalta(base){ return dianProblemas(DIR_P[base] || {}); }
 function dirValor(base){ return dianArmar(DIR_P[base] || {}); }
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  RESUMEN DE LA ENCUESTA Y ELIMINAR
+// ══════════════════════════════════════════════════════════════════════
+
+// ── RESUMEN: la encuesta de una persona, de corrido y para imprimir ──
+function encVerResumen(id){
+  encPost({accion:'getEncuesta', id:id}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo abrir: '+((d&&d.error)||'?')); return; }
+    encPintarResumenUno(d.encuesta);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encPintarResumenUno(e){
+  if(!e) return;
+  var veSalud = encVeSaludUI();
+  var esInd = String(e.tipo).toUpperCase() === 'IND';
+  var pend = String(e.estado_rev||'') === 'pendiente';
+
+  var h = '<div id="enc-hoja">'
+    + '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;'
+    +   'border-bottom:2px solid var(--bd);padding-bottom:11px;margin-bottom:13px">'
+    +   '<div style="flex:1;min-width:230px">'
+    +     '<div style="font-size:18px;font-weight:800;letter-spacing:-.01em">'+encEsc(e.nombres||'(sin nombre)')+'</div>'
+    +     '<div style="font-size:12.5px;color:var(--g3);margin-top:2px">C.C. '+encEsc(e.cedula)
+    +       (e.cargo ? ' · '+encEsc(e.cargo) : '')
+    +       (e.ciudad ? ' · '+encEsc(e.ciudad) : '')+'</div>'
+    +   '</div>'
+    +   '<div style="text-align:right">'
+    +     '<span style="display:inline-block;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700;'
+    +       (esInd?'background:#dcfce7;color:#15803d':'background:#e0e7ff;color:#4338ca')+'">'
+    +       (esInd?'Inducción':'Reinducción')+' '+encEsc(e.anio)+'</span>'
+    +     '<div style="font-size:11.5px;color:var(--g3);margin-top:3px">'+encEsc(e.fecha_encuesta||'')+'</div>'
+    +     (e.realizado_por ? '<div style="font-size:11px;color:var(--g3)">Realizó: '+encEsc(e.realizado_por)+'</div>' : '')
+    +   '</div>'
+    + '</div>';
+
+  if(pend){
+    h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:9px 12px;'
+      + 'margin-bottom:12px;font-size:12.5px;color:#78350f">'
+      + 'Esta encuesta todavía no ha sido revisada por SST.</div>';
+  }
+
+  var vacias = 0, llenas = 0;
+  ENC_FORM.forEach(function(sec){
+    if(sec.salud && !veSalud) return;
+    var filas = [];
+    sec.campos.forEach(function(c){
+      if(c.k === 'tipo' || c.k === 'anio' || c.k === 'fecha_encuesta' || c.k === 'realizado_por') return;
+      var v = e[c.k];
+      v = (v === null || v === undefined) ? '' : String(v).trim();
+      if(!v || v.toUpperCase() === 'N/A'){ vacias++; return; }
+      llenas++;
+      filas.push([c.lr || c.l, v]);
+    });
+    if(!filas.length) return;
+    h += '<div class="enc-bloque" style="margin-bottom:14px">'
+      + '<div style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--v,#2d7a4d);'
+      +   'text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px">'
+      +   '<svg class="icb"><use href="#'+sec.ico+'"/></svg>'+encEsc(sec.sec)
+      +   (sec.salud ? '<span style="background:#fee2e2;color:#b91c1c;font-size:9.5px;padding:1px 6px;'
+                      + 'border-radius:4px;letter-spacing:0">SOLO SST</span>' : '')
+      + '</div>'
+      + '<div class="enc-rejilla">';
+    filas.forEach(function(f){
+      h += '<div style="padding:5px 0;border-bottom:1px dotted #e2e8f0">'
+        + '<div style="font-size:10.5px;color:var(--g3)">'+encEsc(f[0])+'</div>'
+        + '<div style="font-size:13px;font-weight:600;margin-top:1px">'+encEsc(f[1])+'</div></div>';
+    });
+    h += '</div></div>';
+  });
+
+  h += '<div style="font-size:11px;color:var(--g3);border-top:1px solid var(--bd);padding-top:9px;margin-top:4px">'
+    + llenas + ' respuestas · ' + vacias + ' sin contestar'
+    + (e.actualizado_en ? ' · última vez ' + encEsc(String(e.actualizado_en).slice(0,16).replace('T',' ')) : '')
+    + '</div></div>';
+
+  // botones (no salen al imprimir)
+  h += '<div class="no-print" style="display:flex;gap:9px;justify-content:space-between;margin-top:14px;flex-wrap:wrap">'
+    + (encVeSaludUI()
+       ? '<button class="btn bg" style="color:#b91c1c" onclick="encEliminar('+e.id+')">'
+         + '<svg class="icb"><use href="#i-trash-2"/></svg> Eliminar</button>'
+       : '<span></span>')
+    + '<span style="display:flex;gap:9px;flex-wrap:wrap">'
+    +   '<button class="btn bg" onclick="encHistorial(\''+encEsc(e.cedula)+'\')">'
+    +     '<svg class="icb"><use href="#i-history"/></svg> Sus otras encuestas</button>'
+    +   '<button class="btn bg" onclick="encImprimirHoja()">'
+    +     '<svg class="icb"><use href="#i-printer"/></svg> Imprimir</button>'
+    +   '<button class="btn bn" onclick="encCerrarModal();encEditar('+e.id+')">'
+    +     '<svg class="icb"><use href="#i-pencil"/></svg> Editar</button>'
+    + '</span></div>';
+
+  encModal('Encuesta de ' + encEsc(e.nombres || e.cedula), h, 760);
+}
+
+// Imprime solo la hoja, sin el resto de la pantalla
+function encImprimirHoja(){
+  var hoja = document.getElementById('enc-hoja');
+  if(!hoja){ window.print(); return; }
+  var w = window.open('', '_blank');
+  if(!w){ window.print(); return; }
+  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8">'
+    + '<title>Encuesta sociodemográfica</title><style>'
+    + 'body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;margin:26px;font-size:13px}'
+    + ':root{--g3:#64748b;--bd:#e2e8f0;--v:#2d7a4d}'
+    + '.enc-rejilla{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}'
+    + '.enc-bloque{break-inside:avoid}'
+    + 'svg{display:none}'
+    + '</style></head><body>' + hoja.innerHTML + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 350);
+}
+
+// ── ELIMINAR ────────────────────────────────────────────────────────
+function encEliminar(id){
+  encPost({accion:'encuestaQueTiene', id:id}).then(function(q){
+    if(!q || !q.ok){ alert('No se pudo revisar: '+((q&&q.error)||'?')); return; }
+
+    var h = '<div style="font-size:13.5px;font-weight:700">'+encEsc(q.nombres || '(sin nombre)')+'</div>'
+      + '<div style="font-size:12px;color:var(--g3);margin-bottom:11px">C.C. '+encEsc(q.cedula)
+      + ' · '+encEsc(q.etiqueta)+(q.fecha ? ' · '+encEsc(q.fecha) : '')+'</div>';
+
+    if(q.volcada){
+      h += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:9px;padding:10px 12px;'
+        + 'margin-bottom:9px;font-size:12.5px;color:#7f1d1d">'
+        + '<b>Esta encuesta ya pasó sus datos a la ficha de Trabajadores'
+        + (q.volcada_en ? ' el '+encEsc(q.volcada_en) : '')+'.</b><br>'
+        + 'Borrarla <b>no deshace</b> ese cambio: esos datos ya viven en la ficha de RH y se quedan ahí.'
+        + '</div>';
+    }
+    if(q.es_la_unica){
+      h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:10px 12px;'
+        + 'margin-bottom:9px;font-size:12.5px;color:#78350f">'
+        + 'Es la <b>única</b> encuesta de esta persona. Si la borra, no queda ninguna.</div>';
+    } else {
+      h += '<div style="background:#f8fafc;border:1px solid var(--bd);border-radius:9px;padding:10px 12px;'
+        + 'margin-bottom:9px;font-size:12.5px;color:var(--g2)">'
+        + 'Esta persona tiene <b>'+q.total_persona+'</b> encuestas. Las otras '+(q.total_persona>2?'quedan':'queda')+' intactas.</div>';
+    }
+    if(q.de_jornada){
+      h += '<div style="font-size:12px;color:var(--g3);margin-bottom:9px">'
+        + 'Venía de una jornada de reinducción. El trabajador va a quedar como «sin abrir» '
+        + 'en esa jornada, y podría volver a contestar si sigue abierta.</div>';
+    }
+    if(!q.revisada){
+      h += '<div style="font-size:12px;color:var(--g3);margin-bottom:9px">'
+        + 'Todavía no estaba revisada.</div>';
+    }
+
+    h += '<div style="display:flex;gap:9px;justify-content:flex-end;margin-top:13px">'
+      +   '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+      +   '<button class="btn bn" style="background:#b91c1c" onclick="encEliminarYa('+id+','+(q.volcada?'true':'false')+')">'
+      +     '<svg class="icb"><use href="#i-trash-2"/></svg> Eliminar</button>'
+      + '</div>';
+
+    encModal('¿Eliminar esta encuesta?', h, 520);
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
+
+function encEliminarYa(id, volcada){
+  if(!confirm('Esto borra la encuesta y no se puede deshacer.\n\n¿Seguro?')) return;
+  encPost({accion:'eliminarEncuesta', id:id, confirmaVolcada: !!volcada}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo eliminar: '+((d&&d.error)||'?')); return; }
+    encCerrarModal();
+    ENC_ROWS = []; ENC_RES = null;
+    encAbrir();
+    alert('Se eliminó la encuesta ' + (d.etiqueta||'') + ' de ' + (d.nombres||'') + '.');
+  }).catch(function(e){ alert('Error de red: '+e.message); });
+}
 
 </script>
 
