@@ -3328,6 +3328,33 @@ tfoot td{background:var(--gf);font-weight:700}
 
     <!-- ══════════ SST — JORNADAS DE REINDUCCIÓN ══════════ -->
     <!-- ══════════ SST — PRÓXIMAS ENCUESTAS ══════════ -->
+    <!-- ══════════ DESCUENTOS A TERCEROS ══════════ -->
+    <div class="page" id="p-desc">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-coins"/></svg> Descuentos a terceros
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">El saldo no se escribe: sale de restar lo que el tercero factura menos lo que se alcanz\u00f3 a cobrar.</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld" style="min-width:200px;margin:0"><label style="font-size:10px">Tercero</label>
+            <select id="desc-ter" onchange="descCargarSaldos()"><option value="">Todos</option></select></div>
+          <div class="fld" style="min-width:170px;margin:0"><label style="font-size:10px">Mostrar</label>
+            <select id="desc-filtro" onchange="descPintar()">
+              <option value="deben">Solo los que deben</option>
+              <option value="todos">Todos los inscritos</option>
+              <option value="retirados">Retirados que deben</option>
+              <option value="por_definir">Falta saber c\u00f3mo pagan</option>
+              <option value="sin_ficha">Sin ficha en Trabajadores</option>
+            </select></div>
+          <div class="fld" style="min-width:210px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o c\u00e9dula</label>
+            <input type="text" id="desc-busca" oninput="descPintar()" placeholder="escriba el nombre o la c\u00e9dula\u2026"/></div>
+          <button class="btn bn" onclick="descAbrirCotejo()" style="height:36px"><svg class="icb"><use href="#i-clipboard-list"/></svg> Cargar relaci\u00f3n</button>
+          <button class="btn bg" onclick="descCargarSaldos()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
+          <button class="btn bg" onclick="descExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
+        </div>
+      </div>
+      <div id="desc-conteos" style="margin-bottom:12px"></div>
+      <div id="desc-cont"></div>
+    </div>
+
     <div class="page" id="p-venc">
       <div class="card" style="margin-bottom:12px">
         <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-calendar-check"/></svg> Próximas encuestas
@@ -5144,7 +5171,7 @@ function buildNav(){
     nav.innerHTML='<div class="sb-sec">Dashboard</div><button class="ni" onclick="go(\'da\')"><span class="ni-ico"><svg class="ico"><use href="#i-chart-pie"/></svg></span>Resumen general</button><div class="sb-sec">Informes</div><button class="ni" onclick="go(\'inf\')"><span class="ni-ico"><svg class="ico"><use href="#i-chart-line"/></svg></span>Informes</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico"><svg class="ico"><use href="#i-users"/></svg></span>Consolidado</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico"><svg class="ico"><use href="#i-briefcase"/></svg></span>Costo laboral</button><button class="ni" onclick="go(\'aus\')"><span class="ni-ico"><svg class="ico"><use href="#i-user-minus"/></svg></span>Ausentismo</button><div class="sb-sec">Gestión</div><button class="ni" onclick="go(\'todos\')"><span class="ni-ico"><svg class="ico"><use href="#i-folder"/></svg></span>Todos los registros</button><button class="ni" onclick="go(\'cobertura\')"><span class="ni-ico"><svg class="ico"><use href="#i-calendar-check"/></svg></span>Cobertura de semanas</button><button class="ni" onclick="go(\'permisos\')"><span class="ni-ico"><svg class="ico"><use href="#i-lock-open"/></svg></span>Permisos de subida</button><button class="ni" onclick="go(\'dups\')"><span class="ni-ico"><svg class="ico"><use href="#i-copy-check"/></svg></span>Duplicados</button><button class="ni" onclick="go(\'notas-adm\')"><span class="ni-ico"><svg class="ico"><use href="#i-notebook-pen"/></svg></span>Notas coordinadores</button><button class="ni" onclick="go(\'reg-coord\')"><span class="ni-ico"><svg class="ico"><use href="#i-file-pen"/></svg></span>Registrar por coordinador</button><button class="ni" onclick="go(\'tar\')"><span class="ni-ico"><svg class="ico"><use href="#i-coins"/></svg></span>Tarifas</button><button class="ni" onclick="go(\'accesos\')"><span class="ni-ico"><svg class="ico"><use href="#i-key-round"/></svg></span>Usuarios y coord.</button>';
     if(!esSuperAdmin()){ nav.querySelectorAll('.ni').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("go('accesos')")>=0||oc.indexOf("go('permisos')")>=0)b.remove();}); }
   } else if(S.rol==='n'){
-    nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico"><svg class="ico"><use href="#i-calculator"/></svg></span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico"><svg class="ico"><use href="#i-calculator"/></svg></span>Consolidado nómina</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico"><svg class="ico"><use href="#i-folder"/></svg></span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico"><svg class="ico"><use href="#i-users"/></svg></span>Consolidado labores</button>';
+    nav.innerHTML='<div class="sb-sec">Nómina</div><button class="ni" onclick="go(\'nom\')"><span class="ni-ico"><svg class="ico"><use href="#i-calculator"/></svg></span>Liquidación quincena</button><button class="ni" onclick="go(\'nom-cons\')"><span class="ni-ico"><svg class="ico"><use href="#i-calculator"/></svg></span>Consolidado nómina</button><button class="ni" onclick="go(\'desc\')"><span class="ni-ico"><svg class="ico"><use href="#i-coins"/></svg></span>Descuentos a terceros</button><button class="ni" onclick="go(\'todos\')"><span class="ni-ico"><svg class="ico"><use href="#i-folder"/></svg></span>Todos los registros</button><button class="ni" onclick="go(\'cons\')"><span class="ni-ico"><svg class="ico"><use href="#i-users"/></svg></span>Consolidado labores</button>';
   } else {
     nav.innerHTML='<div class="sb-sec">Facturación</div><button class="ni" onclick="go(\'fac\')"><span class="ni-ico"><svg class="ico"><use href="#i-receipt-text"/></svg></span>Saldos y facturas</button><button class="ni" onclick="go(\'contratos\')"><span class="ni-ico"><svg class="ico"><use href="#i-scroll-text"/></svg></span>Contratos</button><button class="ni" onclick="go(\'costo-lab\')"><span class="ni-ico"><svg class="ico"><use href="#i-briefcase"/></svg></span>Costo laboral</button>';
   }
@@ -5166,7 +5193,7 @@ function go(pg){
   if((pg==='accesos'||pg==='permisos') && !esSuperAdmin()){ alert('No tienes permiso para acceder a esta sección. Solo el administrador.'); return; }
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
   var el=document.getElementById('p-'+pg); if(el) el.classList.add('on');
-  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica','jor':'SST — Jornadas de reinducción','venc':'SST — Próximas encuestas'};
+  var T={dc:'Dashboard',registro:'Nuevo registro','mis-reg':'Mis registros','res-sem':'Resumen de labores por semana',cvf:'Cobro vs Facturación',da:'Resumen general',todos:'Todos los registros',inf:'Informes',cons:'Consolidado',nom:'Nómina — Quincena',fac:'Facturación','nom-cons':'Consolidado nómina','notas-adm':'Notas coordinadores','reg-coord':'Registrar por coordinador',notas:'Notas coordinadores',nemp:'Nuevo empleado',emp:'Ver empleados',tar:'Tarifas','costo-lab':'Costo Laboral','contratos':'Facturación — Contratos',rrhh:'Recursos Humanos — Trabajadores',vacac:'Vacaciones',plantillas:'Plantillas de cartas',cartas:'Cartas',acum:'Acumulados','rh-cfg':'RH — Configuración',dups:'Duplicados — Detección y limpieza',cobertura:'Cobertura de semanas',permisos:'Permisos de subida tardía',accesos:'Usuarios y coordinadores',inv:'SST — Inventario','inv-ent':'SST — Registrar entrada','inv-sal':'SST — Salida / Entrega','inv-hist':'SST — Historial de entregas','inv-emp':'SST — Entregas por empleado','inv-inf':'SST — Informe de entregas','inc':'RH — Incapacidades','iyr':'RH — Ingresos y retiros','aus':'Informe de ausentismo','inv-kardex':'SST — Kardex por producto','inv-cfg':'SST — Configuración','enc':'SST — Encuesta sociodemográfica','enc-form':'SST — Encuesta sociodemográfica','jor':'SST — Jornadas de reinducción','venc':'SST — Próximas encuestas','desc':'Nómina — Descuentos a terceros'};
   document.getElementById('ptitle').textContent=T[pg]||pg;
   closeSB();
   if(pg==='dc') carDC();
@@ -5208,6 +5235,7 @@ function go(pg){
   if(pg==='enc') encAbrir();
   if(pg==='jor') jorAbrir();
   if(pg==='venc') vencAbrir();
+  if(pg==='desc') descAbrir();
   if(pg==='emp'){ filtEmp(); acTrabAsegurar(function(){ acAdjuntarBuscador('eq', acTrabFuente, function(ced,nom){ var i=document.getElementById('eq'); if(i){i.value=nom;} filtEmp(); }); }); }
   if(pg==='tar') filtTar();
   if(pg==='notas') carNotas();
@@ -26906,6 +26934,394 @@ var JOR_TIMER = null;    // refresco del avance en vivo
 var VENC_DATA = null;     // lo que devolvió el servidor
 var VENC_SEL  = {};       // cédulas escogidas, de cualquier sección
 var VENC_VERALDIA = false;
+
+// ══════════════════════════════════════════════════════════════════
+// DESCUENTOS A TERCEROS
+//
+// El saldo nunca se escribe: sale de restar lo que el tercero factura
+// menos lo que se alcanzó a cobrar. Y se separa lo ATRASADO (meses ya
+// cumplidos) del mes en curso, que ya se facturó pero todavía no se
+// descuenta. Sin esa separación todo el mundo aparece debiendo todos
+// los meses, que es lo que confunde en el Excel.
+// ══════════════════════════════════════════════════════════════════
+var DESC_TER = [];
+var DESC_DATA = null;
+var DESC_COT = null;
+
+var DESC_FORMA_TXT = {
+  nomina: 'Se le descuenta en la quincena',
+  efectivo: 'Paga en efectivo en la oficina',
+  otra_nomina: 'Se lo descuenta otra empresa del grupo',
+  por_definir: 'Falta saber cómo paga'
+};
+var DESC_FORMA_COL = {nomina:'#15803d', efectivo:'#1e40af', otra_nomina:'#6d28d9', por_definir:'#b45309'};
+
+// Lee plata escrita a la colombiana: el punto separa miles y la coma
+// decimales. Es la misma cuenta que hace nomNum en el api.js; se repite
+// aquí porque el navegador no tiene acceso a aquella, y hay una prueba
+// que compara las dos para que no se desincronicen.
+function descPlata(v){
+  if(v === null || v === undefined || v === '') return 0;
+  if(typeof v === 'number') return isFinite(v) ? v : 0;
+  var t = String(v).trim().replace(/[^\d.,\-]/g, '');
+  if(!t || t === '-') return 0;
+  var neg = t.indexOf('-') === 0;
+  t = t.replace(/-/g, '');
+  var punto = t.lastIndexOf('.'), coma = t.lastIndexOf(',');
+  if(punto >= 0 && coma >= 0){
+    if(coma > punto) t = t.replace(/\./g, '').replace(',', '.');
+    else             t = t.replace(/,/g, '');
+  } else if(coma >= 0){
+    t = t.replace(/,/g, '.');
+  } else if(punto >= 0){
+    var partes = t.split('.');
+    var ultima = partes[partes.length - 1];
+    if(partes.length > 2 || ultima.length === 3) t = partes.join('');
+  }
+  var n = parseFloat(t);
+  if(!isFinite(n)) return 0;
+  return neg ? -n : n;
+}
+
+function descAbrir(){
+  if(DESC_TER.length){ descCargarSaldos(); return; }
+  encPost({accion:'descTerceros'}).then(function(d){
+    DESC_TER = (d && d.ok) ? d.data : [];
+    var sel = document.getElementById('desc-ter');
+    if(sel) sel.innerHTML = '<option value="">Todos los terceros</option>'
+      + DESC_TER.map(function(t){ return '<option value="'+t.id+'">'+encEsc(t.nombre)+'</option>'; }).join('');
+    descCargarSaldos();
+  }).catch(function(){ descCargarSaldos(); });
+}
+
+function descCargarSaldos(){
+  var c = document.getElementById('desc-cont');
+  if(c) c.innerHTML = '<div style="padding:28px;text-align:center;color:var(--g3)">Calculando saldos…</div>';
+  var tid = (document.getElementById('desc-ter')||{}).value || '';
+  encPost({accion:'descSaldos', tercero_id: tid || null}).then(function(d){
+    if(!d || !d.ok){
+      if(c) c.innerHTML = (d && d.cod === 'FALTA_TABLA')
+        ? '<div class="card" style="border-left:3px solid #b45309">'
+          + '<div style="font-weight:700;color:#b45309;display:flex;align-items:center;gap:7px">'
+          + '<svg class="ict"><use href="#i-triangle-alert"/></svg> Faltan archivos por correr en Supabase</div>'
+          + '<div style="font-size:12.5px;color:var(--g2);margin-top:6px">Corra en este orden:<br><br>'
+          + '<code>51_descuentos_terceros.sql</code><br><code>52a_descuentos_inscritos.sql</code><br>'
+          + '<code>52b_descuentos_cargos.sql</code><br><code>52c_descuentos_pagos.sql</code></div></div>'
+        : '<div class="card" style="color:var(--r)">No se pudo: '+encEsc((d&&d.error)||'?')+'</div>';
+      var cc=document.getElementById('desc-conteos'); if(cc) cc.innerHTML='';
+      return;
+    }
+    DESC_DATA = d;
+    descPintar();
+  }).catch(function(e){
+    if(c) c.innerHTML = '<div class="card" style="color:var(--r)">Error de red: '+encEsc(e.message)+'</div>';
+  });
+}
+
+function descFiltrar(){
+  if(!DESC_DATA) return [];
+  var q = ((document.getElementById('desc-busca')||{}).value||'').trim().toUpperCase();
+  var f = (document.getElementById('desc-filtro')||{}).value || 'deben';
+  return DESC_DATA.data.filter(function(x){
+    if(f === 'deben' && !(x.debe > 1000)) return false;
+    if(f === 'retirados' && !(x.retirado && x.debe > 1000)) return false;
+    if(f === 'por_definir' && x.forma_cobro !== 'por_definir') return false;
+    if(f === 'sin_ficha' && !x.sin_ficha) return false;
+    if(!q) return true;
+    return String(x.nombres||'').toUpperCase().indexOf(q) >= 0 || String(x.cedula||'').indexOf(q) >= 0;
+  }).sort(function(a,b){ return b.debe - a.debe; });
+}
+
+function descPintar(){
+  var c = document.getElementById('desc-cont');
+  if(!c || !DESC_DATA) return;
+  var k = DESC_DATA.conteos;
+
+  var cc = document.getElementById('desc-conteos');
+  if(cc){
+    cc.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + vencTarjeta('ATRASADO', cop(k.total_debe), '#dc2626')
+      + vencTarjeta('PERSONAS QUE DEBEN', k.deben, '#b45309')
+      + vencTarjeta('RETIRADOS DEBIENDO', k.retirados_debiendo, '#7c2d12')
+      + vencTarjeta('FALTA SABER CÓMO PAGAN', k.por_definir, '#1e40af')
+      + '</div>'
+      + (k.por_definir
+        ? '<div style="margin-top:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#1e40af">'
+          + '<b>' + k.por_definir + ' personas</b> no tienen ni un descuento registrado en el año. '
+          + 'La app no adivina si pagan en efectivo, si se lo descuenta otra empresa del grupo, o si de verdad deben. '
+          + 'Mientras no lo defina, el saldo de esas personas no significa nada — igual que hoy en el Excel. '
+          + 'Use el filtro <b>Falta saber cómo pagan</b> para resolverlas.</div>'
+        : '')
+      + (k.sin_ficha
+        ? '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#92400e">'
+          + '<b>' + k.sin_ficha + '</b> aparecen en la lista del tercero pero no están en Trabajadores. '
+          + 'O son de otra empresa, o la cédula está mal escrita.</div>'
+        : '');
+  }
+
+  var lista = descFiltrar();
+  if(!lista.length){
+    c.innerHTML = '<div class="card" style="text-align:center;color:var(--g3);padding:26px">Nadie coincide con ese filtro.</div>';
+    return;
+  }
+  var h = '<div class="card"><div style="font-size:12px;color:var(--g3);margin-bottom:10px">'
+    + lista.length + ' de ' + DESC_DATA.data.length + ' inscritos'
+    + ' · atrasado en pantalla: <b>' + cop(Math.round(lista.reduce(function(a,x){ return a + Math.max(0,x.debe); },0))) + '</b>'
+    + '</div><div style="overflow:auto"><table><thead><tr>'
+    + '<th>Tercero</th><th>Nombre</th><th>Cédula</th><th>Cómo paga</th>'
+    + '<th style="text-align:right">Facturado</th><th style="text-align:right">Cobrado</th>'
+    + '<th style="text-align:right">Atrasado</th><th style="text-align:right">Con el mes</th><th></th></tr></thead><tbody>';
+  lista.forEach(function(x){
+    var col = x.debe > 1000 ? '#dc2626' : (x.debe < -1000 ? '#15803d' : 'var(--g3)');
+    h += '<tr>'
+      + '<td style="font-size:11.5px">'+encEsc(x.tercero)+'</td>'
+      + '<td><strong>'+encEsc(x.nombres || '(sin nombre)')+'</strong>'
+      + (x.retirado ? ' <span style="background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:4px;'
+          + 'font-size:9.5px;font-weight:700">RETIRADO'+(x.fecha_ret?' '+encEsc(x.fecha_ret):'')+'</span>' : '')
+      + (x.sin_ficha ? ' <span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:4px;'
+          + 'font-size:9.5px;font-weight:700">SIN FICHA</span>' : '')
+      + '</td>'
+      + '<td style="white-space:nowrap">'+encEsc(x.cedula)+'</td>'
+      + '<td><select onchange="descCambiarForma(\'' + x.tercero_id + '\',\'' + x.cedula + '\',this.value)" '
+      +   'style="font-size:11px;padding:3px 5px;height:26px;color:'+(DESC_FORMA_COL[x.forma_cobro]||'')+';font-weight:600">'
+      +   ['nomina','efectivo','otra_nomina','por_definir'].map(function(f){
+            return '<option value="'+f+'"'+(f===x.forma_cobro?' selected':'')+'>'+DESC_FORMA_TXT[f]+'</option>'; }).join('')
+      + '</select></td>'
+      + '<td style="text-align:right;white-space:nowrap">'+cop(Math.round(x.cargado))+'</td>'
+      + '<td style="text-align:right;white-space:nowrap">'+cop(Math.round(x.pagado))+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;font-weight:700;color:'+col+'">'+cop(Math.round(x.debe))+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;color:var(--g3);font-size:11.5px">'+cop(Math.round(x.debe_con_mes))+'</td>'
+      + '<td><button class="btn bg" style="height:26px;font-size:11px" '
+      +   'onclick="descVerDetalle(\'' + x.tercero_id + '\',\'' + x.cedula + '\')">Ver</button></td>'
+      + '</tr>';
+  });
+  c.innerHTML = h + '</tbody></table></div></div>';
+}
+
+function descCambiarForma(tid, ced, forma){
+  encPost({accion:'descForma', tercero_id:tid, cedula:ced, forma_cobro:forma}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo guardar: ' + ((d&&d.error)||'?')); return; }
+    var f = DESC_DATA.data.filter(function(x){ return x.tercero_id===tid && x.cedula===ced; })[0];
+    if(f) f.forma_cobro = forma;
+    DESC_DATA.conteos.por_definir = DESC_DATA.data.filter(function(x){ return x.forma_cobro==='por_definir'; }).length;
+    showSync('✓ Guardado', 'g');
+    descPintar();
+  });
+}
+
+function descVerDetalle(tid, ced){
+  encPost({accion:'descDetalle', tercero_id:tid, cedula:ced}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo: ' + ((d&&d.error)||'?')); return; }
+    var f = (DESC_DATA ? DESC_DATA.data.filter(function(x){ return x.tercero_id===tid && x.cedula===ced; })[0] : null) || {};
+    var mov = [];
+    d.cargos.forEach(function(c){ mov.push({f:c.periodo, t:'Le facturaron', v:c.valor, d:c.origen==='saldo_anterior'?'saldo del año pasado':''}); });
+    d.pagos.forEach(function(p){ mov.push({f:p.fecha, t:'Pagó', v:-p.valor, d:({nomina:'descontado en la quincena',liquidacion:'descontado al liquidarlo',efectivo:'en efectivo',consignacion:'consignó',otra_nomina:'otra empresa del grupo'})[p.forma]||p.forma}); });
+    mov.sort(function(a,b){ return a.f < b.f ? -1 : a.f > b.f ? 1 : 0; });
+    var acum = 0;
+    var h = '<div style="font-size:12.5px;color:var(--g2);margin-bottom:10px">'
+      + '<b>'+encEsc(f.nombres||'')+'</b> · '+encEsc(f.tercero||'')+' · c.c. '+encEsc(ced)+'</div>'
+      + '<div style="overflow:auto;max-height:60vh"><table><thead><tr><th>Fecha</th><th>Qué pasó</th>'
+      + '<th style="text-align:right">Valor</th><th style="text-align:right">Va debiendo</th></tr></thead><tbody>';
+    mov.forEach(function(m){
+      acum += m.v;
+      h += '<tr><td style="white-space:nowrap">'+encEsc(m.f)+'</td>'
+        + '<td>'+encEsc(m.t)+(m.d?' <span style="color:var(--g3);font-size:11px">('+encEsc(m.d)+')</span>':'')+'</td>'
+        + '<td style="text-align:right;white-space:nowrap;color:'+(m.v>0?'#b45309':'#15803d')+'">'
+        +   (m.v>0?'+':'')+cop(Math.round(m.v))+'</td>'
+        + '<td style="text-align:right;white-space:nowrap;font-weight:600">'+cop(Math.round(acum))+'</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if(!mov.length) h += '<div style="padding:18px;text-align:center;color:var(--g3)">No hay movimientos.</div>';
+    h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)">'
+      + '<div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Registrar un pago</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div class="fld" style="margin:0;width:120px"><label>Valor</label><input type="text" id="dp-valor" placeholder="0"/></div>'
+      + '<div class="fld" style="margin:0;width:150px"><label>Fecha</label><input type="date" id="dp-fecha" value="'+new Date().toISOString().slice(0,10)+'"/></div>'
+      + '<div class="fld" style="margin:0;width:200px"><label>Cómo pagó</label><select id="dp-forma">'
+      +   '<option value="efectivo">En efectivo</option><option value="consignacion">Consignó</option>'
+      +   '<option value="liquidacion">Se le descontó al liquidarlo</option>'
+      +   '<option value="nomina">Descontado en la quincena</option>'
+      +   '<option value="otra_nomina">Otra empresa del grupo</option></select></div>'
+      + '<div class="fld" style="margin:0;flex:1;min-width:150px"><label>Nota</label><input type="text" id="dp-nota" placeholder="opcional"/></div>'
+      + '<button class="btn bn" style="height:36px" onclick="descGuardarPago(\'' + tid + '\',\'' + ced + '\')">Guardar</button>'
+      + '</div></div>';
+    encModal('Movimiento de la cuenta', h, 760);
+  });
+}
+
+function descGuardarPago(tid, ced){
+  var v = descPlata((document.getElementById('dp-valor')||{}).value || '0');
+  if(!(Math.abs(v) > 0)){ alert('Escriba el valor del pago.'); return; }
+  encPost({accion:'descPago', tercero_id:tid, cedula:ced, valor:v,
+    fecha:(document.getElementById('dp-fecha')||{}).value,
+    forma:(document.getElementById('dp-forma')||{}).value,
+    nota:(document.getElementById('dp-nota')||{}).value}).then(function(d){
+      if(!d || !d.ok){ alert('No se pudo: ' + ((d&&d.error)||'?')); return; }
+      encCerrarModal();
+      showSync('✓ Pago registrado', 'g');
+      descCargarSaldos();
+    });
+}
+
+// ── Cargar la relación que manda el tercero ──
+function descAbrirCotejo(){
+  var h = '<div style="font-size:12.5px;color:var(--g2);margin-bottom:12px">'
+    + 'Copie del correo o del Excel del tercero las columnas <b>cédula</b>, <b>nombre</b> y <b>valor</b>, '
+    + 'y péguelas aquí. Antes de guardar nada le voy a mostrar qué cambió contra el mes pasado.</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+    + '<div class="fld" style="margin:0;min-width:200px"><label>Tercero</label><select id="dc-ter">'
+    +   DESC_TER.map(function(t){ return '<option value="'+t.id+'">'+encEsc(t.nombre)+'</option>'; }).join('')
+    + '</select></div>'
+    + '<div class="fld" style="margin:0;width:160px"><label>Mes de la relación</label>'
+    + '<input type="month" id="dc-mes" value="'+new Date().toISOString().slice(0,7)+'"/></div>'
+    + '</div>'
+    + '<textarea id="dc-texto" rows="9" placeholder="94227890&#9;CASTAÑO GOMEZ MANUEL&#9;32.728&#10;6559510&#9;MAYOR RAMIREZ ADELFO&#9;17.691" '
+    +   'style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:10px;'
+    +   'border:1px solid var(--bd);border-radius:var(--rads)"></textarea>'
+    + '<div style="font-size:11px;color:var(--g3);margin-top:5px">Sirve pegado desde Excel (separado por tabulaciones), '
+    + 'con punto y coma, o con comas. Si la primera fila son títulos, se descarta sola.</div>'
+    + '<div style="margin-top:12px;text-align:right">'
+    + '<button class="btn bn" onclick="descCotejar()"><svg class="icb"><use href="#i-arrow-left-right"/></svg> Comparar</button></div>'
+    + '<div id="dc-res" style="margin-top:14px"></div>';
+  encModal('Cargar relación del tercero', h, 900);
+}
+
+// Lee lo pegado. Se aguanta tabulaciones, punto y coma y comas, y
+// descarta la fila de títulos sola.
+function descLeerPegado(txt){
+  var lineas = String(txt||'').split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
+  var out = [];
+  lineas.forEach(function(l, i){
+    var p = l.indexOf('\t') >= 0 ? l.split('\t')
+          : l.indexOf(';') >= 0 ? l.split(';')
+          : l.split(/\s{2,}|,(?=\s*\D)/);
+    p = p.map(function(x){ return String(x||'').trim(); });
+    var ced = p[0] ? p[0].replace(/\D/g,'') : '';
+    if(i === 0 && (!ced || /CEDULA|C.DULA|DOCUMENTO|IDENTIF/i.test(p[0]))) return;   // títulos
+    // el valor es la última celda que parezca plata
+    var valor = '';
+    for(var j = p.length - 1; j >= 1; j--){
+      if(/\d/.test(p[j]) && !/^[A-ZÁÉÍÓÚÑ\s.]+$/i.test(p[j])){ valor = p[j]; break; }
+    }
+    out.push({cedula: p[0]||'', nombres: p[1]||'', valor: valor, linea: i+1, crudo: l});
+  });
+  return out;
+}
+
+function descCotejar(){
+  var lineas = descLeerPegado((document.getElementById('dc-texto')||{}).value);
+  if(!lineas.length){ alert('No pegó nada, o no se pudo leer.'); return; }
+  var r = document.getElementById('dc-res');
+  if(r) r.innerHTML = '<div style="padding:18px;text-align:center;color:var(--g3)">Comparando…</div>';
+  encPost({accion:'descCotejar', tercero_id:(document.getElementById('dc-ter')||{}).value,
+           periodo:(document.getElementById('dc-mes')||{}).value, lineas:lineas}).then(function(d){
+    if(!d || !d.ok){ if(r) r.innerHTML = '<div style="color:var(--r)">'+encEsc((d&&d.error)||'?')+'</div>'; return; }
+    DESC_COT = {d:d, lineas:lineas};
+    descPintarCotejo();
+  });
+}
+
+function descPintarCotejo(){
+  var r = document.getElementById('dc-res');
+  if(!r || !DESC_COT) return;
+  var d = DESC_COT.d, k = d.resumen;
+  var bloque = function(titulo, filas, col, fondo, nota, cols){
+    if(!filas.length) return '';
+    var h = '<div style="margin-bottom:12px;border-left:3px solid '+col+';background:'+fondo
+      + ';border-radius:var(--rads);padding:10px 12px">'
+      + '<div style="font-weight:700;font-size:12.5px;color:'+col+'">'+encEsc(titulo)+' · '+filas.length+'</div>'
+      + (nota ? '<div style="font-size:11px;color:var(--g2);margin-top:2px">'+encEsc(nota)+'</div>' : '')
+      + '<div style="max-height:190px;overflow:auto;margin-top:7px"><table style="font-size:11.5px"><tbody>';
+    filas.forEach(function(x){ h += '<tr>' + cols(x) + '</tr>'; });
+    return h + '</tbody></table></div></div>';
+  };
+  var h = '<div style="background:var(--gf);border-radius:var(--rads);padding:10px 13px;margin-bottom:12px;font-size:12.5px">'
+    + 'Llegaron <b>'+k.lineas+'</b> líneas por <b>'+cop(k.total)+'</b>. '
+    + (k.ya_cargado ? '<span style="color:#b45309;font-weight:600">Ya había '+k.ya_cargado+' cargadas de ese mismo mes: se reemplazan.</span>' : '')
+    + '</div>';
+
+  h += bloque('Ya se retiraron', d.retirados, '#dc2626', '#fef2f2',
+    'El tercero les sigue cobrando y ya no trabajan aquí. Avísele para que los saque.',
+    function(x){ return '<td><b>'+encEsc(x.nombres)+'</b></td><td>'+encEsc(x.cedula)+'</td>'
+      + '<td>retirado '+encEsc(x.fecha_ret||'?')+'</td><td style="text-align:right">'+cop(Math.round(x.valor))+'</td>'; });
+
+  h += bloque('Nuevos', d.nuevos, '#1e40af', '#eff6ff',
+    'No estaban inscritos con este tercero. Quedan marcados "falta saber cómo pagan".',
+    function(x){ return '<td><b>'+encEsc(x.nombres||x.nombre_tercero)+'</b>'
+      + (x.sin_ficha ? ' <span style="background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;font-size:9.5px;font-weight:700">SIN FICHA</span>' : '')
+      + '</td><td>'+encEsc(x.cedula)+'</td><td>'+encEsc(x.cargo||'')+'</td>'
+      + '<td style="text-align:right">'+cop(Math.round(x.valor))+'</td>'; });
+
+  h += bloque('Les cambió la cuota', d.cambios, '#b45309', '#fffbeb', '',
+    function(x){ return '<td><b>'+encEsc(x.nombres)+'</b></td><td>'+encEsc(x.cedula)+'</td>'
+      + '<td style="color:var(--g3)">antes '+cop(Math.round(x.antes))+'</td>'
+      + '<td style="text-align:right">'+cop(Math.round(x.valor))
+      + ' <span style="color:'+(x.diferencia>0?'#b45309':'#15803d')+';font-weight:700">'
+      + (x.diferencia>0?'+':'')+cop(x.diferencia)+'</span></td>'; });
+
+  h += bloque('Ya no aparecen', d.faltan, '#6d28d9', '#f5f3ff',
+    'Venían el mes pasado y en esta relación no están. Si siguen activos, pregúntele al tercero.',
+    function(x){ return '<td><b>'+encEsc(x.nombres)+'</b></td><td>'+encEsc(x.cedula)+'</td>'
+      + '<td colspan="2" style="text-align:right;color:var(--g3)">el mes pasado pagaba '+cop(Math.round(x.antes))+'</td>'; });
+
+  h += bloque('No se pudieron leer', d.malas, '#991b1b', '#fef2f2',
+    'La cédula no sirve. Estas NO se van a cargar.',
+    function(x){ return '<td>línea '+x.linea+'</td><td>'+encEsc(x.cedula)+'</td>'
+      + '<td>'+encEsc(x.nombres)+'</td><td style="text-align:right">'+cop(Math.round(x.valor))+'</td>'; });
+
+  h += bloque('Repetidas', d.repetidas, '#991b1b', '#fef2f2',
+    'La misma cédula vino más de una vez. Solo se carga la primera.',
+    function(x){ return '<td>línea '+x.linea+'</td><td>'+encEsc(x.cedula)+'</td>'
+      + '<td>'+encEsc(x.nombres)+'</td><td style="text-align:right">'+cop(Math.round(x.valor))+'</td>'; });
+
+  if(d.iguales.length) h += '<div style="font-size:11.5px;color:var(--g3);margin-bottom:10px">'
+    + 'Y <b>'+d.iguales.length+'</b> siguen igual que el mes pasado.</div>';
+
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;'
+    + 'border-top:1px solid var(--bd);padding-top:12px">'
+    + '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+    + '<button class="btn bn" onclick="descAplicar()">Guardar '
+    + (k.lineas - k.malas - k.repetidas) + ' cargos de ' + encEsc(d.periodo.slice(0,7)) + '</button></div>';
+  r.innerHTML = h;
+}
+
+function descAplicar(){
+  if(!DESC_COT) return;
+  var d = DESC_COT.d;
+  if(d.retirados.length && !confirm('Ojo: ' + d.retirados.length + ' de esa relación ya se retiraron.\n\n'
+    + 'Se van a cargar igual, porque el tercero los facturó. Pero conviene avisarle al tercero '
+    + 'para que los saque del próximo cobro.\n\n¿Seguir?')) return;
+  encPost({accion:'descCargar', tercero_id:(document.getElementById('dc-ter')||{}).value,
+           periodo:(document.getElementById('dc-mes')||{}).value, lineas:DESC_COT.lineas}).then(function(r){
+    if(!r || !r.ok){ alert('No se pudo guardar: ' + ((r&&r.error)||'?')); return; }
+    encCerrarModal();
+    showSync('✓ Se cargaron ' + r.cargos + ' cargos por ' + cop(r.total), 'g');
+    DESC_COT = null;
+    descCargarSaldos();
+  });
+}
+
+function descExcel(){
+  var lista = descFiltrar();
+  if(!lista.length){ alert('No hay nada que exportar con ese filtro.'); return; }
+  consCargarSheetJS(function(listo){
+    if(!listo){ alert('No se pudo cargar el generador de Excel.'); return; }
+    var filas = [['Tercero','Cédula','Nombre','Cómo paga','Estado','Fecha retiro',
+                  'Facturado','Cobrado','Atrasado','Con el mes en curso']];
+    lista.forEach(function(x){
+      filas.push([x.tercero, x.cedula, x.nombres, DESC_FORMA_TXT[x.forma_cobro]||x.forma_cobro,
+        x.retirado ? 'RETIRADO' : 'Activo', x.fecha_ret || '',
+        Math.round(x.cargado), Math.round(x.pagado), Math.round(x.debe), Math.round(x.debe_con_mes)]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = [{wch:20},{wch:13},{wch:32},{wch:32},{wch:10},{wch:13},{wch:13},{wch:13},{wch:13},{wch:16}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Descuentos');
+    XLSX.writeFile(wb, 'Descuentos_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  });
+}
 
 function vencAbrir(){ vencCargar(); }
 
