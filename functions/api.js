@@ -67,6 +67,8 @@ const PORTADAS = new Set([
   // Módulo SST — Encuesta sociodemográfica:
   'getEncuestas', 'getEncuesta', 'getEncuestaHistorial', 'getEncuestasResumen',
   'encuestasVencimientos',
+  // Descuentos a terceros:
+  'descTerceros', 'descSaldos', 'descCotejar', 'descCargar', 'descPago', 'descForma', 'descDetalle', 'descPorLiquidar',
   'guardarEncuesta', 'editarEncuesta', 'eliminarEncuesta',
   'encuestaComparar', 'encuestaAplicar',
   // Consolidado de nómina (lo último que salía hacia Apps Script):
@@ -202,6 +204,14 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'encuestaAplicar')      r = await accionEncuestaAplicar(body, env);
     else if (accion === 'getEncuestasResumen')  r = await accionGetEncuestasResumen(body, env);
     else if (accion === 'encuestasVencimientos') r = await accionEncuestasVencimientos(body, env);
+    else if (accion === 'descTerceros') r = await accionDescTerceros(body, env);
+    else if (accion === 'descSaldos') r = await accionDescSaldos(body, env);
+    else if (accion === 'descCotejar') r = await accionDescCotejar(body, env);
+    else if (accion === 'descCargar') r = await accionDescCargar(body, env);
+    else if (accion === 'descPago') r = await accionDescPago(body, env);
+    else if (accion === 'descForma') r = await accionDescForma(body, env);
+    else if (accion === 'descDetalle') r = await accionDescDetalle(body, env);
+    else if (accion === 'descPorLiquidar') r = await accionDescPorLiquidar(body, env);
     else if (accion === 'getNominaQna')         r = await accionGetNominaQna(body, env);
     else if (accion === 'guardarNominaQna')     r = await accionGuardarNominaQna(body, env);
     else if (accion === 'getConceptosNom')      r = await accionGetConceptosNom(body, env);
@@ -3726,6 +3736,312 @@ async function accionEncuestaAplicar(body, env) {
 // Los que nunca han tenido encuesta van aparte a proposito: ese caso no
 // es una reinduccion atrasada, es una induccion que no se hizo, y se
 // atiende de otra forma (entrevista con SST, no jornada de grupo).
+// ══════════════════════════════════════════════════════════════════
+// DESCUENTOS A TERCEROS
+//
+// Dos movimientos y nada mas: CARGO (lo que el tercero factura) y
+// PAGO (lo que se cobro, y por donde). El saldo no se guarda, se
+// calcula restando. Asi no se puede desincronizar.
+//
+// La forma de cobro importa: en la cuenta de la empresa hay gente de
+// oficina, de otras empresas del grupo y particulares que pagan en
+// efectivo. A todos les facturan igual pero se les cobra distinto.
+// Sin ese dato un saldo negativo no quiere decir nada.
+// ══════════════════════════════════════════════════════════════════
+
+function descNum(v) {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  return nomNum(v);
+}
+
+function descCed(v) {
+  const c = String(v === null || v === undefined ? '' : v).replace(/\D/g, '');
+  return c.length >= 6 ? c : '';
+}
+
+// El primero del mes, que es como se guardan los periodos.
+function descPeriodo(v) {
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})/);
+  if (m) return m[1] + '-' + String(parseInt(m[2], 10)).padStart(2, '0') + '-01';
+  m = s.match(/^(\d{1,2})[\/-](\d{4})$/);          // 11/2026
+  if (m) return m[2] + '-' + String(parseInt(m[1], 10)).padStart(2, '0') + '-01';
+  return '';
+}
+
+async function accionDescTerceros(body, env) {
+  const filas = await sbAll(env, 'terceros?select=*&order=nombre.asc');
+  return { ok: true, data: filas.map((t) => ({
+    id: String(t.id), nombre: t.nombre || '', concepto_nomina: t.concepto_nomina || '',
+    clase: t.clase || 'tercero', nit: t.nit || '', contacto: t.contacto || '',
+    telefono: t.telefono || '', correo: t.correo || '',
+    activo: t.activo !== false, nota: t.nota || '',
+  })) };
+}
+
+async function accionDescSaldos(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  let ruta = 'descuentos_saldos?select=*';
+  if (tid) ruta += '&tercero_id=eq.' + tid;
+  let filas;
+  try {
+    filas = await sbAll(env, ruta);
+  } catch (e) {
+    return { ok: false, cod: 'FALTA_TABLA',
+      error: 'Todavia no estan creadas las tablas de descuentos. Corra 51_descuentos_terceros.sql '
+           + 'y despues 52a, 52b y 52c en Supabase.' };
+  }
+  const data = filas.map((f) => ({
+    tercero_id: String(f.tercero_id), tercero: f.tercero || '', clase: f.clase || 'tercero',
+    cedula: String(f.cedula || ''), nombres: f.nombres || '',
+    forma_cobro: f.forma_cobro || 'nomina',
+    cargo: f.cargo || '', sede: f.sede || '',
+    fecha_ret: f.fecha_ret ? String(f.fecha_ret).slice(0, 10) : '',
+    retirado: f.retirado === true || f.retirado === 'true',
+    sin_ficha: f.sin_ficha === true || f.sin_ficha === 'true',
+    sin_facturacion: f.sin_facturacion === true || f.sin_facturacion === 'true',
+    cargado: descNum(f.cargado), cargado_vencido: descNum(f.cargado_vencido),
+    cargado_mes: descNum(f.cargado_mes), saldo_anterior: descNum(f.saldo_anterior),
+    pagado: descNum(f.pagado), por_nomina: descNum(f.por_nomina),
+    en_liquidacion: descNum(f.en_liquidacion), en_efectivo: descNum(f.en_efectivo),
+    ultimo_periodo: f.ultimo_periodo ? String(f.ultimo_periodo).slice(0, 10) : '',
+    ultimo_pago: f.ultimo_pago ? String(f.ultimo_pago).slice(0, 10) : '',
+    debe: descNum(f.debe), debe_con_mes: descNum(f.debe_con_mes),
+  }));
+  const deben = data.filter((f) => f.debe > 1000);
+  return { ok: true, data, conteos: {
+    inscritos: data.length,
+    deben: deben.length,
+    total_debe: Math.round(deben.reduce((a, f) => a + f.debe, 0)),
+    retirados_debiendo: deben.filter((f) => f.retirado).length,
+    total_retirados: Math.round(deben.filter((f) => f.retirado).reduce((a, f) => a + f.debe, 0)),
+    por_definir: data.filter((f) => f.forma_cobro === 'por_definir').length,
+    sin_ficha: data.filter((f) => f.sin_ficha).length,
+  } };
+}
+
+// El corazon del modulo: llega la relacion del tercero y hay que saber
+// que cambio. Esto NO guarda nada: solo compara y devuelve el cotejo,
+// para que la persona lo revise antes de aplicarlo.
+async function accionDescCotejar(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  if (!tid) return { ok: false, error: 'Falta decir de que tercero es la relacion' };
+  const periodo = descPeriodo(body && body.periodo);
+  if (!periodo) return { ok: false, error: 'Falta el mes de la relacion' };
+
+  const lineas = Array.isArray(body && body.lineas) ? body.lineas : [];
+  if (!lineas.length) return { ok: false, error: 'No llego ninguna linea' };
+
+  // lo que ya se sabe de este tercero
+  const inscritos = await sbAll(env,
+    'descuentos_persona?select=cedula,nombres,forma_cobro,activo&tercero_id=eq.' + tid);
+  const yaEsta = new Map(inscritos.map((p) => [String(p.cedula), p]));
+
+  // el mes anterior, para ver quien dejo de venir y a quien le cambiaron la cuota
+  const d = new Date(periodo + 'T00:00:00Z');
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  const anterior = d.toISOString().slice(0, 8) + '01';
+  const cargosAnt = await sbAll(env,
+    'descuentos_cargos?select=cedula,valor&tercero_id=eq.' + tid + '&periodo=eq.' + anterior);
+  const mesAnterior = new Map(cargosAnt.map((c) => [String(c.cedula), descNum(c.valor)]));
+
+  // si ya habia algo cargado de este mismo mes, se avisa
+  const cargosMes = await sbAll(env,
+    'descuentos_cargos?select=cedula&tercero_id=eq.' + tid + '&periodo=eq.' + periodo);
+  const yaCargado = new Set(cargosMes.map((c) => String(c.cedula)));
+
+  // las fichas, para saber quien se retiro
+  const ceds = [...new Set(lineas.map((l) => descCed(l.cedula)).filter(Boolean))];
+  const ficha = new Map();
+  for (let i = 0; i < ceds.length; i += 300) {
+    const t = await sbAll(env, 'trabajadores?select=cedula,nombres,cargo,sede,fecha_ret,estado&cedula=in.('
+      + ceds.slice(i, i + 300).join(',') + ')');
+    t.forEach((x) => ficha.set(String(x.cedula), x));
+  }
+
+  const nuevos = [], retirados = [], cambios = [], iguales = [], malas = [], repetidas = [];
+  const vistas = new Set();
+  lineas.forEach((l, i) => {
+    const c = descCed(l.cedula);
+    const valor = descNum(l.valor);
+    if (!c) {
+      malas.push({ linea: i + 1, cedula: String(l.cedula || ''), nombres: String(l.nombres || ''),
+                   valor, razon: 'La cedula no sirve' });
+      return;
+    }
+    if (vistas.has(c)) {
+      repetidas.push({ linea: i + 1, cedula: c, nombres: String(l.nombres || ''), valor });
+      return;
+    }
+    vistas.add(c);
+    const f = ficha.get(c) || null;
+    const seRetiro = !!(f && (f.fecha_ret || String(f.estado || '').toUpperCase() === 'RETIRADO'));
+    const reg = {
+      cedula: c,
+      nombres: (f && f.nombres) || String(l.nombres || ''),
+      nombre_tercero: String(l.nombres || ''),
+      valor,
+      cargo: (f && f.cargo) || '', sede: (f && f.sede) || '',
+      sin_ficha: !f,
+      retirado: seRetiro,
+      fecha_ret: (f && f.fecha_ret) ? String(f.fecha_ret).slice(0, 10) : '',
+      forma_cobro: yaEsta.has(c) ? yaEsta.get(c).forma_cobro : '',
+      ya_cargado: yaCargado.has(c),
+      antes: mesAnterior.has(c) ? mesAnterior.get(c) : null,
+    };
+    if (seRetiro) retirados.push(reg);
+    if (!yaEsta.has(c)) { nuevos.push(reg); return; }
+    const antes = mesAnterior.get(c);
+    if (antes === undefined) { iguales.push(reg); return; }
+    if (Math.abs(antes - valor) > 1) { reg.diferencia = Math.round(valor - antes); cambios.push(reg); }
+    else iguales.push(reg);
+  });
+
+  // quienes venian el mes pasado y ya no aparecen
+  const faltan = [];
+  mesAnterior.forEach((v, c) => {
+    if (vistas.has(c)) return;
+    const p = yaEsta.get(c);
+    faltan.push({ cedula: c, nombres: (p && p.nombres) || '', antes: v });
+  });
+
+  return { ok: true, periodo, anterior,
+    resumen: {
+      lineas: lineas.length, nuevos: nuevos.length, retirados: retirados.length,
+      cambios: cambios.length, iguales: iguales.length, faltan: faltan.length,
+      malas: malas.length, repetidas: repetidas.length,
+      ya_cargado: [...vistas].filter((c) => yaCargado.has(c)).length,
+      total: Math.round(lineas.reduce((a, l) => a + descNum(l.valor), 0)),
+    },
+    nuevos, retirados, cambios, iguales, faltan, malas, repetidas };
+}
+
+// Aplica la relacion ya revisada. Reemplaza lo de ese mes para ese
+// tercero, para que volver a cargarla no duplique.
+async function accionDescCargar(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  const periodo = descPeriodo(body && body.periodo);
+  if (!tid || !periodo) return { ok: false, error: 'Falta el tercero o el mes' };
+  const lineas = Array.isArray(body && body.lineas) ? body.lineas : [];
+  if (!lineas.length) return { ok: false, error: 'No llego ninguna linea' };
+  const quien = (body && body._ses && body._ses.u) || (body && body.usuario) || '';
+
+  const limpias = [];
+  const vistas = new Set();
+  lineas.forEach((l) => {
+    const c = descCed(l.cedula);
+    const v = descNum(l.valor);
+    if (!c || vistas.has(c)) return;
+    vistas.add(c);
+    limpias.push({ cedula: c, valor: Math.round(v * 100) / 100, nombres: String(l.nombres || '').slice(0, 120) });
+  });
+  if (!limpias.length) return { ok: false, error: 'Ninguna linea tenia una cedula utilizable' };
+
+  // inscribir a los que no estaban. forma_cobro queda 'por_definir' a
+  // proposito: la app no adivina si esa persona paga por nomina o en
+  // efectivo, eso lo tiene que decir alguien.
+  const inscritos = await sbAll(env, 'descuentos_persona?select=cedula&tercero_id=eq.' + tid);
+  const yaEsta = new Set(inscritos.map((p) => String(p.cedula)));
+  const nuevos = limpias.filter((l) => !yaEsta.has(l.cedula));
+  if (nuevos.length) {
+    await sbUpsert(env, 'descuentos_persona', nuevos.map((l) => ({
+      tercero_id: tid, cedula: parseInt(l.cedula, 10), nombres: l.nombres,
+      forma_cobro: 'por_definir',
+    })), 'tercero_id,cedula');
+  }
+
+  // reemplazar los cargos de ese mes
+  await sbWrite(env, 'DELETE',
+    'descuentos_cargos?tercero_id=eq.' + tid + '&periodo=eq.' + periodo + '&origen=eq.relacion', null);
+  const cargos = limpias.filter((l) => Math.abs(l.valor) > 0.004).map((l) => ({
+    tercero_id: tid, cedula: parseInt(l.cedula, 10), periodo, valor: l.valor,
+    origen: 'relacion', creado_por: quien,
+  }));
+  for (let i = 0; i < cargos.length; i += 300) {
+    await sbWrite(env, 'POST', 'descuentos_cargos', cargos.slice(i, i + 300));
+  }
+  return { ok: true, periodo, inscritos_nuevos: nuevos.length, cargos: cargos.length,
+    total: Math.round(cargos.reduce((a, c) => a + c.valor, 0)) };
+}
+
+// Registrar que alguien pago: en efectivo, al liquidarlo, consignado.
+async function accionDescPago(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  const ced = descCed(body && body.cedula);
+  const valor = descNum(body && body.valor);
+  if (!tid || !ced) return { ok: false, error: 'Falta el tercero o la cedula' };
+  if (!(Math.abs(valor) > 0)) return { ok: false, error: 'El valor no puede ir en cero' };
+  const FORMAS = ['nomina', 'liquidacion', 'efectivo', 'consignacion', 'otra_nomina', 'ajuste'];
+  const forma = FORMAS.indexOf(String((body && body.forma) || '')) >= 0 ? body.forma : 'efectivo';
+  const fecha = String((body && body.fecha) || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  await sbWrite(env, 'POST', 'descuentos_pagos', [{
+    tercero_id: tid, cedula: parseInt(ced, 10), fecha, valor: Math.round(valor * 100) / 100,
+    forma, referencia: String((body && body.referencia) || '').slice(0, 80) || null,
+    nota: String((body && body.nota) || '').slice(0, 300) || null,
+    creado_por: (body && body._ses && body._ses.u) || (body && body.usuario) || '',
+  }]);
+  return { ok: true };
+}
+
+// Cambiar como se le cobra a alguien. Es el dato que hace que el saldo
+// signifique algo.
+async function accionDescForma(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  const ced = descCed(body && body.cedula);
+  const FORMAS = ['nomina', 'efectivo', 'otra_nomina', 'por_definir'];
+  const forma = String((body && body.forma_cobro) || '');
+  if (!tid || !ced) return { ok: false, error: 'Falta el tercero o la cedula' };
+  if (FORMAS.indexOf(forma) < 0) return { ok: false, error: 'Esa forma de cobro no existe' };
+  await sbWrite(env, 'PATCH',
+    'descuentos_persona?tercero_id=eq.' + tid + '&cedula=eq.' + ced, { forma_cobro: forma });
+  return { ok: true };
+}
+
+// El movimiento de una persona con un tercero, para cuando hay que
+// explicar de donde sale un saldo.
+async function accionDescDetalle(body, env) {
+  const tid = encLimpiaEntero(body && body.tercero_id);
+  const ced = descCed(body && body.cedula);
+  if (!tid || !ced) return { ok: false, error: 'Falta el tercero o la cedula' };
+  const [cargos, pagos] = await Promise.all([
+    sbAll(env, 'descuentos_cargos?select=*&tercero_id=eq.' + tid + '&cedula=eq.' + ced + '&order=periodo.asc'),
+    sbAll(env, 'descuentos_pagos?select=*&tercero_id=eq.' + tid + '&cedula=eq.' + ced + '&order=fecha.asc'),
+  ]);
+  return { ok: true,
+    cargos: cargos.map((c) => ({ id: String(c.id), periodo: String(c.periodo).slice(0, 10),
+      valor: descNum(c.valor), origen: c.origen || '', nota: c.nota || '' })),
+    pagos: pagos.map((p) => ({ id: String(p.id), fecha: String(p.fecha).slice(0, 10),
+      valor: descNum(p.valor), forma: p.forma || '', referencia: p.referencia || '',
+      nota: p.nota || '' })) };
+}
+
+// Quien se va de la empresa y deja deudas. Esto es lo que hoy se
+// pierde: el saldo vive en el Excel y al liquidar nadie se acuerda.
+async function accionDescPorLiquidar(body, env) {
+  let filas;
+  try {
+    filas = await sbAll(env, 'descuentos_saldos?select=*&retirado=is.true');
+  } catch (e) {
+    return { ok: false, cod: 'FALTA_TABLA',
+      error: 'Todavia no estan creadas las tablas de descuentos.' };
+  }
+  const ced = descCed(body && body.cedula);
+  let data = filas.filter((f) => descNum(f.debe) > 1000);
+  if (ced) data = data.filter((f) => String(f.cedula) === ced);
+  data = data.map((f) => ({
+    tercero_id: String(f.tercero_id), tercero: f.tercero || '',
+    cedula: String(f.cedula || ''), nombres: f.nombres || '',
+    fecha_ret: f.fecha_ret ? String(f.fecha_ret).slice(0, 10) : '',
+    debe: descNum(f.debe),
+    en_liquidacion: descNum(f.en_liquidacion),
+    ya_cobrado: descNum(f.en_liquidacion) > 0,
+  })).sort((a, b) => b.debe - a.debe);
+  return { ok: true, data,
+    total: Math.round(data.reduce((a, f) => a + f.debe, 0)),
+    sin_cobrar: Math.round(data.filter((f) => !f.ya_cobrado).reduce((a, f) => a + f.debe, 0)) };
+}
+
 async function accionEncuestasVencimientos(body, env) {
   const aviso = encLimpiaEntero(body && body.dias);
   const margen = (aviso === null || aviso < 0) ? 30 : aviso;
@@ -4680,6 +4996,7 @@ const ACCIONES_CONOCIDAS = [
   'facArchivos', 'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
   'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos',
   'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado', 'getEncuesta',
+  'descCargar', 'descCotejar', 'descDetalle', 'descForma', 'descPago', 'descPorLiquidar', 'descSaldos', 'descTerceros',
   'encuestasVencimientos',
   'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen', 'getFacResponsables',
   'getFacturas', 'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup',
