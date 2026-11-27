@@ -3345,12 +3345,17 @@ tfoot td{background:var(--gf);font-weight:700}
               <option value="sin_ficha">Sin ficha en Trabajadores</option>
             </select></div>
           <div class="fld" style="min-width:210px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o c\u00e9dula</label>
-            <input type="text" id="desc-busca" oninput="descPintar()" placeholder="escriba el nombre o la c\u00e9dula\u2026"/></div>
+            <input type="text" id="desc-busca" oninput="descVistaPintar()" placeholder="escriba el nombre o la c\u00e9dula\u2026"/></div>
           <button class="btn bn" onclick="descAbrirCotejo()" style="height:36px"><svg class="icb"><use href="#i-clipboard-list"/></svg> Cargar relaci\u00f3n</button>
           <button class="btn bg" onclick="descCargarSaldos()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
           <button class="btn bg" onclick="descExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
         </div>
       </div>
+      <div id="desc-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn bn" id="desc-tab-saldos" onclick="descTab('saldos')">Saldos por persona</button>
+        <button class="btn bg" id="desc-tab-qna" onclick="descTab('qna')">Qu\u00e9 descontar esta quincena</button>
+      </div>
+      <div id="desc-qna-barra" style="display:none;margin-bottom:12px"></div>
       <div id="desc-conteos" style="margin-bottom:12px"></div>
       <div id="desc-cont"></div>
     </div>
@@ -26981,6 +26986,199 @@ function descPlata(v){
   var n = parseFloat(t);
   if(!isFinite(n)) return 0;
   return neg ? -n : n;
+}
+
+// ── Qué descontar esta quincena ────────────────────────────────────
+var DESC_VISTA = 'saldos';
+var DESC_QNA = null;
+
+function descVistaPintar(){ if(DESC_VISTA==='qna') descQnaPintar(); else descPintar(); }
+
+function descTab(cual){
+  DESC_VISTA = cual;
+  ['saldos','qna'].forEach(function(t){
+    var b = document.getElementById('desc-tab-'+t);
+    if(b) b.className = 'btn ' + (t===cual ? 'bn' : 'bg');
+  });
+  var filtros = document.getElementById('desc-filtro');
+  if(filtros) filtros.parentNode.style.display = (cual==='saldos') ? '' : 'none';
+  var barra = document.getElementById('desc-qna-barra');
+  if(barra) barra.style.display = (cual==='qna') ? '' : 'none';
+  if(cual === 'qna'){ descQnaBarra(); descQnaCargar(); }
+  else { descCargarSaldos(); }
+}
+
+function descQnaBarra(){
+  var b = document.getElementById('desc-qna-barra');
+  if(!b || b.getAttribute('data-listo')) return;
+  var hoy = new Date();
+  var d = hoy.getUTCDate() <= 15
+    ? hoy.toISOString().slice(0,8) + '15'
+    : new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth()+1, 0)).toISOString().slice(0,10);
+  b.setAttribute('data-listo','1');
+  b.innerHTML = '<div class="card" style="margin:0;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+    + '<div class="fld" style="margin:0;width:170px"><label style="font-size:10px">Quincena</label>'
+    +   '<input type="date" id="dq-fecha" value="'+d+'" onchange="descQnaCargar()"/></div>'
+    + '<button class="btn bg" style="height:36px" onclick="descQnaCargar()">'
+    +   '<svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>'
+    + '<button class="btn bg" style="height:36px" onclick="descQnaExcel()">'
+    +   '<svg class="icb"><use href="#i-download"/></svg> Excel para el BUSCARV</button>'
+    + '<div style="flex:1"></div>'
+    + '<button class="btn bn" style="height:36px" onclick="descDesdeAcum(true)">'
+    +   '<svg class="icb"><use href="#i-arrow-left-right"/></svg> Traer lo descontado de acumulados</button>'
+    + '</div>';
+}
+
+function descQnaCargar(){
+  var c = document.getElementById('desc-cont');
+  if(c) c.innerHTML = '<div style="padding:28px;text-align:center;color:var(--g3)">Calculando…</div>';
+  var f = (document.getElementById('dq-fecha')||{}).value;
+  if(!f){ if(c) c.innerHTML = '<div class="card">Escoja la quincena.</div>'; return; }
+  encPost({accion:'descPlanQuincena', fecha:f}).then(function(d){
+    if(!d || !d.ok){
+      if(c) c.innerHTML = '<div class="card" style="color:var(--r)">'+encEsc((d&&d.error)||'?')+'</div>';
+      var cc=document.getElementById('desc-conteos'); if(cc) cc.innerHTML='';
+      return;
+    }
+    DESC_QNA = d;
+    descQnaPintar();
+  });
+}
+
+var DESC_REGLA_TXT = {mitad:'media cuota', primera:'cuota completa', quincenal:'lo que mande el tercero'};
+
+function descQnaPintar(){
+  var c = document.getElementById('desc-cont');
+  if(!c || !DESC_QNA) return;
+  var d = DESC_QNA, k = d.conteos;
+  var cc = document.getElementById('desc-conteos');
+  if(cc){
+    cc.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + vencTarjeta(d.primera ? 'PRIMERA QUINCENA' : 'SEGUNDA QUINCENA', d.fecha, '#15803d')
+      + vencTarjeta('A DESCONTAR', cop(k.a_descontar), '#1e40af')
+      + vencTarjeta('PERSONAS', k.personas, '#4338ca')
+      + vencTarjeta('VIENEN ATRASADAS', k.con_atraso, '#b45309')
+      + '</div>'
+      + (k.ya_descontado
+        ? '<div style="margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#166534">De esta quincena ya hay <b>'+cop(k.ya_descontado)
+          + '</b> registrado como descontado. Lo que queda en la columna <b>Pendiente</b> es lo que falta.</div>'
+        : '')
+      + (k.con_atraso
+        ? '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#92400e"><b>'+k.con_atraso+' personas</b> traen atraso, '
+          + cop(k.total_atraso)+' en total. Va en columna aparte a propósito: <b>no está sumado</b> a la cuota '
+          + 'del mes. Usted decide a quién se lo recupera, para no dejar a nadie sin sueldo.</div>'
+        : '')
+      + (k.no_por_nomina
+        ? '<div style="margin-top:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--rads);'
+          + 'padding:9px 13px;font-size:11.5px;color:#1e40af"><b>'+k.no_por_nomina+'</b> no se cobran por nómina '
+          + '(efectivo u otra empresa). Salen en la lista marcados, pero no entran en el total a descontar.</div>'
+        : '');
+  }
+  var q = ((document.getElementById('desc-busca')||{}).value||'').trim().toUpperCase();
+  var lista = d.data.filter(function(x){
+    if(!q) return true;
+    return String(x.nombres||'').toUpperCase().indexOf(q)>=0 || String(x.cedula||'').indexOf(q)>=0;
+  });
+  if(!lista.length){ c.innerHTML = '<div class="card" style="text-align:center;color:var(--g3);padding:26px">Nada que descontar en esta quincena.</div>'; return; }
+
+  var h = '<div class="card"><div style="overflow:auto"><table><thead><tr>'
+    + '<th>Tercero</th><th>Nombre</th><th>Cédula</th><th>Regla</th>'
+    + '<th style="text-align:right">Cuota del mes</th><th style="text-align:right">Toca esta qna</th>'
+    + '<th style="text-align:right">Ya descontado</th><th style="text-align:right">Pendiente</th>'
+    + '<th style="text-align:right">Atraso (aparte)</th></tr></thead><tbody>';
+  lista.forEach(function(x){
+    var gris = (!x.por_nomina || x.retirado) ? 'opacity:.6;' : '';
+    h += '<tr style="'+gris+'">'
+      + '<td style="font-size:11.5px">'+encEsc(x.tercero)+'</td>'
+      + '<td><strong>'+encEsc(x.nombres||'(sin nombre)')+'</strong>'
+      + (x.retirado ? ' <span style="background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700">RETIRADO</span>' : '')
+      + (!x.por_nomina ? ' <span style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700">'
+          + (x.forma_cobro==='efectivo'?'EFECTIVO':x.forma_cobro==='otra_nomina'?'OTRA EMPRESA':'POR DEFINIR')+'</span>' : '')
+      + '</td>'
+      + '<td style="white-space:nowrap">'+encEsc(x.cedula)+'</td>'
+      + '<td style="font-size:11px;color:var(--g3)">'+(DESC_REGLA_TXT[x.regla]||x.regla)+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;color:var(--g3)">'+cop(x.cuota_mes)+'</td>'
+      + '<td style="text-align:right;white-space:nowrap">'+cop(x.toca)+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;color:#15803d">'+(x.ya_descontado?cop(x.ya_descontado):'—')+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;font-weight:700">'+(x.pendiente?cop(x.pendiente):'—')+'</td>'
+      + '<td style="text-align:right;white-space:nowrap;color:'+(x.atraso>1000?'#b45309':'var(--g3)')+';font-weight:'+(x.atraso>1000?'700':'400')+'">'
+      +   (x.atraso>1000?cop(x.atraso):'—')+'</td>'
+      + '</tr>';
+  });
+  c.innerHTML = h + '</tbody></table></div></div>';
+}
+
+// Trae de la tabla de acumulados (la que ya se sube en RH) lo que de
+// verdad se descontó. Primero muestra qué va a pasar, y guarda solo si
+// la persona lo aprueba.
+function descDesdeAcum(soloVer){
+  var f = (document.getElementById('dq-fecha')||{}).value;
+  if(!f){ alert('Escoja la quincena.'); return; }
+  encPost({accion:'descDesdeAcumulados', fecha:f, soloVer: soloVer===true}).then(function(d){
+    if(!d || !d.ok){ alert('No se pudo: ' + ((d&&d.error)||'?')); return; }
+    if(d.nada){ alert('No hay acumulados cargados de esa quincena.\n\nSúbalos primero en RH → Acumulados.'); return; }
+    if(!soloVer){
+      encCerrarModal();
+      showSync('✓ Se registraron ' + d.guardados + ' descuentos de la quincena', 'g');
+      descQnaCargar();
+      return;
+    }
+    var r = d.resumen;
+    var h = '<div style="font-size:12.5px;color:var(--g2);margin-bottom:12px">'
+      + 'De los acumulados de la quincena <b>'+encEsc(d.fecha)+'</b> que ya están cargados en RH, '
+      + 'se van a registrar como descontados:</div>'
+      + '<table><thead><tr><th>Tercero</th><th style="text-align:right">Personas</th>'
+      + '<th style="text-align:right">Valor</th></tr></thead><tbody>';
+    d.porTercero.forEach(function(t){
+      h += '<tr><td><b>'+encEsc(t.tercero)+'</b></td><td style="text-align:right">'+t.personas+'</td>'
+        + '<td style="text-align:right">'+cop(t.valor)+'</td></tr>';
+    });
+    h += '<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL</td>'
+      + '<td style="text-align:right">'+r.cruzadas+'</td><td style="text-align:right">'+cop(r.valor)+'</td></tr>'
+      + '</tbody></table>';
+    if(d.sinTercero.length){
+      h += '<div style="margin-top:14px;background:#f8fafc;border:1px solid var(--bd);border-radius:var(--rads);padding:10px 12px">'
+        + '<div style="font-weight:700;font-size:12px;margin-bottom:5px">Estos conceptos no son de ningún tercero</div>'
+        + '<div style="font-size:11px;color:var(--g3);margin-bottom:7px">Se quedan por fuera, que es lo correcto si son '
+        + 'salarios o auxilios. Si alguno sí es un descuento a tercero, póngale ese nombre en el campo '
+        + '<b>concepto de nómina</b> del tercero y vuelva a traerlo.</div>'
+        + '<div style="max-height:150px;overflow:auto"><table style="font-size:11.5px"><tbody>';
+      d.sinTercero.slice(0,25).forEach(function(x){
+        h += '<tr><td>'+encEsc(x.concepto)+'</td><td style="text-align:right">'+x.filas+' filas</td>'
+          + '<td style="text-align:right">'+cop(x.valor)+'</td></tr>';
+      });
+      h += '</tbody></table></div></div>';
+    }
+    h += '<div style="margin-top:14px;font-size:11.5px;color:var(--g3)">'
+      + 'Se puede repetir las veces que sea: reemplaza lo que esta misma opción haya traído antes de esa '
+      + 'quincena, y no toca los pagos que usted haya escrito a mano.</div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">'
+      + '<button class="btn bg" onclick="encCerrarModal()">Cancelar</button>'
+      + '<button class="btn bn" onclick="descDesdeAcum(false)">Registrar '+r.cruzadas+' descuentos</button></div>';
+    encModal('Traer lo descontado de acumulados', h, 720);
+  });
+}
+
+function descQnaExcel(){
+  if(!DESC_QNA || !DESC_QNA.data.length){ alert('No hay nada que exportar.'); return; }
+  consCargarSheetJS(function(listo){
+    if(!listo){ alert('No se pudo cargar el generador de Excel.'); return; }
+    var filas = [['Cédula','Nombre','Tercero','Concepto nómina','Regla','Cuota del mes',
+                  'Toca esta quincena','Ya descontado','Pendiente','Atraso (aparte)','Cómo se cobra','Estado']];
+    DESC_QNA.data.forEach(function(x){
+      var t = (DESC_TER.filter(function(y){ return y.id === x.tercero_id; })[0]||{});
+      filas.push([Number(x.cedula)||x.cedula, x.nombres, x.tercero, t.concepto_nomina||'',
+        DESC_REGLA_TXT[x.regla]||x.regla, x.cuota_mes, x.toca, x.ya_descontado, x.pendiente, x.atraso,
+        DESC_FORMA_TXT[x.forma_cobro]||x.forma_cobro, x.retirado ? 'RETIRADO' : 'Activo']);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = [{wch:13},{wch:32},{wch:20},{wch:18},{wch:16},{wch:14},{wch:17},{wch:14},{wch:12},{wch:15},{wch:30},{wch:10}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Quincena');
+    XLSX.writeFile(wb, 'Descontar_' + DESC_QNA.fecha + '.xlsx');
+  });
 }
 
 function descAbrir(){
