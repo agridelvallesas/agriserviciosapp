@@ -3332,7 +3332,7 @@ tfoot td{background:var(--gf);font-weight:700}
     <div class="page" id="p-desc">
       <div class="card" style="margin-bottom:12px">
         <div class="ct" style="justify-content:flex-start"><svg class="ict"><use href="#i-coins"/></svg> Descuentos a terceros
-          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">El saldo no se escribe: sale de restar lo que el tercero factura menos lo que se alcanz\u00f3 a cobrar.</span></div>
+          <span style="font-size:11px;font-weight:400;color:var(--g3);margin-left:8px">El saldo no se escribe: sale de restar lo que el tercero factura menos lo que se alcanzó a cobrar.</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="fld" style="min-width:200px;margin:0"><label style="font-size:10px">Tercero</label>
             <select id="desc-ter" onchange="descCargarSaldos()"><option value="">Todos</option></select></div>
@@ -3341,19 +3341,19 @@ tfoot td{background:var(--gf);font-weight:700}
               <option value="deben">Solo los que deben</option>
               <option value="todos">Todos los inscritos</option>
               <option value="retirados">Retirados que deben</option>
-              <option value="por_definir">Falta saber c\u00f3mo pagan</option>
+              <option value="por_definir">Falta saber cómo pagan</option>
               <option value="sin_ficha">Sin ficha en Trabajadores</option>
             </select></div>
-          <div class="fld" style="min-width:210px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o c\u00e9dula</label>
-            <input type="text" id="desc-busca" oninput="descVistaPintar()" placeholder="escriba el nombre o la c\u00e9dula\u2026"/></div>
-          <button class="btn bn" onclick="descAbrirCotejo()" style="height:36px"><svg class="icb"><use href="#i-clipboard-list"/></svg> Cargar relaci\u00f3n</button>
+          <div class="fld" style="min-width:210px;margin:0;flex:1"><label style="font-size:10px">Buscar por nombre o cédula</label>
+            <input type="text" id="desc-busca" oninput="descVistaPintar()" placeholder="escriba el nombre o la cédula…"/></div>
+          <button class="btn bn" onclick="descAbrirCotejo()" style="height:36px"><svg class="icb"><use href="#i-clipboard-list"/></svg> Cargar relación</button>
           <button class="btn bg" onclick="descCargarSaldos()" style="height:36px"><svg class="icb"><use href="#i-refresh-cw"/></svg> Actualizar</button>
           <button class="btn bg" onclick="descExcel()" style="height:36px"><svg class="icb"><use href="#i-download"/></svg> Excel</button>
         </div>
       </div>
       <div id="desc-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
         <button class="btn bn" id="desc-tab-saldos" onclick="descTab('saldos')">Saldos por persona</button>
-        <button class="btn bg" id="desc-tab-qna" onclick="descTab('qna')">Qu\u00e9 descontar esta quincena</button>
+        <button class="btn bg" id="desc-tab-qna" onclick="descTab('qna')">Qué descontar esta quincena</button>
       </div>
       <div id="desc-qna-barra" style="display:none;margin-bottom:12px"></div>
       <div id="desc-conteos" style="margin-bottom:12px"></div>
