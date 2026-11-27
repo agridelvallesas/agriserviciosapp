@@ -68,7 +68,7 @@ const PORTADAS = new Set([
   'getEncuestas', 'getEncuesta', 'getEncuestaHistorial', 'getEncuestasResumen',
   'encuestasVencimientos',
   // Descuentos a terceros:
-  'descTerceros', 'descSaldos', 'descCotejar', 'descCargar', 'descPago', 'descForma', 'descDetalle', 'descPorLiquidar',
+  'descTerceros', 'descSaldos', 'descCotejar', 'descCargar', 'descPago', 'descForma', 'descDetalle', 'descPorLiquidar', 'descPlanQuincena', 'descDesdeAcumulados',
   'guardarEncuesta', 'editarEncuesta', 'eliminarEncuesta',
   'encuestaComparar', 'encuestaAplicar',
   // Consolidado de nómina (lo último que salía hacia Apps Script):
@@ -212,6 +212,8 @@ export async function onRequestPost({ request, env }) {
     else if (accion === 'descForma') r = await accionDescForma(body, env);
     else if (accion === 'descDetalle') r = await accionDescDetalle(body, env);
     else if (accion === 'descPorLiquidar') r = await accionDescPorLiquidar(body, env);
+    else if (accion === 'descPlanQuincena') r = await accionDescPlanQuincena(body, env);
+    else if (accion === 'descDesdeAcumulados') r = await accionDescDesdeAcumulados(body, env);
     else if (accion === 'getNominaQna')         r = await accionGetNominaQna(body, env);
     else if (accion === 'guardarNominaQna')     r = await accionGuardarNominaQna(body, env);
     else if (accion === 'getConceptosNom')      r = await accionGetConceptosNom(body, env);
@@ -4018,6 +4020,200 @@ async function accionDescDetalle(body, env) {
 
 // Quien se va de la empresa y deja deudas. Esto es lo que hoy se
 // pierde: el saldo vive en el Excel y al liquidar nadie se acuerda.
+// ── Que descontar en una quincena ──────────────────────────────────
+//
+// Cada tercero manda UNA cuota al mes, pero no todos se descuentan
+// igual. La regla esta en terceros.regla_cobro:
+//   mitad      media cuota en cada quincena  (SURA, Claro, Chubb)
+//   primera    la cuota completa en la 1a    (Olivos, Funerarias, Bolivar)
+//   quincenal  el tercero manda el valor de cada quincena (Coopetrafes)
+//
+// El ATRASO va en columna aparte, nunca sumado: a alguien con tres
+// meses encima un descuento doble lo puede dejar sin sueldo. Quien
+// hace la nomina decide a quien se lo recupera.
+
+// ¿Es la primera quincena del mes? Se mira el dia: 1 a 15 es la
+// primera, 16 en adelante la segunda.
+function descEsPrimera(fecha) {
+  const d = parseInt(String(fecha || '').slice(8, 10), 10);
+  return !(d >= 16);
+}
+
+async function accionDescPlanQuincena(body, env) {
+  const fecha = String((body && body.fecha) || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return { ok: false, error: 'Falta la fecha de la quincena (aaaa-mm-dd)' };
+  }
+  const primera = descEsPrimera(fecha);
+  const periodo = fecha.slice(0, 7) + '-01';
+
+  let terceros, saldos, cargos;
+  try {
+    [terceros, saldos, cargos] = await Promise.all([
+      sbAll(env, 'terceros?select=*&activo=is.true&order=nombre'),
+      sbAll(env, 'descuentos_saldos?select=*'),
+      sbAll(env, 'descuentos_cargos?select=tercero_id,cedula,valor&periodo=eq.' + periodo),
+    ]);
+  } catch (e) {
+    return { ok: false, cod: 'FALTA_TABLA',
+      error: 'Faltan las tablas de descuentos. Corra 51, 52a, 52b, 52c y 53 en Supabase.' };
+  }
+
+  const regla = new Map(terceros.map((t) => [String(t.id), t.regla_cobro || 'primera']));
+  const nombreTer = new Map(terceros.map((t) => [String(t.id), t.nombre || '']));
+  const cuota = new Map();
+  cargos.forEach((c) => {
+    const k = String(c.tercero_id) + '|' + String(c.cedula);
+    cuota.set(k, (cuota.get(k) || 0) + descNum(c.valor));
+  });
+
+  // lo que ya se registro como descontado en ESTA quincena, para no
+  // volver a pedir lo que ya se hizo
+  const yaPagado = new Map();
+  try {
+    const p = await sbAll(env,
+      'descuentos_pagos?select=tercero_id,cedula,valor&fecha=eq.' + fecha + '&forma=eq.nomina');
+    p.forEach((x) => {
+      const k = String(x.tercero_id) + '|' + String(x.cedula);
+      yaPagado.set(k, (yaPagado.get(k) || 0) + descNum(x.valor));
+    });
+  } catch (e) { /* si falla, se muestra todo como pendiente */ }
+
+  const filas = [];
+  saldos.forEach((s) => {
+    const tid = String(s.tercero_id);
+    const r = regla.get(tid) || 'primera';
+    const forma = s.forma_cobro || 'nomina';
+    const retirado = s.retirado === true || s.retirado === 'true';
+    const k = tid + '|' + String(s.cedula);
+    const cuotaMes = cuota.get(k) || 0;
+
+    // cuanto toca esta quincena segun la regla
+    let toca = 0;
+    if (r === 'mitad') toca = Math.round(cuotaMes / 2);
+    else if (r === 'primera') toca = primera ? cuotaMes : 0;
+    else toca = 0;   // quincenal: lo manda el tercero, no se calcula
+
+    const atraso = Math.max(0, Math.round(descNum(s.debe)));
+    const hecho = Math.round(yaPagado.get(k) || 0);
+    if (!toca && !atraso && !hecho) return;
+
+    filas.push({
+      tercero_id: tid, tercero: nombreTer.get(tid) || s.tercero || '', regla: r,
+      cedula: String(s.cedula || ''), nombres: s.nombres || '',
+      cargo: s.cargo || '', sede: s.sede || '',
+      forma_cobro: forma, retirado, fecha_ret: s.fecha_ret ? String(s.fecha_ret).slice(0, 10) : '',
+      cuota_mes: Math.round(cuotaMes),
+      toca,                      // lo del mes que corresponde a esta quincena
+      atraso,                    // lo que viene debiendo de antes, APARTE
+      ya_descontado: hecho,      // lo que ya se registro en esta quincena
+      pendiente: Math.max(0, toca - hecho),
+      // a quien no se le descuenta por nomina no hay que llevarlo a la nomina
+      por_nomina: forma === 'nomina',
+    });
+  });
+
+  filas.sort((a, b) => (a.tercero + a.nombres).localeCompare(b.tercero + b.nombres));
+  const deNomina = filas.filter((f) => f.por_nomina && !f.retirado);
+  return { ok: true, fecha, primera, periodo,
+    data: filas,
+    conteos: {
+      personas: deNomina.length,
+      a_descontar: Math.round(deNomina.reduce((a, f) => a + f.pendiente, 0)),
+      ya_descontado: Math.round(filas.reduce((a, f) => a + f.ya_descontado, 0)),
+      con_atraso: deNomina.filter((f) => f.atraso > 1000).length,
+      total_atraso: Math.round(deNomina.filter((f) => f.atraso > 1000).reduce((a, f) => a + f.atraso, 0)),
+      no_por_nomina: filas.filter((f) => !f.por_nomina).length,
+      retirados: filas.filter((f) => f.retirado && (f.toca > 0 || f.atraso > 1000)).length,
+    } };
+}
+
+// ── Traer de acumulados lo que de verdad se descontó ───────────────
+//
+// Los descuentos ya los sube la propia persona en RH (tabla
+// acumulados). Aqui solo se cruzan: el concepto del acumulado contra
+// terceros.concepto_nomina. No hay que pegar nada.
+//
+// Se puede repetir las veces que sea: primero borra lo que esta misma
+// accion cargo para esa quincena, y vuelve a ponerlo. Nunca toca un
+// pago escrito a mano.
+async function accionDescDesdeAcumulados(body, env) {
+  const fecha = String((body && body.fecha) || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return { ok: false, error: 'Falta la fecha de la quincena (aaaa-mm-dd)' };
+  }
+  const soloVer = body && body.soloVer === true;
+
+  const terceros = await sbAll(env, 'terceros?select=id,nombre,concepto_nomina');
+  const porConcepto = new Map();
+  terceros.forEach((t) => {
+    const c = String(t.concepto_nomina || '').trim().toUpperCase();
+    if (c) porConcepto.set(c, { id: t.id, nombre: t.nombre });
+  });
+  if (!porConcepto.size) {
+    return { ok: false, error: 'Ningun tercero tiene puesto el concepto de nomina' };
+  }
+
+  let acum;
+  try {
+    acum = await sbAll(env, 'acumulados?select=cedula,concepto,valor,qna_label&fecha_quincena=eq.' + fecha);
+  } catch (e) {
+    return { ok: false, error: 'No se pudo leer los acumulados de esa quincena' };
+  }
+  if (!acum.length) {
+    return { ok: true, fecha, nada: true, resumen: { filas: 0, cruzadas: 0, sin_tercero: 0, valor: 0 },
+      porTercero: [], sinTercero: [] };
+  }
+
+  const cruzadas = [], sinTercero = new Map();
+  acum.forEach((a) => {
+    const c = String(a.concepto || '').trim().toUpperCase();
+    const v = Math.abs(descNum(a.valor));
+    if (!(v > 0)) return;
+    const t = porConcepto.get(c);
+    if (!t) {
+      if (!sinTercero.has(c)) sinTercero.set(c, { concepto: c, filas: 0, valor: 0 });
+      const s = sinTercero.get(c); s.filas++; s.valor += v;
+      return;
+    }
+    cruzadas.push({ tercero_id: t.id, tercero: t.nombre, cedula: parseInt(a.cedula, 10), valor: v });
+  });
+
+  const porTercero = [];
+  const agrup = new Map();
+  cruzadas.forEach((x) => {
+    if (!agrup.has(x.tercero)) agrup.set(x.tercero, { tercero: x.tercero, personas: 0, valor: 0 });
+    const g = agrup.get(x.tercero); g.personas++; g.valor += x.valor;
+  });
+  agrup.forEach((v) => porTercero.push({ tercero: v.tercero, personas: v.personas, valor: Math.round(v.valor) }));
+  porTercero.sort((a, b) => a.tercero.localeCompare(b.tercero));
+
+  const resumen = {
+    filas: acum.length,
+    cruzadas: cruzadas.length,
+    sin_tercero: [...sinTercero.values()].reduce((a, s) => a + s.filas, 0),
+    valor: Math.round(cruzadas.reduce((a, x) => a + x.valor, 0)),
+  };
+  const sinT = [...sinTercero.values()].map((s) => ({ ...s, valor: Math.round(s.valor) }))
+    .sort((a, b) => b.valor - a.valor);
+
+  if (soloVer) return { ok: true, fecha, soloVer: true, resumen, porTercero, sinTercero: sinT };
+
+  // borrar solo lo que esta misma accion dejo antes para esa quincena
+  await sbWrite(env, 'DELETE',
+    'descuentos_pagos?fecha=eq.' + fecha + '&forma=eq.nomina&referencia=eq.acumulados', null);
+
+  const filas = cruzadas.map((x) => ({
+    tercero_id: x.tercero_id, cedula: x.cedula, fecha, valor: Math.round(x.valor * 100) / 100,
+    forma: 'nomina', referencia: 'acumulados',
+    creado_por: (body && body._ses && body._ses.u) || (body && body.usuario) || '',
+  }));
+  for (let i = 0; i < filas.length; i += 300) {
+    await sbWrite(env, 'POST', 'descuentos_pagos', filas.slice(i, i + 300));
+  }
+  return { ok: true, fecha, resumen, porTercero, sinTercero: sinT, guardados: filas.length };
+}
+
 async function accionDescPorLiquidar(body, env) {
   let filas;
   try {
@@ -4996,7 +5192,8 @@ const ACCIONES_CONOCIDAS = [
   'facArchivos', 'getAcumulados', 'getCobrosHist', 'getConceptosAcum', 'getConceptosNom',
   'getConfigEmpresa', 'getConsolidadoCoord', 'getConsolidadoTodos', 'getContratos',
   'getCoordinadoresAdmin', 'getCruces', 'getDatos', 'getDetallado', 'getEncuesta',
-  'descCargar', 'descCotejar', 'descDetalle', 'descForma', 'descPago', 'descPorLiquidar', 'descSaldos', 'descTerceros',
+  'descCargar', 'descCotejar', 'descDesdeAcumulados', 'descDetalle', 'descForma', 'descPago',
+  'descPlanQuincena', 'descPorLiquidar', 'descSaldos', 'descTerceros',
   'encuestasVencimientos',
   'getEncuestaHistorial', 'getEncuestas', 'getEncuestasResumen', 'getFacResponsables',
   'getFacturas', 'getFotoTrabajador', 'getIncapacidades', 'getIndiceDup',
